@@ -1,0 +1,1 @@
+dotnet publish NetworkMonitorData.csproj --os linux --arch x64  --output ../services/monitordata -c Release --self-contained true 

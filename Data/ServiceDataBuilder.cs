@@ -1,0 +1,124 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using NetworkMonitor.Objects.ServiceMessage;
+using NetworkMonitor.Objects;
+using NetworkMonitor.Utils;
+using Microsoft.EntityFrameworkCore;
+
+namespace NetworkMonitor.Data
+{
+    public class ServiceDataBuilder
+    {
+        public static async Task<ProcessorDataObj> Merge(byte[] processorDataBytes, MonitorContext monitorContext)
+        {
+            return await Merge(ProcessorDataBuilder.ExtractFromZ<ProcessorDataObj>(processorDataBytes), monitorContext);
+        }
+        public static async Task<ProcessorDataObj> Merge(ProcessorDataObj processorDataObj, MonitorContext monitorContext)
+        {
+
+            var removePingInfos = new List<RemovePingInfo>();
+            var addMonitorPingInfos = new List<MonitorPingInfo>();
+            // Fetch necessary data first
+            var swapMonitorPingInfoIDs = processorDataObj.SwapMonitorPingInfos?.Select(f => f.ID).ToList() ?? new List<int>();
+            var existingMonitorPingInfos = await monitorContext.MonitorPingInfos
+                .Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID && swapMonitorPingInfoIDs.Contains(w.ID))
+                .ToListAsync();
+
+            foreach (var f in processorDataObj.SwapMonitorPingInfos)
+            {
+                var m = existingMonitorPingInfos.FirstOrDefault(e => e.ID == f.ID);
+                if (m != null)
+                {
+                    m.AppID = f.AppID;
+                }
+            }
+
+            uint minDateSentInt = processorDataObj.PingInfos?.Min(m => m.DateSentInt) ?? 0;
+            var monitorPingInfos = await monitorContext.MonitorPingInfos
+                .Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID)
+                .Include(i => i.MonitorStatus)
+                .Include(i => i.PingInfos.Where(w => w.DateSentInt > minDateSentInt))
+                .ToListAsync();
+
+            if (monitorPingInfos == null || monitorPingInfos.Count() == 0)
+            {
+                monitorPingInfos = new List<MonitorPingInfo>();
+            }
+            var pingInfoComparer = new PingInfoComparer();
+            processorDataObj.MonitorPingInfos.ForEach(p =>
+                {
+                    // Use the MonitorIPID as the key as MonitorPingInfoID needs to change to database given value.
+                    var monitorPingInfo = monitorPingInfos.Where(w => w.MonitorIPID == p.MonitorIPID).FirstOrDefault();
+                    var pingInfos = processorDataObj.PingInfos.Where(w => w.MonitorPingInfoID == p.MonitorIPID).ToList();
+                    pingInfos.ForEach(pi =>
+                       {
+                           removePingInfos.Add(new RemovePingInfo() { ID = pi.ID, MonitorPingInfoID = p.MonitorIPID });
+                           pi.MonitorPingInfoID = 0;
+                           pi.ID = 0;
+                       });
+                    if (monitorPingInfo != null)
+                    {
+                        monitorPingInfo.Address = p.Address;
+                        monitorPingInfo.DateStarted = p.DateStarted;
+                        monitorPingInfo.DateEnded = p.DateEnded;
+                        monitorPingInfo.Enabled = p.Enabled;
+                        monitorPingInfo.EndPointType = p.EndPointType;
+                        monitorPingInfo.MonitorIPID = p.MonitorIPID;
+                        monitorPingInfo.MonitorStatus.AlertFlag = p.MonitorStatus.AlertFlag;
+                        monitorPingInfo.MonitorStatus.AlertSent = p.MonitorStatus.AlertSent;
+                        monitorPingInfo.MonitorStatus.DownCount = p.MonitorStatus.DownCount;
+                        monitorPingInfo.MonitorStatus.EventTime = p.MonitorStatus.EventTime;
+                        monitorPingInfo.MonitorStatus.IsUp = p.MonitorStatus.IsUp;
+                        monitorPingInfo.MonitorStatus.Message = p.MonitorStatus.Message;
+                        monitorPingInfo.UserID = p.UserID;
+                        monitorPingInfo.Timeout = p.Timeout;
+                        monitorPingInfo.Status = p.Status;
+                        monitorPingInfo.RoundTripTimeTotal = p.RoundTripTimeTotal;
+                        monitorPingInfo.RoundTripTimeMinimum = p.RoundTripTimeMinimum;
+                        monitorPingInfo.RoundTripTimeMaximum = p.RoundTripTimeMaximum;
+                        monitorPingInfo.RoundTripTimeAverage = p.RoundTripTimeAverage;
+                        monitorPingInfo.PacketsRecieved = p.PacketsRecieved;
+                        monitorPingInfo.PacketsLostPercentage = p.PacketsLostPercentage;
+                        monitorPingInfo.PacketsLost = p.PacketsLost;
+                        monitorPingInfo.PacketsSent = p.PacketsSent;
+                        var addPingInfos = pingInfos.Except(monitorPingInfo.PingInfos, pingInfoComparer).ToList();
+                        monitorPingInfo.PingInfos.AddRange(addPingInfos);
+                    }
+                    else
+                    {
+                        p.PingInfos = new List<PingInfo>(pingInfos);
+                        p.MonitorStatus.MonitorPingInfoID = 0;
+                        p.MonitorStatus.ID = 0;
+                        p.ID = 0;
+                        if (p.PingInfos != null) p.PacketsSent = (int)p.PingInfos.Count();
+                        else p.PacketsSent = 0;
+                        addMonitorPingInfos.Add(p);
+                    }
+                });
+            if (processorDataObj.RemoveMonitorPingInfoIDs != null && processorDataObj.RemoveMonitorPingInfoIDs.Count() != 0)
+            {
+                var removeMonitorPingInfos = new List<MonitorPingInfo>();
+                processorDataObj.RemoveMonitorPingInfoIDs.ForEach(f =>
+                {
+                    var addToList = monitorPingInfos.Where(w => w.MonitorIPID == f).FirstOrDefault();
+                    if (addToList != null) removeMonitorPingInfos.Add(addToList);
+                });
+                monitorContext.MonitorPingInfos.RemoveRange(removeMonitorPingInfos);
+            }
+            monitorContext.MonitorPingInfos.AddRange(addMonitorPingInfos);
+            await monitorContext.SaveChangesAsync();
+
+            var returnProcessorDataObj = new ProcessorDataObj()
+            {
+                RemovePingInfos = removePingInfos,
+                SwapMonitorPingInfos = processorDataObj.SwapMonitorPingInfos,
+                RemoveMonitorPingInfoIDs = processorDataObj.RemoveMonitorPingInfoIDs,
+                AppID = processorDataObj.AppID
+            };
+            return returnProcessorDataObj;
+
+        }
+    }
+}

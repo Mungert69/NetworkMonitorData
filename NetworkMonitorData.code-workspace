@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../NetworkMonitor"
+		}
+	],
+	"settings": {
+		"dotnet.defaultSolution": "/home/mahadeva/code/NetworkMonitorData/NetworkMonitorData.sln"
+	}
+}
