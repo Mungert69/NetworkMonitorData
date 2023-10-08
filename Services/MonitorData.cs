@@ -35,8 +35,10 @@ namespace NetworkMonitor.Data.Services
         private ISystemParamsHelper _systemParamsHelper;
         private IDatabaseQueueService _databaseService;
 
+
         private IPingInfoService _pingInfoService;
-               public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
+        private ProcessorState _processorState = new ProcessorState();
+        public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
         public bool Awake { get => _awake; set => _awake = value; }
         public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
 
@@ -69,22 +71,28 @@ namespace NetworkMonitor.Data.Services
                 Console.WriteLine();
             }
         }
-        public Task Init()
+        public async Task Init()
         {
-            return Task.Run(() =>
-              {
-                
-                  InitService();
-              });
+            
+                  MonitorDataInitObj serviceObj = new MonitorDataInitObj();
+                  serviceObj.InitTotalResetAlertMessage = false;
+                  serviceObj.InitTotalResetProcesser = false;
+                  serviceObj.InitResetProcessor = false;
+                  serviceObj.InitUpdateAlertMessage = true;
+                  await InitService(serviceObj);
+             
         }
-        public void InitService()
+        public async Task InitService(MonitorDataInitObj serviceObj)
         {
+            var userInfos = new List<UserInfo>();
             PingParams = new PingParams();
             try
             {
 
                 SystemParams = _systemParamsHelper.GetSystemParams();
                 PingParams = _systemParamsHelper.GetPingParams();
+                _processorState.ProcessorList = new List<ProcessorObj>();
+                _config.GetSection("ProcessorList").Bind(_processorState.ProcessorList);
                 _logger.Debug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
                 _logger.Debug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
             }
@@ -92,12 +100,66 @@ namespace NetworkMonitor.Data.Services
             {
                 _logger.Fatal(" Error : Unable to set SystemParms . Error was : " + e.ToString());
             }
-          
+            ProcessorInitObj initObj = new ProcessorInitObj();
+            AlertServiceInitObj alertObj = new AlertServiceInitObj();
+
+            //NetConnects = new List<NetConnect>();
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                _processorState.MonitorIPs = await monitorContext.MonitorIPs.AsNoTracking().Include(e => e.UserInfo).Where(w => w.Hidden == false).ToListAsync();
+                ListUtils.RemoveNestedMonitorIPs(_processorState.MonitorIPs);
+                _processorState.SetAllLoads();
+                _logger.Debug("DATA : Retreived MonitorIPs " + _processorState.MonitorIPs.Count + " from database.");
+                userInfos = await monitorContext.UserInfos.Where(w => w.Enabled == true).ToListAsync();
+                _logger.Debug("DATA : Retreived UserInfos " + userInfos.Count + " from database.");
+            }
+            initObj.PingParams = _pingParams;
+            /*foreach (MonitorIP monIP in _processorState.MonitorIPs)
+            {
+                if (monIP.AppID == null || monIP.AppID == "")
+                {
+                    //TODO implement load balancing etc.
+                    monIP.AppID = LoadBalancer();
+                }
+            }*/
+            //initObj.MonitorIPs = _monitorIPs;
+            initObj.Reset = serviceObj.InitResetProcessor;
+            initObj.TotalReset = serviceObj.InitTotalResetProcesser;
+            _logger.Debug("SavedMonitorIPs: " + JsonUtils.writeJsonObjectToString(initObj.MonitorIPs));
+            _logger.Debug("PingParmas: " + JsonUtils.writeJsonObjectToString(initObj.PingParams));
             try
             {
-                var serviceObj=new MonitorDataInitObj();
+                foreach (var processorObj in _processorState.ProcessorList)
+                {
+                    initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
+                    await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
+                    _logger.Debug("Sent ProcessorInit event to appID.");
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Error("Error : Can not publish event  processorInit Error was : " + e.Message.ToString());
+            }
+            try
+            {
+                alertObj.TotalReset = serviceObj.InitTotalResetAlertMessage;
+                alertObj.UpdateUserInfos = serviceObj.InitUpdateAlertMessage;
+                ListUtils.RemoveNestedMonitorIPs(userInfos);
+                alertObj.UserInfos = userInfos;
+                await _rabbitRepo.PublishAsync<AlertServiceInitObj>("alertMessageInit", alertObj);
+                _logger.Debug("Sent alertMessageInit event. ");
+            }
+            catch (Exception e)
+            {
+                _logger.Error("Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString());
+            }
+
+            try
+            {
+                serviceObj = new MonitorDataInitObj();
                 serviceObj.IsServiceReady = true;
-                _rabbitRepo.Publish<MonitorDataInitObj>("monitorDataReady", serviceObj);
+                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
                 _logger.Info("Published event MonitorDataInitObj.IsMonitorDataReady = true");
             }
             catch (Exception e)
@@ -106,9 +168,9 @@ namespace NetworkMonitor.Data.Services
             }
         }
 
-        
-        
-       
+
+
+
         public async Task<ResultObj> WakeUp()
         {
             ResultObj result = new ResultObj();
@@ -158,17 +220,46 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
-    public async Task<ResultObj> DataPurge()
+
+        private async Task<ResultObj> FilterPingInfosBasedOnAccountType(bool filterDefaultUser)
+        {
+            ResultObj result = new ResultObj();
+            result.Message = "MessageAPI : FilterPingInfosBasedOnAccountType : ";
+            result.Success = false;
+
+
+
+            try
+            {
+                await _pingInfoService.FilterPingInfosBasedOnAccountType(filterDefaultUser);
+                result.Success = true;
+                result.Message += "Successfully filtered PingInfos based on Account Type.";
+            }
+            catch (Exception e)
+            {
+                result.Message += "Error : Failed to filter PingInfos based on Account Type : Error was : " + e.Message;
+                _logger.Error("Error : Failed to filter PingInfos based on Account Type. : Error was : " + e.ToString());
+            }
+
+            return result;
+        }
+
+        public async Task<ResultObj> DataPurge()
         {
             var result = new ResultObj();
             result.Message = " Service : DataPurge ";
             try
             {
-   MonitorDataInitObj serviceObj = new MonitorDataInitObj();
-                serviceObj.IsMonitorCheckDataReady = true;
+                MonitorDataInitObj serviceObj = new MonitorDataInitObj();
+                serviceObj.IsMonitorCheckDataReady = false;
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
-                result.Message += "Received MonitorCheck so Published event monitorCheckDataReady = true";
-             
+                result.Message += "Received DataPurge so Published event monitorCheckDataReady = false";
+                await FilterPingInfosBasedOnAccountType(true);
+                serviceObj = new MonitorDataInitObj();
+                serviceObj.IsMonitorCheckDataReady = false;
+                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
+                result.Message += "Received DataPurge so Published event monitorCheckDataReady = true";
+
                 result.Message += "TODO implement data purge from PingInfoService";
                 result.Success = true;
                 _logger.Info(result.Message);
@@ -182,8 +273,83 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
+        public async Task<ResultObj> SaveData()
+        {
+            ResultObj result = new ResultObj();
+            result.Message = "SERVICE : MonitorData.SaveData : ";
+            result.Success = false;
+            result.Message += "Info : Starting MonitorData.Save ";
+            try
+            {
+                MonitorDataInitObj monitorObj = new MonitorDataInitObj();
+                monitorObj.IsServiceReady = false;
+                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorServiceReady", monitorObj);
+                _logger.Info("Published event MonitorDataItitObj.IsMonitorDataReady = false");
+            }
+            catch (Exception e)
+            {
+                _logger.Error("Error : Can not publish event  MonitorDataItitObj.IsMonitorDataReady = false" + e.Message.ToString());
+            }
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    int maxDataSetID = 0;
+                    try { maxDataSetID = await monitorContext.MonitorPingInfos.MaxAsync(m => m.DataSetID); }
+                    catch (Exception e)
+                    {
+                        result.Message += "Warning : Failed to get max DataDataID : Error was : " + e.Message + " ";
+                        _logger.Warn("Warning : Failed to get max DataDataID : Error was : " + e.Message);
+                    }
+                    maxDataSetID++;
+                    int i = 0;
+                    var currentMonitorPingInfos = await monitorContext.MonitorPingInfos.Where(w => w.DataSetID == 0).ToListAsync();
+                    currentMonitorPingInfos.ForEach(f =>
+                    {
+                        f.DataSetID = maxDataSetID;
+                        i++;
+                    });
+                    monitorContext.SaveChanges();
+                    result.Message += "Success : DB Updated. Updated " + i + " records to DB ";
+                    result.Success = true;
+                }
+                MonitorDataInitObj serviceObj = new MonitorDataInitObj();
+                serviceObj.InitTotalResetAlertMessage = false;
+                serviceObj.InitTotalResetProcesser = false;
+                serviceObj.InitResetProcessor = true;
+                serviceObj.InitUpdateAlertMessage = true;
+                InitService(serviceObj);
+            }
+            catch (Exception e)
+            {
+                result.Message += "Error : DB Update Failed. Error was : " + e.Message + " ";
+                result.Success = false;
+                _logger.Error("Error : DB Update Failed. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
+            }
+            finally
+            {
+                try
+                {
+                    MonitorDataInitObj monitorObj = new MonitorDataInitObj();
+                    monitorObj.IsServiceReady = true;
+                    _rabbitRepo.Publish<MonitorDataInitObj>("monitorServiceReady", monitorObj);
+                    _logger.Info("Published event MonitorDataItitObj.IsMonitorDataReady = true");
+                }
+                catch (Exception e)
+                {
+                    _logger.Error("Error : Can not publish event  MonitorDataItitObj.IsMonitorDataReady=true " + e.Message.ToString());
+                }
+                //if (_monitorPingProcessor.Abort) _monitorPingProcessor.Abort = false;
+                result.Message += "Info : Finished MonitorData.SaveData ";
+                _logger.Info(result.Message);
+            }
+            _awake = false;
+            return result;
 
-       
+        }
+
+
     }
 
 }

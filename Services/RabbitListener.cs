@@ -20,13 +20,13 @@ using NetworkMonitor.Utils.Helpers;
 namespace NetworkMonitor.Objects.Repository
 {
     public interface IRabbitListener
-{
-    Task<ResultObj> UpdateMonitorPingInfos(Tuple<string, string> processorDataTuple);
-    Task<ResultObj> WakeUp();
-    Task<ResultObj> DataCheck();
+    {
+        Task<ResultObj> UpdateMonitorPingInfos(Tuple<string, string> processorDataTuple);
+        Task<ResultObj> WakeUp();
+        Task<ResultObj> DataCheck();
+        Task<ResultObj> DataPurge();
 
-
-}
+    }
 
     public class RabbitListener : RabbitListenerBase, IRabbitListener
     {
@@ -34,18 +34,18 @@ namespace NetworkMonitor.Objects.Repository
         protected IDatabaseQueueService _databaseService;
 
         protected IPingInfoService _pingInfoService;
-        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService,IPingInfoService pingInfoService, INetLoggerFactory loggerFactory, ISystemParamsHelper systemParamsHelper) : base(DeriveLogger(loggerFactory), DeriveSystemUrl(systemParamsHelper))
+        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, INetLoggerFactory loggerFactory, ISystemParamsHelper systemParamsHelper) : base(DeriveLogger(loggerFactory), DeriveSystemUrl(systemParamsHelper))
         {
 
             _monitorData = monitorData;
             _databaseService = databaseService;
-            _pingInfoService=pingInfoService;
+            _pingInfoService = pingInfoService;
             Setup();
         }
 
         private static ILogger DeriveLogger(INetLoggerFactory loggerFactory)
         {
-            return loggerFactory.GetLogger("RabbitListener"); 
+            return loggerFactory.GetLogger("RabbitListener");
         }
 
         private static SystemUrl DeriveSystemUrl(ISystemParamsHelper systemParamsHelper)
@@ -72,7 +72,7 @@ namespace NetworkMonitor.Objects.Repository
                 FuncName = "dataCheck",
                 MessageTimeout = 60000
             });
-             _rabbitMQObjs.Add(new RabbitMQObj()
+            _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "updateUserPingInfos",
                 FuncName = "updateUserPingInfos",
@@ -84,8 +84,15 @@ namespace NetworkMonitor.Objects.Repository
                 FuncName = "dataPurge",
                 MessageTimeout = 2160000
             });
-            
-           
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "saveData",
+                FuncName = "saveData",
+                MessageTimeout = 2160000
+            });
+
+
+
         }
         protected override ResultObj DeclareConsumers()
         {
@@ -108,7 +115,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.monitorUpdateMonitorPingInfos " + ex.Message);
+                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataUpdateMonitorPingInfos " + ex.Message);
                         }
                     };
                         break;
@@ -157,7 +164,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                     };
                         break;
-                  case "dataPurge":
+                    case "dataPurge":
                         rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                         rabbitMQObj.Consumer.Received += async (model, ea) =>
                     {
@@ -172,7 +179,23 @@ namespace NetworkMonitor.Objects.Repository
                         }
                     };
                         break;
-                   
+                    case "saveData":
+                        rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                        rabbitMQObj.Consumer.Received += async (model, ea) =>
+                    {
+                        try
+                        {
+                            result = await SaveData();
+                            rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(" Error : RabbitListener.DeclareConsumers.saveData " + ex.Message);
+                        }
+                    };
+                        break;
+
+
                 }
             });
                 result.Success = true;
@@ -260,7 +283,7 @@ namespace NetworkMonitor.Objects.Repository
             result.Message = "MessageAPI : UpdateUserPingInfos : ";
             try
             {
-                result = await _pingInfoService.RestorePingInfosForSingleUser("",paymentTransaction.UserInfo.CustomerId);
+                result = await _pingInfoService.RestorePingInfosForSingleUser("", paymentTransaction.UserInfo.CustomerId);
                 paymentTransaction.Result = result;
                 if (result.Success)
                 {
@@ -283,30 +306,8 @@ namespace NetworkMonitor.Objects.Repository
             return result;
         }
 
-        public async Task<ResultObj> FilterPingInfosBasedOnAccountType(bool filterDefaultUser)
-        {
-            ResultObj result = new ResultObj();
-            result.Message = "MessageAPI : FilterPingInfosBasedOnAccountType : ";
-            result.Success = false;
 
-
-
-            try
-            {
-                await _pingInfoService.FilterPingInfosBasedOnAccountType(filterDefaultUser);
-                result.Success = true;
-                result.Message += "Successfully filtered PingInfos based on Account Type.";
-            }
-            catch (Exception e)
-            {
-                result.Message += "Error : Failed to filter PingInfos based on Account Type : Error was : " + e.Message;
-                _logger.Error("Error : Failed to filter PingInfos based on Account Type. : Error was : " + e.ToString());
-            }
-
-            return result;
-        }
-
-    public async Task<ResultObj> DataPurge()
+        public async Task<ResultObj> DataPurge()
         {
             ResultObj result = new ResultObj();
             result.Success = false;
@@ -325,5 +326,33 @@ namespace NetworkMonitor.Objects.Repository
             }
             return result;
         }
+
+        public async Task<ResultObj> SaveData()
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : SaveData : ";
+            try
+            {
+                Stopwatch timerInner = new Stopwatch();
+                timerInner.Start();
+                Func<Task<ResultObj>> func = _monitorData.SaveData;
+                result = await _databaseService.AddSaveDataToQueue(func);
+                TimeSpan timeTakenInner = timerInner.Elapsed;
+                // If time taken is greater than the time to wait, then we need to adjust the time to wait.
+                int timeTakenInnerInt = (int)timeTakenInner.TotalSeconds;
+                result.Message += " Completed in " + timeTakenInnerInt + " s";
+                _logger.Info(result.Message);
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to run SaveData : Error was : " + e.Message + " ";
+                _logger.Error("Error : Failed to run SaveData : Error was : " + e.Message + " ");
+            }
+            return result;
+        }
+
     }
 }
