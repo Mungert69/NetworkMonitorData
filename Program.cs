@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,21 +5,20 @@ using MetroLog;
 using NetworkMonitor.Data;
 using NetworkMonitor.Objects.Factory;
 using System;
-using System.Net;
+
 namespace NetworkMonitor.Data
 {
     public class Program
     {
-        //private bool _isDevelopmentMode;
         public static void Main(string[] args)
         {
-            bool isDevelopmentMode = false;
             string appFile = "appsettings.json";
-          
             IConfigurationRoot config = new ConfigurationBuilder()
                 .AddJsonFile(appFile, optional: false)
                 .Build();
-            IWebHost host = CreateWebHostBuilder(isDevelopmentMode).Build();
+
+            IHost host = CreateHostBuilder(config).Build();
+
             using (IServiceScope scope = host.Services.CreateScope())
             {
                 IServiceProvider services = scope.ServiceProvider;
@@ -37,12 +34,21 @@ namespace NetworkMonitor.Data
                     logger.Error("An error occurred while seeding the database. Error was : " + ex.ToString());
                 }
             }
+
             host.Run();
         }
-        public static IWebHostBuilder CreateWebHostBuilder(bool isDevelopmentMode) =>
-            WebHost.CreateDefaultBuilder().UseKestrel(options =>
+
+        public static IHostBuilder CreateHostBuilder(IConfigurationRoot config) =>
+            Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration(builder =>
                 {
-                   
-                }).UseStartup<Startup>();
+                    builder.AddConfiguration(config);
+                })
+                .ConfigureServices((hostContext, services) =>
+                {
+                    // Register your Startup class's ConfigureServices method
+                    var startup = new Startup(hostContext.Configuration);
+                    startup.ConfigureServices(services);
+                });
     }
 }
