@@ -140,19 +140,42 @@ namespace NetworkMonitor.Data.Services
         public async Task<ResultObj> DataCheck()
         {
             var result = new ResultObj();
-            result.Message = " Service : MonitorCheck ";
+            result.Message = " Service : DataCheck ";
             try
             {
                 MonitorDataInitObj serviceObj = new MonitorDataInitObj();
-                serviceObj.IsMonitorCheckServiceReady = true;
-                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorCheckServiceReady", serviceObj);
-                result.Message += "Received MonitorCheck so Published event monitorCheckServiceReady = true";
+                serviceObj.IsMonitorCheckDataReady = true;
+                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorCheckDataReady", serviceObj);
+                result.Message += "Received MonitorCheck so Published event monitorCheckDataReady = true";
                 result.Success = true;
                 _logger.Info(result.Message);
             }
             catch (Exception e)
             {
                 result.Message += " Failed to publish monitorCheckServiceReady event . Error was : " + e.ToString();
+                result.Success = false;
+                _logger.Error(result.Message);
+            }
+            return result;
+        }
+    public async Task<ResultObj> DataPurge()
+        {
+            var result = new ResultObj();
+            result.Message = " Service : DataPurge ";
+            try
+            {
+   MonitorDataInitObj serviceObj = new MonitorDataInitObj();
+                serviceObj.IsMonitorCheckDataReady = true;
+                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
+                result.Message += "Received MonitorCheck so Published event monitorCheckDataReady = true";
+             
+                result.Message += "TODO implement data purge from PingInfoService";
+                result.Success = true;
+                _logger.Info(result.Message);
+            }
+            catch (Exception e)
+            {
+                result.Message += " Failed to run DataPurge . Error was : " + e.ToString();
                 result.Success = false;
                 _logger.Error(result.Message);
             }

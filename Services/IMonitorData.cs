@@ -20,6 +20,7 @@ namespace NetworkMonitor.Data.Services
 
     Task<ResultObj> WakeUp();
     Task<ResultObj> DataCheck();
+        Task<ResultObj> DataPurge();
 
   }
 }

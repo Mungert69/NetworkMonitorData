@@ -72,12 +72,16 @@ namespace NetworkMonitor.Objects.Repository
                 FuncName = "dataCheck",
                 MessageTimeout = 60000
             });
-            
-           
              _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "updateUserPingInfos",
                 FuncName = "updateUserPingInfos",
+                MessageTimeout = 2160000
+            });
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "dataPurge",
+                FuncName = "dataPurge",
                 MessageTimeout = 2160000
             });
             
@@ -119,7 +123,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.serviceWakeUp " + ex.Message);
+                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataWakeUp " + ex.Message);
                         }
                     };
                         break;
@@ -134,7 +138,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.monitorCheck " + ex.Message);
+                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
                         }
                     };
                         break;
@@ -153,7 +157,22 @@ namespace NetworkMonitor.Objects.Repository
                         }
                     };
                         break;
-                 
+                  case "dataPurge":
+                        rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                        rabbitMQObj.Consumer.Received += async (model, ea) =>
+                    {
+                        try
+                        {
+                            result = await DataPurge();
+                            rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
+                        }
+                    };
+                        break;
+                   
                 }
             });
                 result.Success = true;
@@ -287,5 +306,24 @@ namespace NetworkMonitor.Objects.Repository
             return result;
         }
 
+    public async Task<ResultObj> DataPurge()
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : DataPurge : ";
+            try
+            {
+                result = await _monitorData.DataPurge();
+                _logger.Info(result.Message);
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+                _logger.Error(result.Message);
+            }
+            return result;
+        }
     }
 }

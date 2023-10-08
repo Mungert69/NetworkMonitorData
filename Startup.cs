@@ -54,6 +54,8 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IDatabaseQueueService, DatabaseQueueService>();
             services.AddSingleton<INetLoggerFactory, NetLoggerFactory>();
             services.AddSingleton<IRabbitListener, RabbitListener>();
+            services.AddSingleton<IRabbitRepo, RabbitRepo>();
+            services.AddSingleton<IFileRepo, FileRepo>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<ISystemParamsHelper, SystemParamsHelper>();
             services.AddSingleton(_cancellationTokenSource);
