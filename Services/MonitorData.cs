@@ -297,12 +297,12 @@ namespace NetworkMonitor.Data.Services
                 publishObj.IsDataSaveReady = false;
 
                 _saveReady = false;
-                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitordataReady", publishObj);
-                _logger.Info("Received DataSave so Published event monitordataReady.IsataSaveReady = false");
+                await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
+                _logger.Info("Received DataSave so Published event monitorDataReady.IsataSaveReady = false");
             }
             catch (Exception e)
             {
-                _logger.Error("Error : Can not publish event  monitordataReady.IsDataSaveReady = false" + e.Message.ToString());
+                _logger.Error("Error : Can not publish event  monitorDataReady.IsDataSaveReady = false" + e.Message.ToString());
             }
             try
             {
