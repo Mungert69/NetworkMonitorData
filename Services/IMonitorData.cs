@@ -14,12 +14,9 @@ namespace NetworkMonitor.Data.Services
     PingParams PingParams { get; set; }
     SystemParams SystemParams { get; set; }
    
-
-    bool Awake { get; set; }
     IRabbitRepo RabbitRepo { get; }
 
-    Task<ResultObj> WakeUp();
-    Task<ResultObj> DataCheck();
+    Task<ResultObj> DataCheck(MonitorDataInitObj checkObj);
         Task<ResultObj> DataPurge();
         Task<ResultObj> SaveData();
 

@@ -22,8 +22,8 @@ namespace NetworkMonitor.Objects.Repository
     public interface IRabbitListener
     {
         Task<ResultObj> UpdateMonitorPingInfos(Tuple<string, string> processorDataTuple);
-        Task<ResultObj> WakeUp();
-        Task<ResultObj> DataCheck();
+        Task<ResultObj> SaveData();
+        Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj);
         Task<ResultObj> DataPurge();
 
     }
@@ -60,12 +60,7 @@ namespace NetworkMonitor.Objects.Repository
                 FuncName = "dataUpdateMonitorPingInfos",
                 MessageTimeout = 60000
             });
-            _rabbitMQObjs.Add(new RabbitMQObj()
-            {
-                ExchangeName = "dataWakeUp",
-                FuncName = "dataWakeUp",
-                MessageTimeout = 60000
-            });
+          
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "dataCheck",
@@ -119,28 +114,13 @@ namespace NetworkMonitor.Objects.Repository
                         }
                     };
                         break;
-                    case "dataWakeUp":
-                        rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
-                        rabbitMQObj.Consumer.Received += async (model, ea) =>
-                    {
-                        try
-                        {
-                            result = await WakeUp();
-                            rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataWakeUp " + ex.Message);
-                        }
-                    };
-                        break;
                     case "dataCheck":
                         rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                         rabbitMQObj.Consumer.Received += async (model, ea) =>
                     {
                         try
                         {
-                            result = await DataCheck();
+                            result = await DataCheck( ConvertToObject<MonitorDataInitObj>(model, ea));
                             rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
                         }
                         catch (Exception ex)
@@ -238,33 +218,14 @@ namespace NetworkMonitor.Objects.Repository
             returnResult.Data = (Object)result.Data;
             return returnResult;
         }
-        public async Task<ResultObj> WakeUp()
-        {
-            ResultObj result = new ResultObj();
-            result.Success = false;
-            result.Message = "MessageAPI : WakeUp : ";
-            try
-            {
-                result = await _monitorData.WakeUp();
-                _logger.Info(result.Message);
-            }
-            catch (Exception e)
-            {
-                result.Data = null;
-                result.Success = false;
-                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
-                _logger.Error(result.Message);
-            }
-            return result;
-        }
-        public async Task<ResultObj> DataCheck()
+        public async Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : MonitorCheck : ";
             try
             {
-                result = await _monitorData.DataCheck();
+                result = await _monitorData.DataCheck(serviceObj);
                 _logger.Info(result.Message);
             }
             catch (Exception e)
