@@ -31,7 +31,7 @@
    </ItemGroup>
 
    <ItemGroup>
-	  <None Update="appsettings.json">
+	  <None Update="appsettings-data.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	 </ItemGroup>

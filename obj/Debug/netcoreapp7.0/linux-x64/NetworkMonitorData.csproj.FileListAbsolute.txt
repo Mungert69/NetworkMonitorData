@@ -4,7 +4,6 @@
 /home/mahadeva/code/NetworkMonitorData/obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.AssemblyInfo.cs
 /home/mahadeva/code/NetworkMonitorData/obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.csproj.CoreCompileInputs.cache
 /home/mahadeva/code/NetworkMonitorData/obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.MvcApplicationPartsAssemblyInfo.cache
-/home/mahadeva/code/NetworkMonitorData/bin/Debug/netcoreapp7.0/linux-x64/appsettings.json
 /home/mahadeva/code/NetworkMonitorData/bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData
 /home/mahadeva/code/NetworkMonitorData/bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.deps.json
 /home/mahadeva/code/NetworkMonitorData/bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.runtimeconfig.json
@@ -381,3 +380,4 @@
 /home/mahadeva/code/NetworkMonitorData/obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.pdb
 /home/mahadeva/code/NetworkMonitorData/obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.genruntimeconfig.cache
 /home/mahadeva/code/NetworkMonitorData/obj/Debug/netcoreapp7.0/linux-x64/ref/NetworkMonitorData.dll
+/home/mahadeva/code/NetworkMonitorData/bin/Debug/netcoreapp7.0/linux-x64/appsettings-data.json

@@ -161,7 +161,7 @@ namespace NetworkMonitor.Data.Services
             {
                 serviceObj = new MonitorDataInitObj();
                 serviceObj.IsDataReady = true;
-                serviceObj.IsDataMessage=true;
+                serviceObj.IsDataMessage = true;
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
                 _logger.Info("Published event MonitorDataInitObj.IsMonitorDataReady = true");
             }
@@ -182,39 +182,67 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 MonitorDataInitObj publishObj = new MonitorDataInitObj();
-                if (_awake && checkObj.IsDataMessage)
+                if (checkObj.IsDataMessage)
                 {
-                    publishObj = new MonitorDataInitObj();
-                    publishObj.IsDataMessage = true;
-                    publishObj.IsDataReady = true;
-                    await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
-                    result.Message += "Received DataCheck so Published event DataReady";
-                    result.Success = true;
-                    _logger.Info(result.Message);
-                    return result;
+                    if (_awake)
+                    {
+                        publishObj = new MonitorDataInitObj();
+                        publishObj.IsDataMessage = true;
+                        await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
+                        result.Message += "Received DataCheck so Published event DataReady";
+                        result.Success = true;
+                        _logger.Info(result.Message);
+                        return result;
+                    }
+                    else
+                    {
+                        _logger.Error(" Error : Received DataCheck Data Ready? But Data is not awake.");
+
+                    }
+
                 }
+
                 if (checkObj.IsDataSaveMessage && _saveReady)
                 {
-                    publishObj = new MonitorDataInitObj();
-                    publishObj.IsDataSaveMessage = true;
-                    publishObj.IsDataSaveReady = true;
-                    await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
-                    result.Message += "Received DataCheck so Published event DataSaveReady";
-                    result.Success = true;
-                    _logger.Info(result.Message);
-                    return result;
+                    if (_saveReady)
+                    {
+                        publishObj = new MonitorDataInitObj();
+                        publishObj.IsDataSaveMessage = true;
+                        await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
+                        result.Message += "Received DataCheck so Published event DataSaveReady";
+                        result.Success = true;
+                        _logger.Info(result.Message);
+                        return result;
+                    }
+                    else
+                    {
+                        _logger.Error(" Error : Received DataCheck DataSave Ready? But Data is still in Saving state.");
+
+                    }
+
                 }
-                if (checkObj.IsDataPurgeMessage && _purgeReady)
+
+                if (checkObj.IsDataPurgeMessage)
                 {
-                    publishObj = new MonitorDataInitObj();
-                    publishObj.IsDataPurgeMessage = true;
-                    publishObj.IsDataPurgeReady = true;
-                    await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
-                    result.Message += "Received DataCheck so Published event DataPurgeReady";
-                    result.Success = true;
-                    _logger.Info(result.Message);
-                    return result;
+                    if (_purgeReady)
+                    {
+                        publishObj = new MonitorDataInitObj();
+                        publishObj.IsDataPurgeMessage = true;
+                        publishObj.IsDataPurgeReady = true;
+                        await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
+                        result.Message += "Received DataCheck so Published event DataPurgeReady";
+                        result.Success = true;
+                        _logger.Info(result.Message);
+                        return result;
+                    }
+                    else
+                    {
+                        _logger.Error(" Error : Received DataCheck DataPurge Ready? But Data is still in Purging state.");
+
+                    }
+
                 }
+
                 result.Message += " Message type not set.";
                 _logger.Error(result.Message);
                 result.Success = false;
@@ -268,7 +296,7 @@ namespace NetworkMonitor.Data.Services
                 result.Message += "Received DataPurge so Published event monitorDataReady.IsDataPurgeReady = false";
                 await FilterPingInfosBasedOnAccountType(true);
                 serviceObj.IsDataPurgeReady = true;
-                _purgeReady = true;
+
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
                 result.Message += "Finished DataPurge so Published event monitorDataReady.IsDataPurgeReady = true";
                 result.Success = true;
@@ -280,11 +308,16 @@ namespace NetworkMonitor.Data.Services
                 result.Success = false;
                 _logger.Error(result.Message);
             }
+            finally {
+                _purgeReady = true;
+            }
             return result;
         }
 
         public async Task<ResultObj> SaveData()
         {
+
+            _saveReady = false;
             ResultObj result = new ResultObj();
             result.Message = "SERVICE : MonitorData.SaveData : ";
             result.Success = false;
@@ -296,7 +329,6 @@ namespace NetworkMonitor.Data.Services
 
                 publishObj.IsDataSaveReady = false;
 
-                _saveReady = false;
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                 _logger.Info("Received DataSave so Published event monitorDataReady.IsataSaveReady = false");
             }
@@ -343,10 +375,11 @@ namespace NetworkMonitor.Data.Services
             }
             finally
             {
+                _saveReady = true;
                 try
                 {
                     publishObj.IsDataSaveReady = true;
-                    _saveReady = true;
+
                     await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                     _logger.Info("Finished DataSave so Published event monitorDataReady.IsDataSaveReady = true");
                 }
@@ -358,7 +391,7 @@ namespace NetworkMonitor.Data.Services
                 result.Message += "Info : Finished MonitorData.SaveData ";
                 _logger.Info(result.Message);
             }
-            _awake = false;
+
             return result;
 
         }

@@ -34,8 +34,12 @@ namespace NetworkMonitor.Data
                     m.AppID = f.AppID;
                 }
             }
+            uint minDateSentInt = uint.MaxValue;
+            if (processorDataObj.PingInfos != null && processorDataObj.PingInfos.Count>0)
+            {
+                minDateSentInt = processorDataObj.PingInfos.Min(m => m.DateSentInt);
+            }
 
-            uint minDateSentInt = processorDataObj.PingInfos?.Min(m => m.DateSentInt) ?? 0;
             var monitorPingInfos = await monitorContext.MonitorPingInfos
                 .Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID)
                 .Include(i => i.MonitorStatus)

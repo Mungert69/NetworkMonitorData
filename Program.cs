@@ -12,7 +12,7 @@ namespace NetworkMonitor.Data
     {
         public static void Main(string[] args)
         {
-            string appFile = "appsettings.json";
+            string appFile = "appsettings-data.json";
             IConfigurationRoot config = new ConfigurationBuilder()
                 .AddJsonFile(appFile, optional: false)
                 .Build();
