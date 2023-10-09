@@ -351,3 +351,5 @@ Products
 nohup.out
 /wwwroot/files/*
 /data/*
+*.dll
+*.pdb
