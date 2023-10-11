@@ -25,6 +25,7 @@ namespace NetworkMonitor.Objects.Repository
         Task<ResultObj> SaveData();
         Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj);
         Task<ResultObj> DataPurge();
+        Task<ResultObj> RestorePingInfosForAllUsers();
 
     }
 
@@ -60,7 +61,7 @@ namespace NetworkMonitor.Objects.Repository
                 FuncName = "dataUpdateMonitorPingInfos",
                 MessageTimeout = 60000
             });
-          
+
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "dataCheck",
@@ -71,6 +72,12 @@ namespace NetworkMonitor.Objects.Repository
             {
                 ExchangeName = "updateUserPingInfos",
                 FuncName = "updateUserPingInfos",
+                MessageTimeout = 2160000
+            });
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "restorePingInfosForAllUsers",
+                FuncName = "restorePingInfosForAllUsers",
                 MessageTimeout = 2160000
             });
             _rabbitMQObjs.Add(new RabbitMQObj()
@@ -120,7 +127,7 @@ namespace NetworkMonitor.Objects.Repository
                     {
                         try
                         {
-                            result = await DataCheck( ConvertToObject<MonitorDataInitObj>(model, ea));
+                            result = await DataCheck(ConvertToObject<MonitorDataInitObj>(model, ea));
                             rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
                         }
                         catch (Exception ex)
@@ -141,6 +148,21 @@ namespace NetworkMonitor.Objects.Repository
                         catch (Exception ex)
                         {
                             _logger.Error(" Error : RabbitListener.DeclareConsumers.updateUserPingInfos " + ex.Message);
+                        }
+                    };
+                        break;
+                    case "restorePingInfosForAllUsers":
+                        rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                        rabbitMQObj.Consumer.Received += async (model, ea) =>
+                    {
+                        try
+                        {
+                            result = await RestorePingInfosForAllUsers();
+                            rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
                         }
                     };
                         break;
@@ -276,6 +298,26 @@ namespace NetworkMonitor.Objects.Repository
             try
             {
                 result = await _monitorData.DataPurge();
+                _logger.Info(result.Message);
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+                _logger.Error(result.Message);
+            }
+            return result;
+        }
+
+ public async Task<ResultObj> RestorePingInfosForAllUsers()
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : RestorePingInfosForAllUsers : ";
+            try
+            {
+                result = await _pingInfoService.RestorePingInfosForAllUsers();
                 _logger.Info(result.Message);
             }
             catch (Exception e)
