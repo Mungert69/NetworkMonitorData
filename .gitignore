@@ -353,3 +353,13 @@ nohup.out
 /data/*
 /bin/*
 /obj/*
+bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitor.dll
+bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitor.pdb
+bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData
+bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.dll
+bin/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.pdb
+obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.csproj.AssemblyReference.cache
+obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.dll
+obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.GeneratedMSBuildEditorConfig.editorconfig
+obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.genruntimeconfig.cache
+obj/Debug/netcoreapp7.0/linux-x64/NetworkMonitorData.pdb
