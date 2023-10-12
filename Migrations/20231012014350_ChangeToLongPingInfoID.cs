@@ -11,48 +11,27 @@ namespace NetworkMonitorData.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_PingInfos",
-                table: "PingInfos");
-
-            migrationBuilder.AddColumn<ulong>(
+            migrationBuilder.AlterColumn<ulong>(
                 name: "ID",
                 table: "PingInfos",
                 type: "bigint unsigned",
                 nullable: false,
-                defaultValue: 0ul)
+                oldClrType: typeof(uint),
+                oldType: "int unsigned")
                 .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn);
-
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_PingInfos",
-                table: "PingInfos",
-                column: "ID");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PingInfos_MonitorPingInfoID",
-                table: "PingInfos",
-                column: "MonitorPingInfoID");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_PingInfos",
-                table: "PingInfos");
-
-            migrationBuilder.DropIndex(
-                name: "IX_PingInfos_MonitorPingInfoID",
-                table: "PingInfos");
-
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<uint>(
                 name: "ID",
-                table: "PingInfos");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_PingInfos",
                 table: "PingInfos",
-                columns: new[] { "MonitorPingInfoID", "DateSentInt" });
+                type: "int unsigned",
+                nullable: false,
+                oldClrType: typeof(ulong),
+                oldType: "bigint unsigned")
+                .OldAnnotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn);
         }
     }
 }
