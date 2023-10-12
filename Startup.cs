@@ -43,12 +43,16 @@ namespace NetworkMonitor.Data
             string connectionString = Configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<MonitorContext>(options =>
                 options.UseMySql(connectionString,
-                    ServerVersion.AutoDetect(connectionString),
-                        mySqlOptions =>
-                            mySqlOptions.EnableRetryOnFailure(
-                            maxRetryCount: 5,
-                            maxRetryDelay: TimeSpan.FromSeconds(10),
-                            errorNumbersToAdd: null)));
+                ServerVersion.AutoDetect(connectionString),
+                mySqlOptions =>
+                     {
+                        mySqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null);
+                        mySqlOptions.CommandTimeout(600);  // Set to 600 seconds, for example
+                    }
+            ));
 
             services.AddSingleton<IMonitorData, MonitorData>();
             services.AddSingleton<IDatabaseQueueService, DatabaseQueueService>();
