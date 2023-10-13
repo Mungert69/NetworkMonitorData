@@ -13,7 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using NetworkMonitor.Utils;
-using NetworkMonitor.Auth;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Objects.Repository;
 using HostInitActions;
