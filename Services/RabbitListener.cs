@@ -1,9 +1,5 @@
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using CloudNative.CloudEvents;
-using CloudNative.CloudEvents.NewtonsoftJson;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Data.Services;
