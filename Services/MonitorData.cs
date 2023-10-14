@@ -12,7 +12,6 @@ using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 using System.Threading.Tasks;
 using System.Threading;
 namespace NetworkMonitor.Data.Services
