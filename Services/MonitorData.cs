@@ -135,7 +135,7 @@ namespace NetworkMonitor.Data.Services
                 {
                     initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
-                    _logger.Debug("Sent ProcessorInit event to appID.");
+                    _logger.Info("Sent ProcessorInit event to appID "+processorObj.AppID);
                 }
             }
             catch (Exception e)
