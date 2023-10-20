@@ -10,7 +10,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using NetworkMonitor.Utils;
-using MetroLog;
+Using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 namespace NetworkMonitor.Objects.Repository
@@ -113,7 +113,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataUpdateMonitorPingInfos " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataUpdateMonitorPingInfos " + ex.Message);
                         }
                     };
                         break;
@@ -128,7 +128,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
                         }
                     };
                         break;
@@ -143,7 +143,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.updateUserPingInfos " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.updateUserPingInfos " + ex.Message);
                         }
                     };
                         break;
@@ -158,7 +158,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
                         }
                     };
                         break;
@@ -173,7 +173,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
                         }
                     };
                         break;
@@ -188,7 +188,7 @@ namespace NetworkMonitor.Objects.Repository
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(" Error : RabbitListener.DeclareConsumers.saveData " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.saveData " + ex.Message);
                         }
                     };
                         break;
@@ -222,14 +222,14 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     _monitorData.RabbitRepo.Publish<ProcessorDataObj>("removePingInfos" + returnProcessorDataObj.AppID, returnProcessorDataObj);
                 }
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {
                 result.Data = null;
                 result.Success = false;
                 result.Message += "Error : Failed to set MonitorPingInfos : Error was : " + e.Message + " ";
-                _logger.Error("Error : Failed to set MonitorPingInfos : Error was : " + e.Message + " ");
+                _logger.LogError("Error : Failed to set MonitorPingInfos : Error was : " + e.Message + " ");
             }
             returnResult.Message = result.Message;
             returnResult.Success = result.Success;
@@ -244,14 +244,14 @@ namespace NetworkMonitor.Objects.Repository
             try
             {
                 result = await _monitorData.DataCheck(serviceObj);
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {
                 result.Data = null;
                 result.Success = false;
                 result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
             }
             return result;
         }
@@ -272,7 +272,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     paymentTransaction.PingInfosComplete = false;
                 }
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
                 _monitorData.RabbitRepo.Publish<PaymentTransaction>("pingInfosComplete", paymentTransaction);
             }
             catch (Exception e)
@@ -280,7 +280,7 @@ namespace NetworkMonitor.Objects.Repository
                 result.Data = null;
                 result.Success = false;
                 result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
             }
             return result;
         }
@@ -294,14 +294,14 @@ namespace NetworkMonitor.Objects.Repository
             try
             {
                 result = await _monitorData.DataPurge();
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {
                 result.Data = null;
                 result.Success = false;
                 result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
             }
             return result;
         }
@@ -314,14 +314,14 @@ namespace NetworkMonitor.Objects.Repository
             try
             {
                 result = await _pingInfoService.RestorePingInfosForAllUsers();
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {
                 result.Data = null;
                 result.Success = false;
                 result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
             }
             return result;
         }
@@ -341,14 +341,14 @@ namespace NetworkMonitor.Objects.Repository
                 // If time taken is greater than the time to wait, then we need to adjust the time to wait.
                 int timeTakenInnerInt = (int)timeTakenInner.TotalSeconds;
                 result.Message += " Completed in " + timeTakenInnerInt + " s";
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {
                 result.Data = null;
                 result.Success = false;
                 result.Message += "Error : Failed to run SaveData : Error was : " + e.Message + " ";
-                _logger.Error("Error : Failed to run SaveData : Error was : " + e.Message + " ");
+                _logger.LogError("Error : Failed to run SaveData : Error was : " + e.Message + " ");
             }
             return result;
         }

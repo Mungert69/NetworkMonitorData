@@ -6,7 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Data;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
-using MetroLog;
+Using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -49,7 +49,7 @@ namespace NetworkMonitor.Data.Services
                         result.Success = false;
                         result.Message = " Backlog Error discarding ProcessorData from queue for AppID " + processorDataTuple.Item2 + " The queue already has data from the Processor.";
                         result.Data = null;
-                        _logger.Error(result.Message);
+                        _logger.LogError(result.Message);
                         return result;
                     });
 
@@ -110,7 +110,7 @@ namespace NetworkMonitor.Data.Services
                 {
                     result.Success = false;
                     result.Message += "Error : failed to save data to Database. Error was : " + e.Message.ToString();
-                    _logger.Error(result.Message);
+                    _logger.LogError(result.Message);
                 }
                 finally
                 {

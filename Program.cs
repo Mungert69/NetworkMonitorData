@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using MetroLog;
+Using Microsoft.Extensions.Logging;
 using NetworkMonitor.Data;
 using NetworkMonitor.Objects.Factory;
 using System;
@@ -31,7 +31,7 @@ namespace NetworkMonitor.Data
                 {
                     INetLoggerFactory loggerFactory = services.GetRequiredService<INetLoggerFactory>();
                     ILogger logger = loggerFactory.GetLogger("MonitorData");
-                    logger.Error("An error occurred while seeding the database. Error was : " + ex.ToString());
+                    logger.LogError("An error occurred while seeding the database. Error was : " + ex.ToString());
                 }
             }
 

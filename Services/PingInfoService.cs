@@ -6,7 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Data;
 using NetworkMonitor.Utils;
-using MetroLog;
+Using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
@@ -97,17 +97,17 @@ namespace NetworkMonitor.Data.Services
                             successfulImports++;
                         }
                     }
-                    _logger.Info($"Restored PingInfos for user {user.UserID}. Successful imports: {userSuccessfulImports}, Unsuccessful imports: {userUnsuccessfulImports}, Skipped : {userSkipped}. Imported MonitorPingInfo IDs: {string.Join(", ", importedMonitorPingInfoIDs.Select(t => $"ID: {t.Item1} - PCount: {t.Item2}"))}");
+                    _logger.LogInformation($"Restored PingInfos for user {user.UserID}. Successful imports: {userSuccessfulImports}, Unsuccessful imports: {userUnsuccessfulImports}, Skipped : {userSkipped}. Imported MonitorPingInfo IDs: {string.Join(", ", importedMonitorPingInfoIDs.Select(t => $"ID: {t.Item1} - PCount: {t.Item2}"))}");
                     result.Message += $"Info : Restored PingInfos for user {user.UserID}. Total successful imports: {successfulImports}, Total unsuccessful imports: {unsuccessfulImports}.";
                     result.Success = true;
-                    _logger.Info(result.Message);
+                    _logger.LogInformation(result.Message);
                 }
             }
             catch (Exception e)
             {
                 result.Message += "Error : Failed to restore PingInfos for user. Error was : " + e.Message + " ";
                 result.Success = false;
-                _logger.Error("Error : Failed to restore PingInfos for user. Error was : " + e.Message + " Inner Exception :" + e.InnerException?.Message);
+                _logger.LogError("Error : Failed to restore PingInfos for user. Error was : " + e.Message + " Inner Exception :" + e.InnerException?.Message);
             }
             return result;
         }
@@ -161,18 +161,18 @@ namespace NetworkMonitor.Data.Services
                                 successfulImports++;
                             }
                         }
-                        _logger.Info($"Restored PingInfos for user {user.UserID}. Successful imports: {userSuccessfulImports}, Unsuccessful imports: {userUnsuccessfulImports}, Skipped : {userSkipped}. Imported MonitorPingInfo IDs: {string.Join(", ", importedMonitorPingInfoIDs.Select(t => $"ID: {t.Item1} - PCount: {t.Item2}"))}");
+                        _logger.LogInformation($"Restored PingInfos for user {user.UserID}. Successful imports: {userSuccessfulImports}, Unsuccessful imports: {userUnsuccessfulImports}, Skipped : {userSkipped}. Imported MonitorPingInfo IDs: {string.Join(", ", importedMonitorPingInfoIDs.Select(t => $"ID: {t.Item1} - PCount: {t.Item2}"))}");
                     }
                     result.Message += $"Info : Restored PingInfos for all users. Total successful imports: {successfulImports}, Total unsuccessful imports: {unsuccessfulImports}.";
                     result.Success = true;
-                    _logger.Info(result.Message);
+                    _logger.LogInformation(result.Message);
                 }
             }
             catch (Exception e)
             {
                 result.Message += "Error : Failed to restore PingInfos for all users. Error was : " + e.Message + " ";
                 result.Success = false;
-                _logger.Error("Error : Failed to restore PingInfos for all users. Error was : " + e.Message + " Inner Exception :" + e.InnerException?.Message);
+                _logger.LogError("Error : Failed to restore PingInfos for all users. Error was : " + e.Message + " Inner Exception :" + e.InnerException?.Message);
             }
             return result;
         }
@@ -218,7 +218,7 @@ namespace NetworkMonitor.Data.Services
             {
                 result.Message += "Error : Failed to import PingInfos from file. Error was : " + e.Message + " ";
                 result.Success = false;
-                _logger.Error("Error : Failed to import PingInfos from file. Error was : " + e.Message + " Inner Exception :" + e.InnerException?.Message);
+                _logger.LogError("Error : Failed to import PingInfos from file. Error was : " + e.Message + " Inner Exception :" + e.InnerException?.Message);
             }
             return result;
         }
@@ -254,14 +254,14 @@ namespace NetworkMonitor.Data.Services
                     }
                     result.Message += "Info : Imported PingInfos from file. ";
                     result.Success = true;
-                    _logger.Info(result.Message);
+                    _logger.LogInformation(result.Message);
                 }
             }
             catch (Exception e)
             {
                 result.Message += "Error : Failed to import PingInfos from file. Error was : " + e.Message + " ";
                 result.Success = false;
-                _logger.Error("Error : Failed to import PingInfos from file. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
+                _logger.LogError("Error : Failed to import PingInfos from file. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
             }
             return result;
         }
@@ -270,7 +270,7 @@ namespace NetworkMonitor.Data.Services
             ResultObj result = new ResultObj();
             result.Message = "SERVICE : MonitorService.FilterPingInfos() ";
             result.Success = false;
-            _logger.Info("Starting FilterReducePingInfos process...");
+            _logger.LogInformation("Starting FilterReducePingInfos process...");
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -294,32 +294,32 @@ namespace NetworkMonitor.Data.Services
                             f.PingInfos.Clear();
                             f.PingInfos.AddRange(pingInfos);
                             var countAfter = f.PingInfos.Count;
-                            _logger.Info($"Processed MonitorPingInfo ID: {f.ID}. PingInfos before: {countBefore}, after: {countAfter}.");
+                            _logger.LogInformation($"Processed MonitorPingInfo ID: {f.ID}. PingInfos before: {countBefore}, after: {countAfter}.");
                         }
                         await monitorContext.SaveChangesAsync();
                         page++;
-                        _logger.Info($"Processed page {page}. Moving to next page...");
+                        _logger.LogInformation($"Processed page {page}. Moving to next page...");
                         monitorPingInfos = await query.Skip(page * pageSize).Take(pageSize).ToListAsync();
                     }
                     result.Message += "Info : Filtered PingInfos. ";
                     result.Success = true;
-                    _logger.Info(result.Message);
+                    _logger.LogInformation(result.Message);
                 }
             }
             catch (Exception e)
             {
                 result.Message += "Error : Failed to Filter PingInfos. Error was : " + e.Message + " ";
                 result.Success = false;
-                _logger.Error("Error : Failed to Filter PingInfos. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
+                _logger.LogError("Error : Failed to Filter PingInfos. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
             }
-            _logger.Info("FilterReducePingInfos process completed.");
+            _logger.LogInformation("FilterReducePingInfos process completed.");
             return result;
         }
         private async Task FilterPingInfosForUser(UserInfo user, MonitorContext monitorContext)
         {
             DateTime thresholdDate = GetThresholdDate(user.AccountType);
             //thresholdDate=DateTime.UtcNow;
-            _logger.Info("Filtering user " + user.UserID);
+            _logger.LogInformation("Filtering user " + user.UserID);
             const int batchSize = 100; // Adjust this value based on your needs
             int skip = 0;
             bool hasMoreRecords = true;
@@ -371,7 +371,7 @@ namespace NetworkMonitor.Data.Services
                         }
                         else
                         {
-                            _logger.Error($" Error : Can't find last PingInfo with ID {lastPingInfoId} ");
+                            _logger.LogError($" Error : Can't find last PingInfo with ID {lastPingInfoId} ");
                         }
                     }
                 }
@@ -421,7 +421,7 @@ namespace NetworkMonitor.Data.Services
                 result.Data = null;
                 result.Message += "Error : Failed to filter PingInfos based on Account Type : Error was : " + e.Message;
                 result.Success = false;
-                _logger.Error("Error : DB Update Failed. : Error was : " + e.ToString());
+                _logger.LogError("Error : DB Update Failed. : Error was : " + e.ToString());
             }
         }
         private string GetDurationString(string accountType)

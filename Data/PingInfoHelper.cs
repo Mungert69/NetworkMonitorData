@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MetroLog;
+Using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Data;
 using NetworkMonitor.DTOs;
@@ -40,7 +40,7 @@ namespace NetworkMonitor.Utils.Helpers
             ushort count;
             if (intCount >= ushort.MaxValue)
             {
-                logger.Fatal("Fatal : StatusList table is full can not process PingInfo in PingInfoHelper.UpdatePingInfosFromStatusList");
+                logger.LogCritical("Fatal : StatusList table is full can not process PingInfo in PingInfoHelper.UpdatePingInfosFromStatusList");
                 f.StatusID = ushort.MaxValue;
                 f.Status = "StatusList table is full";
                 // Ensure the status with ID of ushort.MaxValue exists in the dictionary

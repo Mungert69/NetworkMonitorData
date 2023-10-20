@@ -6,7 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Data;
 using NetworkMonitor.Utils;
-using MetroLog;
+Using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,11 +63,11 @@ namespace NetworkMonitor.Data.Services
                 result.Success = true;
                 result.Message = " OnStopping call complete.";
                 //_daprClient.ShutdownSidecarAsync();
-                _logger.Warn("SERVICE SHUTDOWN : Result : " + result.Message);
+                _logger.LogWarning("SERVICE SHUTDOWN : Result : " + result.Message);
             }
             catch (Exception e)
             {
-                _logger.Fatal("Error : Failed to run SaveDate before shutdown : Error Was : " + e.Message);
+                _logger.LogCritical("Error : Failed to run SaveDate before shutdown : Error Was : " + e.Message);
                 Console.WriteLine();
             }
         }
@@ -94,12 +94,12 @@ namespace NetworkMonitor.Data.Services
                 PingParams = _systemParamsHelper.GetPingParams();
                 _processorState.ProcessorList = new List<ProcessorObj>();
                 _config.GetSection("ProcessorList").Bind(_processorState.ProcessorList);
-                _logger.Debug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
-                _logger.Debug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
+                _logger.LogDebug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
+                _logger.LogDebug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
             }
             catch (Exception e)
             {
-                _logger.Fatal(" Error : Unable to set SystemParms . Error was : " + e.ToString());
+                _logger.LogCritical(" Error : Unable to set SystemParms . Error was : " + e.ToString());
             }
             ProcessorInitObj initObj = new ProcessorInitObj();
             AlertServiceInitObj alertObj = new AlertServiceInitObj();
@@ -111,9 +111,9 @@ namespace NetworkMonitor.Data.Services
                 _processorState.MonitorIPs = await monitorContext.MonitorIPs.AsNoTracking().Include(e => e.UserInfo).Where(w => w.Hidden == false).ToListAsync();
                 ListUtils.RemoveNestedMonitorIPs(_processorState.MonitorIPs);
                 _processorState.SetAllLoads();
-                _logger.Debug("DATA : Retreived MonitorIPs " + _processorState.MonitorIPs.Count + " from database.");
+                _logger.LogDebug("DATA : Retreived MonitorIPs " + _processorState.MonitorIPs.Count + " from database.");
                 userInfos = await monitorContext.UserInfos.Where(w => w.Enabled == true).ToListAsync();
-                _logger.Debug("DATA : Retreived UserInfos " + userInfos.Count + " from database.");
+                _logger.LogDebug("DATA : Retreived UserInfos " + userInfos.Count + " from database.");
             }
             initObj.PingParams = _pingParams;
             /*foreach (MonitorIP monIP in _processorState.MonitorIPs)
@@ -127,20 +127,20 @@ namespace NetworkMonitor.Data.Services
             //initObj.MonitorIPs = _monitorIPs;
             initObj.Reset = serviceObj.InitResetProcessor;
             initObj.TotalReset = serviceObj.InitTotalResetProcesser;
-            _logger.Debug("SavedMonitorIPs: " + JsonUtils.writeJsonObjectToString(initObj.MonitorIPs));
-            _logger.Debug("PingParmas: " + JsonUtils.writeJsonObjectToString(initObj.PingParams));
+            _logger.LogDebug("SavedMonitorIPs: " + JsonUtils.writeJsonObjectToString(initObj.MonitorIPs));
+            _logger.LogDebug("PingParmas: " + JsonUtils.writeJsonObjectToString(initObj.PingParams));
             try
             {
                 foreach (var processorObj in _processorState.ProcessorList)
                 {
                     initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
-                    _logger.Info("Sent ProcessorInit event to appID "+processorObj.AppID);
+                    _logger.LogInformation("Sent ProcessorInit event to appID "+processorObj.AppID);
                 }
             }
             catch (Exception e)
             {
-                _logger.Error("Error : Can not publish event  processorInit Error was : " + e.Message.ToString());
+                _logger.LogError("Error : Can not publish event  processorInit Error was : " + e.Message.ToString());
             }
             try
             {
@@ -149,11 +149,11 @@ namespace NetworkMonitor.Data.Services
                 ListUtils.RemoveNestedMonitorIPs(userInfos);
                 alertObj.UserInfos = userInfos;
                 await _rabbitRepo.PublishAsync<AlertServiceInitObj>("alertMessageInit", alertObj);
-                _logger.Debug("Sent alertMessageInit event. ");
+                _logger.LogDebug("Sent alertMessageInit event. ");
             }
             catch (Exception e)
             {
-                _logger.Error("Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString());
+                _logger.LogError("Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString());
             }
 
             try
@@ -162,11 +162,11 @@ namespace NetworkMonitor.Data.Services
                 serviceObj.IsDataReady = true;
                 serviceObj.IsDataMessage = true;
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
-                _logger.Info("Published event MonitorDataInitObj.IsMonitorDataReady = true");
+                _logger.LogInformation("Published event MonitorDataInitObj.IsMonitorDataReady = true");
             }
             catch (Exception e)
             {
-                _logger.Error("Error : Can not publish event monitorDataReady Error was : " + e.Message.ToString());
+                _logger.LogError("Error : Can not publish event monitorDataReady Error was : " + e.Message.ToString());
             }
             _awake = true;
         }
@@ -190,12 +190,12 @@ namespace NetworkMonitor.Data.Services
                         await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                         result.Message += "Received DataCheck so Published event DataReady";
                         result.Success = true;
-                        _logger.Info(result.Message);
+                        _logger.LogInformation(result.Message);
                         return result;
                     }
                     else
                     {
-                        _logger.Error(" Error : Received DataCheck Data Ready? But Data is not awake.");
+                        _logger.LogError(" Error : Received DataCheck Data Ready? But Data is not awake.");
 
                     }
 
@@ -210,12 +210,12 @@ namespace NetworkMonitor.Data.Services
                         await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                         result.Message += "Received DataCheck so Published event DataSaveReady";
                         result.Success = true;
-                        _logger.Info(result.Message);
+                        _logger.LogInformation(result.Message);
                         return result;
                     }
                     else
                     {
-                        _logger.Error(" Error : Received DataCheck DataSave Ready? But Data is still in Saving state.");
+                        _logger.LogError(" Error : Received DataCheck DataSave Ready? But Data is still in Saving state.");
 
                     }
 
@@ -231,19 +231,19 @@ namespace NetworkMonitor.Data.Services
                         await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                         result.Message += "Received DataCheck so Published event DataPurgeReady";
                         result.Success = true;
-                        _logger.Info(result.Message);
+                        _logger.LogInformation(result.Message);
                         return result;
                     }
                     else
                     {
-                        _logger.Error(" Error : Received DataCheck DataPurge Ready? But Data is still in Purging state.");
+                        _logger.LogError(" Error : Received DataCheck DataPurge Ready? But Data is still in Purging state.");
 
                     }
 
                 }
 
                 result.Message += " Message type not set.";
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
                 result.Success = false;
                 return result;
 
@@ -253,7 +253,7 @@ namespace NetworkMonitor.Data.Services
             {
                 result.Message += " Failed to publish messages in DataCheck event . Error was : " + e.ToString();
                 result.Success = false;
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
             }
             return result;
         }
@@ -275,7 +275,7 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Message += "Error : Failed to filter PingInfos based on Account Type : Error was : " + e.Message;
-                _logger.Error("Error : Failed to filter PingInfos based on Account Type. : Error was : " + e.ToString());
+                _logger.LogError("Error : Failed to filter PingInfos based on Account Type. : Error was : " + e.ToString());
             }
 
             return result;
@@ -299,13 +299,13 @@ namespace NetworkMonitor.Data.Services
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
                 result.Message += "Finished DataPurge so Published event monitorDataReady.IsDataPurgeReady = true";
                 result.Success = true;
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {
                 result.Message += " Failed to run DataPurge . Error was : " + e.ToString();
                 result.Success = false;
-                _logger.Error(result.Message);
+                _logger.LogError(result.Message);
             }
             finally {
                 _purgeReady = true;
@@ -329,11 +329,11 @@ namespace NetworkMonitor.Data.Services
                 publishObj.IsDataSaveReady = false;
 
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
-                _logger.Info("Received DataSave so Published event monitorDataReady.IsataSaveReady = false");
+                _logger.LogInformation("Received DataSave so Published event monitorDataReady.IsataSaveReady = false");
             }
             catch (Exception e)
             {
-                _logger.Error("Error : Can not publish event  monitorDataReady.IsDataSaveReady = false" + e.Message.ToString());
+                _logger.LogError("Error : Can not publish event  monitorDataReady.IsDataSaveReady = false" + e.Message.ToString());
             }
             try
             {
@@ -345,7 +345,7 @@ namespace NetworkMonitor.Data.Services
                     catch (Exception e)
                     {
                         result.Message += "Warning : Failed to get max DataDataID : Error was : " + e.Message + " ";
-                        _logger.Warn("Warning : Failed to get max DataDataID : Error was : " + e.Message);
+                        _logger.LogWarning("Warning : Failed to get max DataDataID : Error was : " + e.Message);
                     }
                     maxDataSetID++;
                     int i = 0;
@@ -370,7 +370,7 @@ namespace NetworkMonitor.Data.Services
             {
                 result.Message += "Error : DB Update Failed. Error was : " + e.Message + " ";
                 result.Success = false;
-                _logger.Error("Error : DB Update Failed. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
+                _logger.LogError("Error : DB Update Failed. Error was : " + e.Message + " Inner Exception :" + e.Message.ToString());
             }
             finally
             {
@@ -380,15 +380,15 @@ namespace NetworkMonitor.Data.Services
                     publishObj.IsDataSaveReady = true;
 
                     await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
-                    _logger.Info("Finished DataSave so Published event monitorDataReady.IsDataSaveReady = true");
+                    _logger.LogInformation("Finished DataSave so Published event monitorDataReady.IsDataSaveReady = true");
                 }
                 catch (Exception e)
                 {
-                    _logger.Error("Error : Can not publish event  monitorDataReady.IsDataSaveReady=true " + e.Message.ToString());
+                    _logger.LogError("Error : Can not publish event  monitorDataReady.IsDataSaveReady=true " + e.Message.ToString());
                 }
                 //if (_monitorPingProcessor.Abort) _monitorPingProcessor.Abort = false;
                 result.Message += "Info : Finished MonitorData.SaveData ";
-                _logger.Info(result.Message);
+                _logger.LogInformation(result.Message);
             }
 
             return result;
