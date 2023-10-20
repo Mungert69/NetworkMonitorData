@@ -21,7 +21,6 @@ namespace NetworkMonitor.Data.Services
         private ILogger _logger;
         private CancellationToken _token;
         private SystemParams _systemParams;
-        private bool _isLogChatGPT;
         private IConfiguration _config;
         private PingParams _pingParams;
         private readonly IServiceScopeFactory _scopeFactory;
@@ -30,14 +29,11 @@ namespace NetworkMonitor.Data.Services
         private bool _saveReady;
         private bool _awake;
 
-        private RabbitListener _rabbitListener;
         private IRabbitRepo _rabbitRepo;
         public IRabbitRepo RabbitRepo { get => _rabbitRepo; }
         private ISystemParamsHelper _systemParamsHelper;
         private IDatabaseQueueService _databaseService;
 
-
-        private IPingInfoService _pingInfoService;
         private ProcessorState _processorState = new ProcessorState();
         public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
         public PingParams PingParams { get => _pingParams; set => _pingParams = value; }

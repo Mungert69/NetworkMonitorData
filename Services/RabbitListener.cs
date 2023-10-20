@@ -13,7 +13,8 @@ using NetworkMonitor.Utils;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
-namespace NetworkMonitor.Objects.Repository
+using NetworkMonitor.Objects.Repository;
+namespace NetworkMonitor.Data.Services
 {
     public interface IRabbitListener
     {
