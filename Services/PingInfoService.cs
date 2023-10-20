@@ -6,7 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Data;
 using NetworkMonitor.Utils;
-Using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,11 +28,11 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private ILogger _logger;
         private IFileRepo _fileRepo;
-        public PingInfoService(IServiceScopeFactory scopeFactory, INetLoggerFactory loggerFactory, IFileRepo fileRepo)
+        public PingInfoService(IServiceScopeFactory scopeFactory, ILogger logger, IFileRepo fileRepo)
         {
             _scopeFactory = scopeFactory;
             _fileRepo = fileRepo;
-            _logger = loggerFactory.GetLogger("PingInfoFilterService");
+            _logger = logger;
         }
         public async Task<ResultObj> RestorePingInfosForSingleUser(string userId, string customerId = null)
         {

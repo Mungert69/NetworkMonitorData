@@ -10,7 +10,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using NetworkMonitor.Utils;
-Using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 namespace NetworkMonitor.Objects.Repository
@@ -31,18 +31,13 @@ namespace NetworkMonitor.Objects.Repository
         protected IDatabaseQueueService _databaseService;
 
         protected IPingInfoService _pingInfoService;
-        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, INetLoggerFactory loggerFactory, ISystemParamsHelper systemParamsHelper) : base(DeriveLogger(loggerFactory), DeriveSystemUrl(systemParamsHelper))
+        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, ILogger logger, ISystemParamsHelper systemParamsHelper) : base(logger, DeriveSystemUrl(systemParamsHelper))
         {
 
             _monitorData = monitorData;
             _databaseService = databaseService;
             _pingInfoService = pingInfoService;
             Setup();
-        }
-
-        private static ILogger DeriveLogger(INetLoggerFactory loggerFactory)
-        {
-            return loggerFactory.GetLogger("RabbitListener");
         }
 
         private static SystemUrl DeriveSystemUrl(ISystemParamsHelper systemParamsHelper)

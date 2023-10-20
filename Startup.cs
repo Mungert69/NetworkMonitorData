@@ -16,11 +16,7 @@ using NetworkMonitor.Utils;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Objects.Repository;
 using HostInitActions;
-using Microsoft.AspNetCore.StaticFiles;
-using System.IO;
-using System.Reflection;
-using System.Linq;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using NetworkMonitor.Utils.Helpers;
 namespace NetworkMonitor.Data
 {
@@ -52,7 +48,7 @@ namespace NetworkMonitor.Data
                         mySqlOptions.CommandTimeout(600);  // Set to 600 seconds, for example
                     }
             ));
-
+            services.AddLogging();
             services.AddSingleton<IMonitorData, MonitorData>();
             services.AddSingleton<IDatabaseQueueService, DatabaseQueueService>();
             services.AddSingleton<INetLoggerFactory, NetLoggerFactory>();

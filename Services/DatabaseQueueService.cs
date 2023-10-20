@@ -6,7 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Data;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
-Using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -32,10 +32,10 @@ namespace NetworkMonitor.Data.Services
         private TaskQueue taskQueue = new TaskQueue();
 
         private List<string> _queuedProcessorJobIds = new List<string>();
-        public DatabaseQueueService(IConfiguration config, INetLoggerFactory loggerFactory, IServiceScopeFactory scopeFactory)
+        public DatabaseQueueService(IConfiguration config, ILogger logger, IServiceScopeFactory scopeFactory)
         {
             _config = config;
-            _logger = loggerFactory.GetLogger("DatabaseQueueService");
+            _logger = logger;
             _scopeFactory = scopeFactory;
         }
 

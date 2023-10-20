@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-Using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NetworkMonitor.Data;
 using NetworkMonitor.Objects.Factory;
 using System;
@@ -29,8 +29,16 @@ namespace NetworkMonitor.Data
                 }
                 catch (Exception ex)
                 {
-                    INetLoggerFactory loggerFactory = services.GetRequiredService<INetLoggerFactory>();
-                    ILogger logger = loggerFactory.GetLogger("MonitorData");
+                    using var loggerFactory = LoggerFactory.Create(builder =>
+                            {
+                                builder
+                                    .AddFilter("Microsoft", LogLevel.Warning)  // Log only warnings from Microsoft namespaces
+                                    .AddFilter("System", LogLevel.Warning)     // Log only warnings from System namespaces
+                                    .AddFilter("Program", LogLevel.Debug)      // Log all messages from Program class
+                                    .AddConsole();                             // Add console logger
+                            });
+
+                    var logger = loggerFactory.CreateLogger<Program>();
                     logger.LogError("An error occurred while seeding the database. Error was : " + ex.ToString());
                 }
             }

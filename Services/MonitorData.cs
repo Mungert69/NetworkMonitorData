@@ -6,7 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Data;
 using NetworkMonitor.Utils;
-Using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,7 +42,7 @@ namespace NetworkMonitor.Data.Services
         public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
         public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
 
-        public MonitorData(IConfiguration config, INetLoggerFactory loggerFactory, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService)
+        public MonitorData(IConfiguration config, ILogger logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService)
         {
             _config = config;
             _databaseService = databaseService;
@@ -50,7 +50,7 @@ namespace NetworkMonitor.Data.Services
             _token = cancellationTokenSource.Token;
             _token.Register(() => OnStopping());
             _scopeFactory = scopeFactory;
-            _logger = loggerFactory.GetLogger("MonitorData");
+            _logger = logger;
             _systemParamsHelper = systemParamsHelper;
         }
         private void OnStopping()

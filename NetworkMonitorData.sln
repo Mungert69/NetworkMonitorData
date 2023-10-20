@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.5.001.0
+VisualStudioVersion = 17.5.002.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetworkMonitorData", "NetworkMonitorData.csproj", "{4DA954A5-D31B-4C4E-82C8-3F8427E4F9BE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetworkMonitorData", "NetworkMonitorData.csproj", "{1A6ED064-2925-4E29-8D9E-21FB8E004635}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4DA954A5-D31B-4C4E-82C8-3F8427E4F9BE}.LogDebug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4DA954A5-D31B-4C4E-82C8-3F8427E4F9BE}.LogDebug|Any CPU.Build.0 = Debug|Any CPU
-		{4DA954A5-D31B-4C4E-82C8-3F8427E4F9BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4DA954A5-D31B-4C4E-82C8-3F8427E4F9BE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A6ED064-2925-4E29-8D9E-21FB8E004635}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A6ED064-2925-4E29-8D9E-21FB8E004635}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A6ED064-2925-4E29-8D9E-21FB8E004635}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A6ED064-2925-4E29-8D9E-21FB8E004635}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {6039A88C-9B51-423E-BC3F-76B4B88D0FF7}
+		SolutionGuid = {1737C3F0-8336-4843-B430-7BD449B37BAD}
 	EndGlobalSection
 EndGlobal

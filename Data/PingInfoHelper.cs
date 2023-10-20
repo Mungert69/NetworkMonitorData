@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-Using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Data;
 using NetworkMonitor.DTOs;
