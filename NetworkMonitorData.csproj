@@ -9,7 +9,9 @@
     <ContainerImageTag>0.3.0</ContainerImageTag>
       <StartupObject>NetworkMonitor.Data.Program</StartupObject>
 </PropertyGroup>
-
+<PropertyGroup>
+    <Nullable>enable</Nullable>
+</PropertyGroup>
  <!-- <snippet_SuppressWarnings> -->
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
