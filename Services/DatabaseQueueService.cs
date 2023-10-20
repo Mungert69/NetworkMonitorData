@@ -32,7 +32,7 @@ namespace NetworkMonitor.Data.Services
         private TaskQueue taskQueue = new TaskQueue();
 
         private List<string> _queuedProcessorJobIds = new List<string>();
-        public DatabaseQueueService(IConfiguration config, ILogger logger, IServiceScopeFactory scopeFactory)
+        public DatabaseQueueService(IConfiguration config, ILogger<DatabaseQueueService> logger, IServiceScopeFactory scopeFactory)
         {
             _config = config;
             _logger = logger;

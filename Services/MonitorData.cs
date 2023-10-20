@@ -42,7 +42,7 @@ namespace NetworkMonitor.Data.Services
         public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
         public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
 
-        public MonitorData(IConfiguration config, ILogger logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService)
+        public MonitorData(IConfiguration config, ILogger<MonitorData> logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService)
         {
             _config = config;
             _databaseService = databaseService;

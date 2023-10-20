@@ -28,7 +28,7 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private ILogger _logger;
         private IFileRepo _fileRepo;
-        public PingInfoService(IServiceScopeFactory scopeFactory, ILogger logger, IFileRepo fileRepo)
+        public PingInfoService(IServiceScopeFactory scopeFactory, ILogger<PingInfoService> logger, IFileRepo fileRepo)
         {
             _scopeFactory = scopeFactory;
             _fileRepo = fileRepo;

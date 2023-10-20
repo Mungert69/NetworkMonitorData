@@ -41,14 +41,17 @@ namespace NetworkMonitor.Data
                 ServerVersion.AutoDetect(connectionString),
                 mySqlOptions =>
                      {
-                        mySqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 5,
-                        maxRetryDelay: TimeSpan.FromSeconds(10),
-                        errorNumbersToAdd: null);
-                        mySqlOptions.CommandTimeout(600);  // Set to 600 seconds, for example
-                    }
+                         mySqlOptions.EnableRetryOnFailure(
+                         maxRetryCount: 5,
+                         maxRetryDelay: TimeSpan.FromSeconds(10),
+                         errorNumbersToAdd: null);
+                         mySqlOptions.CommandTimeout(600);  // Set to 600 seconds, for example
+                     }
             ));
-            services.AddLogging();
+            services.AddLogging(builder =>
+                {
+                    builder.AddConsole();
+                });
             services.AddSingleton<IMonitorData, MonitorData>();
             services.AddSingleton<IDatabaseQueueService, DatabaseQueueService>();
             services.AddSingleton<INetLoggerFactory, NetLoggerFactory>();
