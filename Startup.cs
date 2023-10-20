@@ -34,7 +34,10 @@ namespace NetworkMonitor.Data
         public void ConfigureServices(IServiceCollection services)
         {
             _services = services;
-
+            services.AddLogging(builder =>
+                          {
+                              builder.AddConsole();
+                          });
             string connectionString = Configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<MonitorContext>(options =>
                 options.UseMySql(connectionString,
@@ -48,10 +51,7 @@ namespace NetworkMonitor.Data
                          mySqlOptions.CommandTimeout(600);  // Set to 600 seconds, for example
                      }
             ));
-            services.AddLogging(builder =>
-                {
-                    builder.AddConsole();
-                });
+
             services.AddSingleton<IMonitorData, MonitorData>();
             services.AddSingleton<IDatabaseQueueService, DatabaseQueueService>();
             services.AddSingleton<INetLoggerFactory, NetLoggerFactory>();
