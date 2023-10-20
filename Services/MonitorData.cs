@@ -21,6 +21,8 @@ namespace NetworkMonitor.Data.Services
         private ILogger _logger;
         private CancellationToken _token;
         private SystemParams _systemParams;
+
+        private IPingInfoService _pingInfoService;
         private IConfiguration _config;
         private PingParams _pingParams;
         private readonly IServiceScopeFactory _scopeFactory;
@@ -42,6 +44,7 @@ namespace NetworkMonitor.Data.Services
         {
             _config = config;
             _databaseService = databaseService;
+            _pingInfoService=pingInfoService;
             _rabbitRepo = rabbitRepo;
             _token = cancellationTokenSource.Token;
             _token.Register(() => OnStopping());
