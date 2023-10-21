@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.002.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetworkMonitorData", "NetworkMonitorData.csproj", "{67809B89-D578-49B5-B5C7-9040A1029381}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{67809B89-D578-49B5-B5C7-9040A1029381}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67809B89-D578-49B5-B5C7-9040A1029381}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67809B89-D578-49B5-B5C7-9040A1029381}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67809B89-D578-49B5-B5C7-9040A1029381}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B9B92F25-9140-438F-84CE-53FDA296313D}
+	EndGlobalSection
+EndGlobal
