@@ -49,9 +49,9 @@ namespace NetworkMonitor.Data
             }
         }
 
-public string GetNextProcessorAppID()
+public string GetNextProcessorAppID(string endPointType)
 {
-    var availableProcessors = _processorList.Where(o => o.Load < o.MaxLoad).ToList();
+    var availableProcessors = _processorList.Where(o => o.Load < o.MaxLoad && (o.DisabledEndPointTypes==null || !o.DisabledEndPointTypes.Contains(endPointType))).ToList();
 
     if (availableProcessors.Count == 0)
     {
