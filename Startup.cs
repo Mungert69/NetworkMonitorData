@@ -48,7 +48,7 @@ namespace NetworkMonitor.Data
                          maxRetryCount: 5,
                          maxRetryDelay: TimeSpan.FromSeconds(10),
                          errorNumbersToAdd: null);
-                         mySqlOptions.CommandTimeout(1200);  // Set to 2m, for example
+                         mySqlOptions.CommandTimeout(1200);  // Set to 20m, for example
                      }
             ));
 
