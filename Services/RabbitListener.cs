@@ -205,7 +205,7 @@ namespace NetworkMonitor.Data.Services
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.initData " + ex.Message);
                         }
                     };
                         break;
