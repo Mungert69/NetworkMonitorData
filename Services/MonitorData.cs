@@ -186,6 +186,7 @@ namespace NetworkMonitor.Data.Services
                     {
                         publishObj = new MonitorDataInitObj();
                         publishObj.IsDataMessage = true;
+                        publishObj.IsDataReady=true;
                         await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                         result.Message += "Received DataCheck so Published event DataReady";
                         result.Success = true;
@@ -206,6 +207,7 @@ namespace NetworkMonitor.Data.Services
                     {
                         publishObj = new MonitorDataInitObj();
                         publishObj.IsDataSaveMessage = true;
+                        publishObj.IsDataSaveReady=true;
                         await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", publishObj);
                         result.Message += "Received DataCheck so Published event DataSaveReady";
                         result.Success = true;

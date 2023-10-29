@@ -229,7 +229,7 @@ namespace NetworkMonitor.Data.Services
             }
             returnResult.Message = result.Message;
             returnResult.Success = result.Success;
-            returnResult.Data = (Object)result.Data;
+            returnResult.Data = (object)result.Data;
             return returnResult;
         }
         public async Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj)
