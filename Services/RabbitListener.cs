@@ -84,6 +84,12 @@ namespace NetworkMonitor.Data.Services
                 FuncName = "saveData",
                 MessageTimeout = 2160000
             });
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "initData",
+                FuncName = "saveData",
+                MessageTimeout = 2160000
+            });
 
 
 
@@ -188,6 +194,21 @@ namespace NetworkMonitor.Data.Services
                         }
                     };
                         break;
+                    case "initData":
+                        rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                        rabbitMQObj.Consumer.Received += async (model, ea) =>
+                    {
+                        try
+                        {
+                            result = await InitData(ConvertToObject<MonitorDataInitObj>(model, ea));
+                            rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
+                        }
+                    };
+                        break;
 
 
                 }
@@ -236,7 +257,7 @@ namespace NetworkMonitor.Data.Services
         {
             ResultObj result = new ResultObj();
             result.Success = false;
-            result.Message = "MessageAPI : MonitorCheck : ";
+            result.Message = "MessageAPI : DataCheck : ";
             try
             {
                 result = await _monitorData.DataCheck(serviceObj);
@@ -302,7 +323,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
- public async Task<ResultObj> RestorePingInfosForAllUsers()
+        public async Task<ResultObj> RestorePingInfosForAllUsers()
         {
             ResultObj result = new ResultObj();
             result.Success = false;
@@ -345,6 +366,33 @@ namespace NetworkMonitor.Data.Services
                 result.Success = false;
                 result.Message += "Error : Failed to run SaveData : Error was : " + e.Message + " ";
                 _logger.LogError("Error : Failed to run SaveData : Error was : " + e.Message + " ");
+            }
+            return result;
+        }
+        public async Task<ResultObj> InitData(MonitorDataInitObj serviceObj)
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : InitData : ";
+            try
+            {
+                result = await _monitorData.InitService(serviceObj);
+                if (result.Success)
+                {
+                    _logger.LogInformation(result.Message);
+                }
+                else
+                {
+                    _logger.LogError(result.Message);
+                }
+
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+                _logger.LogError(result.Message);
             }
             return result;
         }

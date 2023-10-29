@@ -10,7 +10,7 @@ namespace NetworkMonitor.Data.Services
   public interface IMonitorData
   {
     Task Init();
-    Task InitService(MonitorDataInitObj serviceObj);
+    Task<ResultObj> InitService(MonitorDataInitObj serviceObj);
     PingParams PingParams { get; set; }
     SystemParams SystemParams { get; set; }
    

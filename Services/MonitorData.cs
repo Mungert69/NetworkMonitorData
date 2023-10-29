@@ -81,8 +81,11 @@ namespace NetworkMonitor.Data.Services
             await InitService(serviceObj);
 
         }
-        public async Task InitService(MonitorDataInitObj serviceObj)
+        public async Task<ResultObj> InitService(MonitorDataInitObj serviceObj)
         {
+            var result=new ResultObj();
+            result.Message=$"SERVICE : InitService : with InitTotalResetAlertMessage {serviceObj.InitTotalResetAlertMessage}  InitTotalResetProcesser {serviceObj.InitTotalResetProcesser} InitResetProcessor{serviceObj.InitResetProcessor}  InitUpdateAlertMessage{serviceObj.InitUpdateAlertMessage}";
+            result.Success=true;
             _awake = false;
             var userInfos = new List<UserInfo>();
             PingParams = new PingParams();
@@ -95,10 +98,17 @@ namespace NetworkMonitor.Data.Services
                 _config.GetSection("ProcessorList").Bind(_processorState.ProcessorList);
                 _logger.LogDebug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
                 _logger.LogDebug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
+                var message=" Got ProcessorList, SystemParams and PingParams from appsettings. ";
+                result.Message+=message;
+                _logger.LogInformation(message);
+
             }
             catch (Exception e)
             {
-                _logger.LogCritical(" Error : Unable to set SystemParms . Error was : " + e.ToString());
+                result.Success=false;
+                var message=" Error : Unable to set SystemParms . Error was : " + e.ToString();
+                result.Message+=message;
+                _logger.LogCritical(message);
             }
             ProcessorInitObj initObj = new ProcessorInitObj();
             AlertServiceInitObj alertObj = new AlertServiceInitObj();
@@ -113,6 +123,9 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogDebug("DATA : Retreived MonitorIPs " + _processorState.MonitorIPs.Count + " from database.");
                 userInfos = await monitorContext.UserInfos.Where(w => w.Enabled == true).ToListAsync();
                 _logger.LogDebug("DATA : Retreived UserInfos " + userInfos.Count + " from database.");
+                var message=" Got MonitorIPs and UserInfos from Database. ";
+                result.Message+=message;
+                _logger.LogInformation(message);
             }
             initObj.PingParams = _pingParams;
             /*foreach (MonitorIP monIP in _processorState.MonitorIPs)
@@ -130,16 +143,22 @@ namespace NetworkMonitor.Data.Services
             _logger.LogDebug("PingParmas: " + JsonUtils.writeJsonObjectToString(initObj.PingParams));
             try
             {
+                var message="";
                 foreach (var processorObj in _processorState.ProcessorList)
                 {
                     initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
-                    _logger.LogInformation("Sent ProcessorInit event to appID "+processorObj.AppID);
+                    message+="Sent ProcessorInit event to appID "+processorObj.AppID;
                 }
+                _logger.LogInformation(message);
+                result.Message+=message;
             }
             catch (Exception e)
             {
-                _logger.LogError("Error : Can not publish event  processorInit Error was : " + e.Message.ToString());
+                result.Success=false;
+                var message="Error : Can not publish event  processorInit Error was : " + e.Message.ToString();
+                result.Message+=message;
+                _logger.LogError(message);
             }
             try
             {
@@ -148,11 +167,16 @@ namespace NetworkMonitor.Data.Services
                 ListUtils.RemoveNestedMonitorIPs(userInfos);
                 alertObj.UserInfos = userInfos;
                 await _rabbitRepo.PublishAsync<AlertServiceInitObj>("alertMessageInit", alertObj);
-                _logger.LogDebug("Sent alertMessageInit event. ");
+                var message="Sent alertMessageInit event. ";
+                result.Message+=message;
+                _logger.LogDebug(message);
             }
             catch (Exception e)
             {
-                _logger.LogError("Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString());
+                result.Success=false;
+                var message="Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString();
+                result.Message+=message;
+                _logger.LogError(message);
             }
 
             try
@@ -161,13 +185,20 @@ namespace NetworkMonitor.Data.Services
                 serviceObj.IsDataReady = true;
                 serviceObj.IsDataMessage = true;
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
-                _logger.LogInformation("Published event MonitorDataInitObj.IsMonitorDataReady = true");
+                var message="Published event MonitorDataInitObj.IsMonitorDataReady = true";
+                result.Message+=message;
+                _logger.LogInformation(message);
+            
             }
             catch (Exception e)
             {
-                _logger.LogError("Error : Can not publish event monitorDataReady Error was : " + e.Message.ToString());
+                result.Success=false;
+                var message="Error : Can not publish event monitorDataReady Error was : " + e.Message.ToString();
+                result.Message+=message;
+                _logger.LogError(message);
             }
             _awake = true;
+            return result;
         }
 
 
