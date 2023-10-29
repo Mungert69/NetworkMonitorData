@@ -87,8 +87,8 @@ namespace NetworkMonitor.Data.Services
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "initData",
-                FuncName = "saveData",
-                MessageTimeout = 2160000
+                FuncName = "initData",
+                MessageTimeout = 60000
             });
 
 
