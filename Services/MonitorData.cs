@@ -84,7 +84,7 @@ namespace NetworkMonitor.Data.Services
         public async Task<ResultObj> InitService(MonitorDataInitObj serviceObj)
         {
             var result=new ResultObj();
-            result.Message=$"SERVICE : InitService : with InitTotalResetAlertMessage {serviceObj.InitTotalResetAlertMessage}  InitTotalResetProcesser {serviceObj.InitTotalResetProcesser} InitResetProcessor{serviceObj.InitResetProcessor}  InitUpdateAlertMessage{serviceObj.InitUpdateAlertMessage}";
+            result.Message=$" SERVICE : InitService : with InitTotalResetAlertMessage={serviceObj.InitTotalResetAlertMessage}  InitTotalResetProcesser={serviceObj.InitTotalResetProcesser} InitResetProcessor={serviceObj.InitResetProcessor}  InitUpdateAlertMessage={serviceObj.InitUpdateAlertMessage}";
             result.Success=true;
             _awake = false;
             var userInfos = new List<UserInfo>();
@@ -148,7 +148,7 @@ namespace NetworkMonitor.Data.Services
                 {
                     initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
-                    message+="Sent ProcessorInit event to appID "+processorObj.AppID;
+                    message+=" Sent ProcessorInit event to appID "+processorObj.AppID+" . ";
                 }
                 _logger.LogInformation(message);
                 result.Message+=message;
@@ -174,7 +174,7 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Success=false;
-                var message="Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString();
+                var message=" Error : Can not publish event  alertMessageInit Error was : " + e.Message.ToString();
                 result.Message+=message;
                 _logger.LogError(message);
             }
@@ -185,7 +185,7 @@ namespace NetworkMonitor.Data.Services
                 serviceObj.IsDataReady = true;
                 serviceObj.IsDataMessage = true;
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
-                var message="Published event MonitorDataInitObj.IsMonitorDataReady = true";
+                var message=" Published event MonitorDataInitObj.IsMonitorDataReady = true";
                 result.Message+=message;
                 _logger.LogInformation(message);
             
@@ -193,7 +193,7 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Success=false;
-                var message="Error : Can not publish event monitorDataReady Error was : " + e.Message.ToString();
+                var message=" Error : Can not publish event monitorDataReady Error was : " + e.Message.ToString();
                 result.Message+=message;
                 _logger.LogError(message);
             }
