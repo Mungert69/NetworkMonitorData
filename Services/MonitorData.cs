@@ -94,6 +94,7 @@ namespace NetworkMonitor.Data.Services
 
                 SystemParams = _systemParamsHelper.GetSystemParams();
                 PingParams = _systemParamsHelper.GetPingParams();
+                if (serviceObj.IsTestMode) PingParams.Timeout=10000;
                 _processorState.ProcessorList = new List<ProcessorObj>();
                 _config.GetSection("ProcessorList").Bind(_processorState.ProcessorList);
                 _logger.LogDebug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
