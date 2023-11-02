@@ -327,7 +327,7 @@ namespace NetworkMonitor.Data.Services
             {
                 var lastPingInfos = new List<PingInfo>();
                 var batchMonitorPingInfos = await monitorContext.MonitorPingInfos.AsNoTracking()
-                    .Where(m => m.UserID == user.UserID && m.DateStarted < thresholdDate)
+                    .Where(m => m.UserID == user.UserID && m.DateStarted < thresholdDate && !m.IsArchived)
                     .OrderBy(m => m.ID)
                     .Skip(skip)
                     .Take(batchSize)
