@@ -12,6 +12,7 @@ using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 namespace NetworkMonitor.Data.Services
 {
     public interface IPingInfoService
@@ -19,7 +20,7 @@ namespace NetworkMonitor.Data.Services
         Task FilterPingInfosBasedOnAccountType(bool filterDefaultUser);
         Task<ResultObj> FilterReducePingInfos(int filterTimeMonths, bool filterDefaultUser);
         Task<ResultObj> RestorePingInfosForAllUsers();
-        Task<ResultObj> RestorePingInfosForSingleUser(string userId, string customerId = null);
+        Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string customerId = null);
         Task<TResultObj<int>> ImportPingInfosFromFile(string filePath);
         Task<ResultObj> ImportMonitorPingInfosFromFile(UserInfo user, int monitorPingInfoID);
     }
@@ -34,9 +35,9 @@ namespace NetworkMonitor.Data.Services
             _fileRepo = fileRepo;
             _logger = logger;
         }
-        public async Task<ResultObj> RestorePingInfosForSingleUser(string userId, string customerId = null)
+        public async Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string customerId = null)
         {
-            ResultObj result = new ResultObj();
+            var result = new TResultObj<string>();
             result.Message = "SERVICE : PingInfoService.RestorePingInfosForSingleUser() ";
             result.Success = false;
             int successfulImports = 0;

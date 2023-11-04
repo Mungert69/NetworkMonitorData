@@ -140,7 +140,10 @@ namespace NetworkMonitor.Data.Services
                     {
                         try
                         {
-                            result = await UpdateUserPingInfos(ConvertToObject<PaymentTransaction>(model, ea));
+                            var tResult = await UpdateUserPingInfos(ConvertToObject<PaymentTransaction>(model, ea));
+                            result.Success = tResult.Success;
+                            result.Message = tResult.Message;
+                            result.Data = tResult.Data;
                             rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
                         }
                         catch (Exception ex)
@@ -272,9 +275,9 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
-        public async Task<ResultObj> UpdateUserPingInfos(PaymentTransaction paymentTransaction)
+        public async Task<TResultObj<string>> UpdateUserPingInfos(PaymentTransaction paymentTransaction)
         {
-            ResultObj result = new ResultObj();
+            var result = new TResultObj<string>();
             result.Success = false;
             result.Message = "MessageAPI : UpdateUserPingInfos : ";
             try
