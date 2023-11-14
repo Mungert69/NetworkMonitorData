@@ -1,1 +1,1 @@
-nohup ../services/monitordata/NetworkMonitorData &
+nohup ../services/data/NetworkMonitorData &

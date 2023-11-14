@@ -1,1 +1,4 @@
-dotnet publish NetworkMonitorData.csproj --os linux --arch x64  --output ../services/monitordata -c Release --self-contained true 
+rm -r ../services/data/*
+dotnet clean
+dotnet publish NetworkMonitorData.csproj --os linux --arch x64  --output ../services/data -c Release --self-contained true 
+
