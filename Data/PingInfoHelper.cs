@@ -202,7 +202,7 @@ namespace NetworkMonitor.Utils.Helpers
             var pingInfos = await GetPingInfosWithStatus(monitorPingInfoID, startDate, endDate);
             return MapPingInfosToDTO(pingInfos);
         }
-        public async Task<List<PingInfo>> ProcessPingInfos(int monitorPingInfoID, DateTime startDate, DateTime endDate)
+        public async Task<List<PingInfo>> ProcessPingInfos(int monitorPingInfoID, DateTime? startDate, DateTime? endDate)
         {
             await SetStatusList();
             var pingInfos = await GetPingInfosWithStatus(monitorPingInfoID, startDate, endDate);
