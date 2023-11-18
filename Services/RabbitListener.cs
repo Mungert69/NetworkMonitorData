@@ -22,6 +22,7 @@ namespace NetworkMonitor.Data.Services
         Task<ResultObj> SaveData();
         Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj);
         Task<ResultObj> DataPurge();
+         Task<ResultObj> Report();
         Task<ResultObj> RestorePingInfosForAllUsers();
 
     }
@@ -32,13 +33,15 @@ namespace NetworkMonitor.Data.Services
         protected IDatabaseQueueService _databaseService;
 
         protected IPingInfoService _pingInfoService;
+        protected IReportService _reportService;
         protected IMonitorIPService _monitorIPService;
-        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService,ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper) : base(logger, DeriveSystemUrl(systemParamsHelper))
+        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService,IReportService reportService,ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper) : base(logger, DeriveSystemUrl(systemParamsHelper))
         {
 
             _monitorData = monitorData;
             _databaseService = databaseService;
             _pingInfoService = pingInfoService;
+            _reportService=reportService;
             _monitorIPService=monitorIPService;
             Setup();
         }
@@ -91,6 +94,12 @@ namespace NetworkMonitor.Data.Services
                 ExchangeName = "initData",
                 FuncName = "initData",
                 MessageTimeout = 60000
+            });
+             _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "createHostSummaryReport",
+                FuncName = "createHostSummaryReport",
+                MessageTimeout = 2160000
             });
 
 
@@ -213,6 +222,21 @@ namespace NetworkMonitor.Data.Services
                         catch (Exception ex)
                         {
                             _logger.LogError(" Error : RabbitListener.DeclareConsumers.initData " + ex.Message);
+                        }
+                    };
+                        break;
+                          case "createHostSummaryReport":
+                        rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                        rabbitMQObj.Consumer.Received += async (model, ea) =>
+                    {
+                        try
+                        {
+                            result = await CreateHostSummaryReport();
+                            rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(" Error : RabbitListener.DeclareConsumers.report " + ex.Message);
                         }
                     };
                         break;
@@ -424,6 +448,25 @@ namespace NetworkMonitor.Data.Services
                     _logger.LogError(result.Message);
                 }
 
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+                _logger.LogError(result.Message);
+            }
+            return result;
+        }
+  public async Task<ResultObj> CreateHostSummaryReport()
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : CreateHostSummaryReport : ";
+            try
+            {
+                result = await _reportService.CreateHostSummaryReport();
+                _logger.LogInformation(result.Message);
             }
             catch (Exception e)
             {

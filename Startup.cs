@@ -59,7 +59,8 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IRabbitRepo, RabbitRepo>();
             services.AddSingleton<IFileRepo, FileRepo>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
-                        services.AddSingleton<IMonitorIPService, MonitorIPService>();
+            services.AddSingleton<IMonitorIPService, MonitorIPService>();
+            services.AddSingleton<IReportService, ReportService>();
             services.AddSingleton<ISystemParamsHelper, SystemParamsHelper>();
             services.AddSingleton(_cancellationTokenSource);
             services.Configure<HostOptions>(s => s.ShutdownTimeout = TimeSpan.FromMinutes(5));
