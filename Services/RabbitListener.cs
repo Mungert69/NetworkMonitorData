@@ -32,12 +32,14 @@ namespace NetworkMonitor.Data.Services
         protected IDatabaseQueueService _databaseService;
 
         protected IPingInfoService _pingInfoService;
-        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper) : base(logger, DeriveSystemUrl(systemParamsHelper))
+        protected IMonitorIPService _monitorIPService;
+        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService,ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper) : base(logger, DeriveSystemUrl(systemParamsHelper))
         {
 
             _monitorData = monitorData;
             _databaseService = databaseService;
             _pingInfoService = pingInfoService;
+            _monitorIPService=monitorIPService;
             Setup();
         }
 
@@ -102,6 +104,8 @@ namespace NetworkMonitor.Data.Services
                 _rabbitMQObjs.ForEach(rabbitMQObj =>
             {
                 rabbitMQObj.Consumer = new EventingBasicConsumer(rabbitMQObj.ConnectChannel);
+                if (rabbitMQObj.ConnectChannel != null)
+                {
                 switch (rabbitMQObj.FuncName)
                 {
                     case "dataUpdateMonitorPingInfos":
@@ -215,6 +219,7 @@ namespace NetworkMonitor.Data.Services
 
 
                 }
+            }
             });
                 result.Success = true;
                 result.Message += " Success : Declared all consumers ";
@@ -253,14 +258,18 @@ namespace NetworkMonitor.Data.Services
             }
             returnResult.Message = result.Message;
             returnResult.Success = result.Success;
-            returnResult.Data = (object)result.Data;
+            returnResult.Data = (object)result.Data!;
             return returnResult;
         }
-        public async Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj)
+        public async Task<ResultObj> DataCheck(MonitorDataInitObj? serviceObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : DataCheck : ";
+              if (serviceObj==null){
+                result.Message+=" Error : serviceObj  is Null ";
+                return result;
+            }
             try
             {
                 result = await _monitorData.DataCheck(serviceObj);
@@ -275,14 +284,18 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
-        public async Task<TResultObj<string>> UpdateUserPingInfos(PaymentTransaction paymentTransaction)
+        public async Task<TResultObj<string>> UpdateUserPingInfos(PaymentTransaction? paymentTransaction)
         {
             var result = new TResultObj<string>();
             result.Success = false;
             result.Message = "MessageAPI : UpdateUserPingInfos : ";
+              if (paymentTransaction==null){
+                result.Message+=" Error : paymentTranaction is Null ";
+                return result;
+            }
             try
             {
-                result = await _pingInfoService.RestorePingInfosForSingleUser("", paymentTransaction.UserInfo.CustomerId);
+                result = await _pingInfoService.RestorePingInfosForSingleUser("", paymentTransaction.UserInfo.CustomerId!);
                 paymentTransaction.Result = result;
                 if (result.Success)
                 {
@@ -311,18 +324,36 @@ namespace NetworkMonitor.Data.Services
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : DataPurge : ";
+            var results= new List<ResultObj>();
             try
             {
-                result = await _monitorData.DataPurge();
-                _logger.LogInformation(result.Message);
+                var resultPurge = await _monitorData.DataPurge();
+                result.Message+=resultPurge.Message;
+                result.Success=resultPurge.Success;
             }
             catch (Exception e)
             {
                 result.Data = null;
                 result.Success = false;
-                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
-                _logger.LogError(result.Message);
+                result.Message += "Error : Failed dataPurge message : Error was : " + e.Message + " ";
+
             }
+             try
+            {
+                var resultMonitorIPs = await _monitorIPService.DisableMonitorIPs();
+                result.Message+=resultMonitorIPs.Message;
+                result.Success=result.Success && resultMonitorIPs.Success;
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to disable MonitorIPs : Error was : " + e.Message + " ";
+
+            }
+
+            if (result.Success) _logger.LogInformation(result.Message);
+            else _logger.LogError(result.Message);
             return result;
         }
 
@@ -372,11 +403,15 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
-        public async Task<ResultObj> InitData(MonitorDataInitObj serviceObj)
+        public async Task<ResultObj> InitData(MonitorDataInitObj? serviceObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : InitData : ";
+             if (serviceObj==null){
+                result.Message+=" Error : serviceObj  is Null ";
+                return result;
+            }
             try
             {
                 result = await _monitorData.InitService(serviceObj);
