@@ -38,7 +38,7 @@ namespace NetworkMonitor.Data.Services
             result.Success = false;
             UserInfo userInfo=new UserInfo(){
                 UserID="84ab1c49-e8f2-4bb0-b347-06a3713c4798"
-            }
+            };
             StringBuilder reportBuilder = new StringBuilder();
             var userList = new List<UserInfo>();
             try

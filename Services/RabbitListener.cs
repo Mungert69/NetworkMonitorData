@@ -22,8 +22,9 @@ namespace NetworkMonitor.Data.Services
         Task<ResultObj> SaveData();
         Task<ResultObj> DataCheck(MonitorDataInitObj serviceObj);
         Task<ResultObj> DataPurge();
-         Task<ResultObj> Report();
+  
         Task<ResultObj> RestorePingInfosForAllUsers();
+         Task<ResultObj> CreateHostSummaryReport();
 
     }
 
