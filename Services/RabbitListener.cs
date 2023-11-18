@@ -327,9 +327,9 @@ namespace NetworkMonitor.Data.Services
             var results= new List<ResultObj>();
             try
             {
-                var resultPurge = await _monitorData.DataPurge();
-                result.Message+=resultPurge.Message;
-                result.Success=resultPurge.Success;
+                //var resultPurge = await _monitorData.DataPurge();
+               // result.Message+=resultPurge.Message;
+                //result.Success=resultPurge.Success;
             }
             catch (Exception e)
             {

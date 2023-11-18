@@ -35,18 +35,22 @@ namespace NetworkMonitor.Data.Services
             var result = new ResultObj();
             result.Message = "SERVICE : MonitorIPService.DisableMonitorIPs : ";
             result.Success = false;
-            var users = new List<UserInfo>();
+            var userList = new List<UserInfo>();
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    users = await monitorContext.UserInfos.Where(u => u.AccountType == "Free" && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
+                    var users = await monitorContext.UserInfos.Where(u => u.AccountType == "Free" && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
                     foreach (var user in users)
                     {
-                        var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.Enabled && w.UserID==user.UserID).ToListAsync();
-                        monitorIPs.ForEach(f => f.Enabled = false);
-                        await monitorContext.SaveChangesAsync();
+                        var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.Enabled && w.UserID == user.UserID).ToListAsync();
+                        if (monitorIPs.Count > 0)
+                        {
+                            monitorIPs.ForEach(f => f.Enabled = false);
+                            await monitorContext.SaveChangesAsync();
+                            userList.Add(user);
+                        }
                     }
                 }
                 result.Success = true;
@@ -63,7 +67,7 @@ namespace NetworkMonitor.Data.Services
             {
                 try
                 {
-                    await _rabbitRepo.PublishAsync<List<UserInfo>>("userHostExpire", users);
+                    await _rabbitRepo.PublishAsync<List<UserInfo>>("userHostExpire", userList);
                     result.Message += " Success : published event userHostExpire";
                 }
                 catch (Exception e)
