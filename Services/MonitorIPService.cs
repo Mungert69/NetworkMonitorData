@@ -41,7 +41,7 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var users = await monitorContext.UserInfos.Where(u => u.AccountType == "Free" && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
+                    var users = await monitorContext.UserInfos.Where(u => u.AccountType == "Free" && u.DisableEmail==false && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
                     foreach (var user in users)
                     {
                         var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.Enabled && w.UserID == user.UserID).ToListAsync();
