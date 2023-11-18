@@ -36,7 +36,7 @@ namespace NetworkMonitor.Data.Services
             for (int i = 0; i < sortedPingInfos.Count; i += 2)
             {
                 var combinedPoint = CombinePoints(new List<PingInfo> { sortedPingInfos[i], sortedPingInfos[i + 1] });
-                combinedPingInfos.Add(combinedPoint);
+                if (combinedPoint!=null) combinedPingInfos.Add(combinedPoint);
             }
 
             return combinedPingInfos;
@@ -45,7 +45,7 @@ namespace NetworkMonitor.Data.Services
 
 
 
-        private static PingInfo CombinePoints(List<PingInfo> pointsToCombine)
+        private static PingInfo? CombinePoints(List<PingInfo> pointsToCombine)
         {
             if (pointsToCombine == null || pointsToCombine.Count != 2) return null;
 
@@ -80,7 +80,7 @@ namespace NetworkMonitor.Data.Services
             else
             {
                 // No timeouts
-                averageRoundTripTime = (ushort)((point1.RoundTripTime.Value + point2.RoundTripTime.Value) / 2);
+                averageRoundTripTime = (ushort)((point1.RoundTripTime!.Value + point2.RoundTripTime!.Value) / 2);
                 averageDateSentInt = (uint)((point1.DateSentInt + point2.DateSentInt) / 2);
                 statusID = point1.StatusID;
             }

@@ -20,7 +20,7 @@ namespace NetworkMonitor.Data.Services
         Task FilterPingInfosBasedOnAccountType(bool filterDefaultUser);
         Task<ResultObj> FilterReducePingInfos(int filterTimeMonths, bool filterDefaultUser);
         Task<ResultObj> RestorePingInfosForAllUsers();
-        Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string customerId = null);
+        Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string? customerId = null);
         Task<TResultObj<int>> ImportPingInfosFromFile(string filePath);
         Task<ResultObj> ImportMonitorPingInfosFromFile(UserInfo user, int monitorPingInfoID);
     }
@@ -35,7 +35,7 @@ namespace NetworkMonitor.Data.Services
             _fileRepo = fileRepo;
             _logger = logger;
         }
-        public async Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string customerId = null)
+        public async Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string? customerId = null)
         {
             var result = new TResultObj<string>();
             result.Message = "SERVICE : PingInfoService.RestorePingInfosForSingleUser() ";
@@ -47,7 +47,7 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    UserInfo user;
+                    UserInfo? user;
                     if (customerId != null)
                     {
                         user = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.CustomerId == customerId);
@@ -63,10 +63,10 @@ namespace NetworkMonitor.Data.Services
                         return result;
                     }
                     // Get the threshold date based on the user's account type
-                    DateTime thresholdDate = GetThresholdDate(user.AccountType);
+                    DateTime thresholdDate = GetThresholdDate(user.AccountType!);
                     int userSuccessfulImports = 0;
                     int userUnsuccessfulImports = 0;
-                    int userSkipped=0;
+                    int userSkipped = 0;
                     var importedMonitorPingInfoIDs = new List<(int, int)>();
                     // Get the MonitorPingInfos for the user that are newer than the threshold date
                     var userMonitorPingInfos = await monitorContext.MonitorPingInfos
@@ -196,12 +196,18 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     // Load the archived PingInfos from the file
                     var monitorPingInfo = await _fileRepo.GetStateJsonZAsync<MonitorPingInfo>(filePath);
+                    if (monitorPingInfo == null) 
+                    {
+                        result.Success = false;
+                        result.Data = 0;
+                        return result;
+                    }
                     var pingInfosFromFile = monitorPingInfo.PingInfos;
                     int pingInfoCount = 0;
                     if (pingInfosFromFile != null && pingInfosFromFile.Any())
                     {
                         var updateMonitorPingInfo = await monitorContext.MonitorPingInfos.FindAsync(monitorPingInfo.ID);
-                        if (updateMonitorPingInfo.PingInfos.Count <= 1)
+                        if (updateMonitorPingInfo != null && updateMonitorPingInfo.PingInfos.Count <= 1)
                         {
                             pingInfosFromFile.ForEach(f => f.ID = 0);
                             if (updateMonitorPingInfo.PingInfos.Count == 1) updateMonitorPingInfo.PingInfos.RemoveAt(0);
@@ -318,7 +324,7 @@ namespace NetworkMonitor.Data.Services
         }
         private async Task FilterPingInfosForUser(UserInfo user, MonitorContext monitorContext)
         {
-            DateTime thresholdDate = GetThresholdDate(user.AccountType);
+            DateTime thresholdDate = GetThresholdDate(user.AccountType!);
             //thresholdDate=DateTime.UtcNow;
             _logger.LogInformation("Filtering user " + user.UserID);
             const int batchSize = 100; // Adjust this value based on your needs
@@ -357,7 +363,7 @@ namespace NetworkMonitor.Data.Services
                         var lastPingInfo = monitorPingInfo.PingInfos.Where(w => w.ID == lastPingInfoId).FirstOrDefault();
                         if (lastPingInfo != null)
                         {
-                            string duration = GetDurationString(user.AccountType);
+                            string duration = GetDurationString(user.AccountType!);
                             if (user.UserID == "default")
                             {
                                 lastPingInfo.Status = $"This version of Network Monitor is limited to viewing data no older than {duration} . Upgrade your {user.AccountType} plan to view this data. Either install the Auth Network Monitor Plugin, login and upgrade your subscription or visit https:/freenetworkmonitor.click/subscription, login and upgrade your subscription. You will then be able to view this data. Make sure to login with the same email address you have used to add hosts in this plugin. ";
