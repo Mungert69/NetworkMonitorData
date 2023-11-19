@@ -42,7 +42,7 @@ namespace NetworkMonitor.Data.Services
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
 
-                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).Take(50).ToListAsync();
+                    var users = await monitorContext.UserInfos.Where(u =>  u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     foreach (var userInfo in users)
                     {
                         UserInfo? user = new UserInfo();
@@ -62,7 +62,7 @@ namespace NetworkMonitor.Data.Services
                         user.Email = "contact@mahadeva.co.uk";
                         user.Email_verified = true;
                         user.DisableEmail = false;
-                        var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && !w.Hidden && w.Address!="https://your-website-address.here").ToListAsync();
+                        var monitorIPs = await monitorContext.MonitorIPs.Where(w =>  w.UserID == user.UserID && !w.Hidden && w.Address!="https://your-website-address.here" ).ToListAsync();
                         if (monitorIPs != null && monitorIPs.Count > 0)
                         {
                             reportBuilder.AppendLine("<h3>Hello there! Here's your comprehensive weekly report:</h3>");
@@ -75,18 +75,17 @@ namespace NetworkMonitor.Data.Services
                             reportBuilder.AppendLine("<h3>That's it for this week! Stay tuned for more insights next time.</h3>");
                             reportBuilder.AppendLine("<p>Remember, monitoring is key to maintaining a robust online presence.</p>");
                             reportBuilder.AppendLine($"<p>.. This reporting feature is in beta. Please provide feedback by replying to this email . Please quote you UserID {userInfo.UserID}...</p>");
-
+                             result.Success = true;
+                        result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
+                       
                         }
                         else
                         {
                             result.Success = false;
                             result.Message += $" Error : There are no hosts for the user {userInfo.UserID} . ";
-                            return result;
                         }
 
 
-                        result.Success = true;
-                        result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
                         if (result.Success)
                         {
                             try
@@ -146,7 +145,7 @@ namespace NetworkMonitor.Data.Services
                     bool serverDownWholeTime = uptimePercentage == 0;
 
                     reportBuilder.AppendLine($"<p>- Average Response Time: {(serverDownWholeTime ? "N/A" : averageResponseTime.ToString("F0"))} ms.</p>");
-                    reportBuilder.AppendLine($"<p>- Uptime: {uptimePercentage.ToString("F0")}%.</p>");
+                    reportBuilder.AppendLine($"<p>- Uptime: {uptimePercentage.ToString("F2")}%.</p>");
                     reportBuilder.AppendLine($"<p>- Number of Incidents: {incidentCount}</p>");
 
                     // User-friendly summaries and insights
@@ -158,11 +157,11 @@ namespace NetworkMonitor.Data.Services
                     {
                         uptimeCategory = "ZeroUptime";
                     }
-                    else if (uptimePercentage > 95)
+                    else if (uptimePercentage > 98)
                     {
                         uptimeCategory = "GoodUptime";
                     }
-                    else if (uptimePercentage > 70) // Assuming that below 70% is considered 'BadUptime'
+                    else if (uptimePercentage > 80) // Assuming that below 80% is considered 'BadUptime'
                     {
                         uptimeCategory = "PoorUptime";
                     }
@@ -209,18 +208,19 @@ namespace NetworkMonitor.Data.Services
         }
         private string DeterminePerformanceCategory(bool serverDownWholeTime, double uptimePercentage, double averageResponseTime, int incidentCount)
         {
+            if (serverDownWholeTime) return "PoorPerformance";
             // Define stricter thresholds and weights
             const double strictUptimeThreshold = 98; // Higher threshold for good uptime
-            const double strictResponseTimeThreshold = 150; // Lower threshold for good response time
+            const double strictResponseTimeThreshold = 500; // Lower threshold for good response time
             const int strictStabilityThreshold = 0; // Allowing for minimal incidents
 
             int score = 0;
 
             // Uptime score
-            score += serverDownWholeTime ? 0 : (uptimePercentage > strictUptimeThreshold ? 3 : (uptimePercentage > 90 ? 2 : 1));
+            score += serverDownWholeTime ? 0 : (uptimePercentage > strictUptimeThreshold ? 3 : (uptimePercentage > 80 ? 2 : 1));
 
             // Response time score
-            score += averageResponseTime < strictResponseTimeThreshold ? 2 : (averageResponseTime < 500 ? 1 : 0);
+            score += averageResponseTime < strictResponseTimeThreshold ? 2 : (averageResponseTime < 1000 ? 1 : 0);
 
 
             // Stability score
