@@ -239,7 +239,7 @@ namespace NetworkMonitor.Data.Services
     {"GoodUptime", new List<string>
         {
             "Superb uptime! Your network's reliability is top-notch.",
-            "Fantastic uptime! Your system's stability is impressive.",
+            "Excellent uptime! Your system's reliability and consistent performance are noteworthy.",
             "Great job! Your network is consistently up and running.",
             "Excellent uptime! Your system is performing reliably."
         }
