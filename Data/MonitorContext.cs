@@ -26,6 +26,7 @@ namespace NetworkMonitor.Data
         public DbSet<BlogCategory> BlogCategories { get; set; }
         public DbSet<BlogPicture> BlogPictures { get; set; }
         public DbSet<LogChatGPTObj> ChatGPTLogs {get;set;}
+                public DbSet<UserAuthInfo> UserAuthInfos { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -41,6 +42,7 @@ namespace NetworkMonitor.Data
             modelBuilder.Entity<PingInfo>().ToTable("PingInfos");
             modelBuilder.Entity<StatusObj>().ToTable("StatusObjs");
              modelBuilder.Entity<LogChatGPTObj>().ToTable("ChatGPTLogs");
+              modelBuilder.Entity<UserAuthInfo>().ToTable("UserAuthInfos");
             
         }
     }
