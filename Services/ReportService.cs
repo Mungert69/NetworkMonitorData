@@ -56,7 +56,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             result.Success = false;
                             result.Message += $" Error : Can't find user {userInfo.UserID} . ";
-                            return result;
+                            continue;
                         }
 
 
