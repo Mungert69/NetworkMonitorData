@@ -59,9 +59,7 @@ namespace NetworkMonitor.Data.Services
                             return result;
                         }
 
-                        user.Email = "contact@mahadeva.co.uk";
-                        user.Email_verified = true;
-                        user.DisableEmail = false;
+
                         var monitorIPs = await monitorContext.MonitorIPs.Where(w =>  w.UserID == user.UserID && !w.Hidden && w.Address!="https://your-website-address.here" ).ToListAsync();
                         if (monitorIPs != null && monitorIPs.Count > 0)
                         {
