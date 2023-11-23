@@ -49,7 +49,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             monitorIPs.ForEach(f => f.Enabled = false);
                             await monitorContext.SaveChangesAsync();
-                            userList.Add(user);
+                            if (!user.DisableEmail) userList.Add(user);
                         }
                     }
                 }
