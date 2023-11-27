@@ -25,11 +25,13 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private ILogger _logger;
         private IRabbitRepo _rabbitRepo;
-        public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo)
+        private SystemParams _systemParams;
+        public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper)
         {
             _scopeFactory = scopeFactory;
             _rabbitRepo = rabbitRepo;
             _logger = logger;
+            _systemParams = systemParamsHelper.GetSystemParams();
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -41,8 +43,14 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    var uri = _systemParams.ThisSystemUrl.ExternalUrl;
 
-                    var users = await monitorContext.UserInfos.Where(u =>  u.UserID != "default" && !u.DisableEmail).ToListAsync();
+                    StringBuilder sb = new StringBuilder(uri);
+                    sb = sb.TrimEnd(new char[] { ':', '/' });
+                    sb.Append('/');
+
+                    uri = sb.ToString();
+                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     foreach (var userInfo in users)
                     {
                         UserInfo? user = new UserInfo();
@@ -60,7 +68,7 @@ namespace NetworkMonitor.Data.Services
                         }
 
 
-                        var monitorIPs = await monitorContext.MonitorIPs.Where(w =>  w.UserID == user.UserID && !w.Hidden && w.Address!="https://your-website-address.here" ).ToListAsync();
+                        var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here").ToListAsync();
                         if (monitorIPs != null && monitorIPs.Count > 0)
                         {
                             reportBuilder.AppendLine("<h3>Hello there! Here's your comprehensive weekly report:</h3>");
@@ -73,9 +81,9 @@ namespace NetworkMonitor.Data.Services
                             reportBuilder.AppendLine("<h3>That's it for this week! Stay tuned for more insights next time.</h3>");
                             reportBuilder.AppendLine("<p>Remember, monitoring is key to maintaining a robust online presence.</p>");
                             reportBuilder.AppendLine($"<p>.. This reporting feature is in beta. Please provide feedback by replying to this email . Please quote you UserID {userInfo.UserID}...</p>");
-                             result.Success = true;
-                        result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
-                       
+                            result.Success = true;
+                            result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
+
                         }
                         else
                         {
@@ -88,7 +96,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             try
                             {
-                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { UserInfo = user!, Report = reportBuilder.ToString() });
+                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { UserInfo = user!, Report = reportBuilder.ToString(), HeaderImageUri=uri });
                                 result.Message += " Success : published event sentHostReport";
                             }
                             catch (Exception e)
