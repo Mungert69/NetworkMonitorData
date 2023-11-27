@@ -88,7 +88,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             try
                             {
-                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { User = user!, Report = reportBuilder.ToString() });
+                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { UserInfo = user!, Report = reportBuilder.ToString() });
                                 result.Message += " Success : published event sentHostReport";
                             }
                             catch (Exception e)
