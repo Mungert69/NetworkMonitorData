@@ -24,18 +24,23 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private ILogger _logger;
         private IRabbitRepo _rabbitRepo;
-        public MonitorIPService(IServiceScopeFactory scopeFactory, ILogger<MonitorIPService> logger, IRabbitRepo rabbitRepo)
+                private SystemParams _systemParams;
+        public MonitorIPService(IServiceScopeFactory scopeFactory, ILogger<MonitorIPService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper)
         {
             _scopeFactory = scopeFactory;
             _rabbitRepo = rabbitRepo;
             _logger = logger;
+             _systemParams = systemParamsHelper.GetSystemParams();
+       
         }
         public async Task<ResultObj> DisableMonitorIPs()
         {
             var result = new ResultObj();
             result.Message = "SERVICE : MonitorIPService.DisableMonitorIPs : ";
             result.Success = false;
-            var userList = new List<UserInfo>();
+              var uri = _systemParams.ThisSystemUrl.ExternalUrl;
+
+            var emailList = new List<GenericEmailObj>();
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -49,7 +54,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             monitorIPs.ForEach(f => f.Enabled = false);
                             await monitorContext.SaveChangesAsync();
-                            if (!user.DisableEmail) userList.Add(user);
+                            if (!user.DisableEmail) emailList.Add(new GenericEmailObj(){UserInfo=user, HeaderImageUri=uri});
                         }
                     }
                 }
@@ -67,7 +72,7 @@ namespace NetworkMonitor.Data.Services
             {
                 try
                 {
-                    await _rabbitRepo.PublishAsync<List<UserInfo>>("userHostExpire", userList);
+                    await _rabbitRepo.PublishAsync<List<GenericEmailObj>>("userHostExpire", emailList);
                     result.Message += " Success : published event userHostExpire";
                 }
                 catch (Exception e)

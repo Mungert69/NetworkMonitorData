@@ -45,11 +45,7 @@ namespace NetworkMonitor.Data.Services
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var uri = _systemParams.ThisSystemUrl.ExternalUrl;
 
-                    StringBuilder sb = new StringBuilder(uri);
-                    sb = sb.TrimEnd(new char[] { ':', '/' });
-                    sb.Append('/');
-
-                    uri = sb.ToString();
+                 
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     foreach (var userInfo in users)
                     {
