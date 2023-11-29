@@ -50,7 +50,7 @@ namespace NetworkMonitor.Data.Services
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     foreach (var userInfo in users)
                     {
-                        var emailInfo = new EmailInfo() { Email = userInfo.Email! };
+                        var emailInfo = new EmailInfo() { Email = userInfo.Email!, EmailType="HostReport" };
                         UserInfo? user = new UserInfo();
                         StringBuilder reportBuilder = new StringBuilder();
                         var userList = new List<UserInfo>();

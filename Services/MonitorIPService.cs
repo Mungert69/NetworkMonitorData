@@ -49,7 +49,7 @@ namespace NetworkMonitor.Data.Services
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && u.AccountType == "Free" && u.DisableEmail == false && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
                     foreach (var user in users)
                     {
-                        var emailInfo=new EmailInfo(){Email=user.Email!};
+                        var emailInfo=new EmailInfo(){Email=user.Email!, EmailType="UserHostExpire"};
                         var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.Enabled && w.UserID == user.UserID).ToListAsync();
                         if (monitorIPs.Count > 0)
                         {
