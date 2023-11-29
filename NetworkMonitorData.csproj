@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp7.0</TargetFramework>
+    <TargetFramework>netcoreapp8.0</TargetFramework>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <PublishProfile>DefaultContainer</PublishProfile>
-    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:7.0-jammy-amd64</ContainerBaseImage>
+    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:8.0-jammy-amd64</ContainerBaseImage>
     <ContainerImageName>mungert/networkmonitordata</ContainerImageName>
-    <ContainerImageTag>0.5.4</ContainerImageTag>
+    <ContainerImageTag>1.0.0</ContainerImageTag>
       <StartupObject>NetworkMonitor.Data.Program</StartupObject>
 </PropertyGroup>
 <PropertyGroup>
