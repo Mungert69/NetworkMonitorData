@@ -45,10 +45,12 @@ namespace NetworkMonitor.Data.Services
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var uri = _systemParams.ThisSystemUrl.ExternalUrl;
 
-                 
+
+
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     foreach (var userInfo in users)
                     {
+                        var emailInfo = new EmailInfo() { Email = userInfo.Email! };
                         UserInfo? user = new UserInfo();
                         StringBuilder reportBuilder = new StringBuilder();
                         var userList = new List<UserInfo>();
@@ -92,7 +94,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             try
                             {
-                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { UserInfo = user!, Report = reportBuilder.ToString(), HeaderImageUri=uri });
+                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { UserInfo = user!, Report = reportBuilder.ToString(), HeaderImageUri = uri, ID = emailInfo.ID });
                                 result.Message += " Success : published event sentHostReport";
                             }
                             catch (Exception e)
@@ -102,6 +104,21 @@ namespace NetworkMonitor.Data.Services
                                 _logger.LogError("Error : publish event sentHostReport  : Error was : " + e.ToString());
 
                             }
+                            try
+                            {
+                                monitorContext.EmailInfos.Add(emailInfo);
+                                await monitorContext.SaveChangesAsync();
+                                result.Message += " Success : Added new EmailInfo to database .";
+
+                            }
+                            catch (Exception e)
+                            {
+                                result.Message += "Error : failed to add new EmailInfo to database : Error was : " + e.Message;
+                                result.Success = false;
+                                _logger.LogError("Error :  failed to add new EmailInfo to database   : Error was : " + e.ToString());
+
+                            }
+
                         }
                     }
                 }

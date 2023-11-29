@@ -24,21 +24,21 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private ILogger _logger;
         private IRabbitRepo _rabbitRepo;
-                private SystemParams _systemParams;
+        private SystemParams _systemParams;
         public MonitorIPService(IServiceScopeFactory scopeFactory, ILogger<MonitorIPService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper)
         {
             _scopeFactory = scopeFactory;
             _rabbitRepo = rabbitRepo;
             _logger = logger;
-             _systemParams = systemParamsHelper.GetSystemParams();
-       
+            _systemParams = systemParamsHelper.GetSystemParams();
+
         }
         public async Task<ResultObj> DisableMonitorIPs()
         {
             var result = new ResultObj();
             result.Message = "SERVICE : MonitorIPService.DisableMonitorIPs : ";
             result.Success = false;
-              var uri = _systemParams.ThisSystemUrl.ExternalUrl;
+            var uri = _systemParams.ThisSystemUrl.ExternalUrl;
 
             var emailList = new List<GenericEmailObj>();
             try
@@ -46,17 +46,20 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var users = await monitorContext.UserInfos.Where(u => u.UserID!="default" && u.AccountType == "Free" && u.DisableEmail==false && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
+                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && u.AccountType == "Free" && u.DisableEmail == false && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
                     foreach (var user in users)
                     {
+                        var emailInfo=new EmailInfo(){Email=user.Email!};
                         var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.Enabled && w.UserID == user.UserID).ToListAsync();
                         if (monitorIPs.Count > 0)
                         {
                             monitorIPs.ForEach(f => f.Enabled = false);
+                            monitorContext.EmailInfos.Add(emailInfo);
                             await monitorContext.SaveChangesAsync();
-                            if (!user.DisableEmail) emailList.Add(new GenericEmailObj(){UserInfo=user, HeaderImageUri=uri});
+                            if (!user.DisableEmail) emailList.Add(new GenericEmailObj() { UserInfo = user, HeaderImageUri = uri , ID=emailInfo.ID});
                         }
                     }
+                   
                 }
                 result.Success = true;
                 result.Message += "Success : Disabled MonitorIPs based on Account Type. ";
@@ -82,6 +85,7 @@ namespace NetworkMonitor.Data.Services
                     _logger.LogError("Error : publish event userHostExpire  : Error was : " + e.ToString());
 
                 }
+
             }
 
             return result;

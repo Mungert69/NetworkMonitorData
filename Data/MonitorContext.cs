@@ -18,6 +18,7 @@ namespace NetworkMonitor.Data
         public DbSet<MonitorIP> MonitorIPs { get; set; }
 
         public DbSet<UserInfo> UserInfos { get; set; }
+                public DbSet<EmailInfo> EmailInfos { get; set; }
         public DbSet<LoadServer> LoadServers { get; set; }
 
         public DbSet<StatusItem> StatusList{get;set;}
@@ -40,6 +41,7 @@ namespace NetworkMonitor.Data
             modelBuilder.Entity<BlogPicture>().ToTable("BlogPictures");
             modelBuilder.Entity<BlogCategory>().ToTable("BlogCategories");
             modelBuilder.Entity<PingInfo>().ToTable("PingInfos");
+                        modelBuilder.Entity<EmailInfo>().ToTable("EmailInfos");
             modelBuilder.Entity<StatusObj>().ToTable("StatusObjs");
              modelBuilder.Entity<LogChatGPTObj>().ToTable("ChatGPTLogs");
               modelBuilder.Entity<UserAuthInfo>().ToTable("UserAuthInfos");
