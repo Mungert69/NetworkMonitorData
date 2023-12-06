@@ -11,7 +11,7 @@ namespace NetworkMonitor.Data
         private List<ProcessorObj> _processorList = new List<ProcessorObj>();
         private List<MonitorIP> _monitorIPs = new List<MonitorIP>();
 
-        public List<ProcessorObj> FilteredProcessorList { get => _processorList.Where(w => w.Load<w.MaxLoad).ToList(); }
+        public List<ProcessorObj> FilteredProcessorList { get => _processorList.Where(w => w.Load < w.MaxLoad).ToList(); }
         public List<ProcessorObj> ProcessorList { get => _processorList; set => _processorList = value; }
         public List<MonitorIP> MonitorIPs { get => _monitorIPs; set => _monitorIPs = value; }
 
@@ -49,19 +49,19 @@ namespace NetworkMonitor.Data
             }
         }
 
-public string GetNextProcessorAppID(string endPointType)
-{
-    var availableProcessors = _processorList.Where(o => o.Load < o.MaxLoad && (o.DisabledEndPointTypes==null || !o.DisabledEndPointTypes.Contains(endPointType))).ToList();
+        public string GetNextProcessorAppID(string endPointType)
+        {
+            var availableProcessors = _processorList.Where(o => !o.IsPrivate && o.Load < o.MaxLoad && (o.DisabledEndPointTypes == null || !o.DisabledEndPointTypes.Contains(endPointType))).ToList();
 
-    if (availableProcessors.Count == 0)
-    {
-        return "0";
-    }
+            if (availableProcessors.Count == 0)
+            {
+                return "0";
+            }
 
-    var processorObj = availableProcessors.OrderBy(o => o.Load).First();
-    processorObj.Load++;
-    return processorObj.AppID;
-}
+            var processorObj = availableProcessors.OrderBy(o => o.Load).First();
+            processorObj.Load++;
+            return processorObj.AppID;
+        }
 
 
 
