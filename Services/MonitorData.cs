@@ -59,7 +59,7 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 //ResultObj result = SaveData();
-                ResultObj result = _databaseService.ShutdownTaskQueue().Wait();
+                ResultObj result = _databaseService.ShutdownTaskQueue().Result;
                 result.Message += " OnStopping call complete.";
                 //_daprClient.ShutdownSidecarAsync();
                 _logger.LogWarning("SERVICE SHUTDOWN : Result : " + result.Message);

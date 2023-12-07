@@ -24,7 +24,7 @@ namespace NetworkMonitor.Data.Services
         Task<TResultObj<string>> RestorePingInfosForSingleUser(Func<string, Task<TResultObj<string>>> func, string data);
 
         Task<ResultObj> AddTaskToQueue(Func<Task<ResultObj>> func);
-        Task ShutdownTaskQueue();
+        Task<ResultObj> ShutdownTaskQueue();
     }
     public class DatabaseQueueService : IDatabaseQueueService
     {
