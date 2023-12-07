@@ -20,6 +20,8 @@ namespace NetworkMonitor.Data.Services
         Task FilterPingInfosBasedOnAccountType(bool filterDefaultUser);
         Task<ResultObj> FilterReducePingInfos(int filterTimeMonths, bool filterDefaultUser);
         Task<ResultObj> RestorePingInfosForAllUsers();
+        Task<TResultObj<string>> RestorePingInfosForSingleUser(string customerId );
+        
         Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string? customerId = null);
         Task<TResultObj<int>> ImportPingInfosFromFile(string filePath);
         Task<ResultObj> ImportMonitorPingInfosFromFile(UserInfo user, int monitorPingInfoID);
@@ -34,6 +36,10 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
             _fileRepo = fileRepo;
             _logger = logger;
+        }
+         public async Task<TResultObj<string>> RestorePingInfosForSingleUser( string customerId )
+        {
+            return await RestorePingInfosForSingleUser("", customerId);
         }
         public async Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string? customerId = null)
         {

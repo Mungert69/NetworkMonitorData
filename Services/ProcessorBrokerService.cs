@@ -15,7 +15,7 @@ namespace NetworkMonitor.Data.Services
     {
         Task<ResultObj> NewProcessor(ProcessorObj processor);
         Task<ResultObj> ProcessorStateChange(ProcessorObj processor);
-        Task Init();
+        Task<ResultObj> Init();
     }
     public class ProcessorBrokerService : IProcessorBrokerService
     {
@@ -32,9 +32,10 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
         }
 
-        public  async Task Init()
+        public async Task<ResultObj> Init()
         {
-            var message = " Service : ProcessorBrookerService : ";
+            var result=new ResultObj();
+            result.Message = " Service : ProcessorBrookerService : ";
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -42,16 +43,30 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
 
                     _processorState.ProcessorList = await monitorContext.ProcessorObjs.ToListAsync();
-                    message+=" Success : Got Processor List from Database .";
+                    result.Message += " Success : Got Processor List from Database .";
                 }
             }
-            catch (Exception e){
-                _logger.LogError($" Error : Failed to get Processor List from Database . Error was : {e.Message}");
-                return ;
+            catch (Exception e)
+            {
+                result.Message=$" Error : Failed to get Processor List from Database . Error was : {e.Message}";
+                result.Success=false;
+                return result;
             }
-            _logger.LogInformation(message);
+            try
+            {
+                await _rabbitRepo.PublishAsync("fullProcessorList", _processorState.ProcessorList);
+                result.Message += " Published full list of processors. ";
+            }
 
-
+            catch (Exception e)
+            {
+                result.Message += $" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
+                result.Success=false;
+                return result;
+                }
+                result.Success=true;
+           
+           return result;
 
         }
 
