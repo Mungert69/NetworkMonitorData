@@ -42,7 +42,7 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
 
                     _processorState.ProcessorList = await monitorContext.ProcessorObjs.ToListAsync();
-                    message+=" Success : Got Processor List from Databse .";
+                    message+=" Success : Got Processor List from Database .";
                 }
             }
             catch (Exception e){

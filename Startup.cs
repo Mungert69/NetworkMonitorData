@@ -71,9 +71,9 @@ namespace NetworkMonitor.Data
                     {
                         await processorBrokerService.Init();
                     })
-                .AddInitAction<IMonitorData>(async (monitorService) =>
+                .AddInitAction<IMonitorData>(async (monitorData) =>
                     {
-                        await monitorService.Init();
+                        await monitorData.Init();
                     })
                  .AddInitAction<IRabbitListener>((rabbitListener) =>
                     {

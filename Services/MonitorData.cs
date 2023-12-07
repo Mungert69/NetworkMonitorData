@@ -96,8 +96,16 @@ namespace NetworkMonitor.Data.Services
                 SystemParams = _systemParamsHelper.GetSystemParams();
                 PingParams = _systemParamsHelper.GetPingParams();
                 if (serviceObj.IsTestMode) PingParams.Timeout=10000;
-                _processorState.ProcessorList = new List<ProcessorObj>();
+                /*_processorState.ProcessorList = new List<ProcessorObj>();
                 _config.GetSection("ProcessorList").Bind(_processorState.ProcessorList);
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+
+                    monitorContext.ProcessorObjs.AddRange(_processorState.ProcessorList);
+                    await monitorContext.SaveChangesAsync();
+               
+                }*/
                 _logger.LogDebug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
                 _logger.LogDebug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
                 var message=" Got ProcessorList, SystemParams and PingParams from appsettings. ";
