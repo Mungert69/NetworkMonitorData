@@ -59,15 +59,14 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 //ResultObj result = SaveData();
-                ResultObj result = new ResultObj();
-                result.Success = true;
-                result.Message = " OnStopping call complete.";
+                ResultObj result = _databaseService.ShutdownTaskQueue().Wait();
+                result.Message += " OnStopping call complete.";
                 //_daprClient.ShutdownSidecarAsync();
                 _logger.LogWarning("SERVICE SHUTDOWN : Result : " + result.Message);
             }
             catch (Exception e)
             {
-                _logger.LogCritical("Error : Failed to run SaveDate before shutdown : Error Was : " + e.Message);
+                _logger.LogCritical("Error : Failed to shutdown gracefully : Error Was : " + e.Message);
                 Console.WriteLine();
             }
         }

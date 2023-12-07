@@ -24,6 +24,7 @@ namespace NetworkMonitor.Data.Services
         Task<TResultObj<string>> RestorePingInfosForSingleUser(Func<string, Task<TResultObj<string>>> func, string data);
 
         Task<ResultObj> AddTaskToQueue(Func<Task<ResultObj>> func);
+        Task ShutdownTaskQueue();
     }
     public class DatabaseQueueService : IDatabaseQueueService
     {
@@ -38,6 +39,25 @@ namespace NetworkMonitor.Data.Services
             _config = config;
             _logger = logger;
             _scopeFactory = scopeFactory;
+        }
+
+        public async Task<ResultObj> ShutdownTaskQueue()
+        {
+            var result = new ResultObj();
+            try
+            {
+                taskQueue.StopAcceptingTasks();
+                await taskQueue.WaitForAllTasksToComplete();
+                result.Message = " Success Task Queue is empty .";
+                result.Success = true;
+            }
+            catch (Exception e)
+            {
+                result.Message = $" Errror : Could not empty Task Queue . Error was : {e.Message}";
+                result.Success = false;
+            }
+            return result;
+
         }
 
         public Task<TResultObj<ProcessorDataObj>> AddProcessorDataStringToQueue(Tuple<string, string> processorDataTuple)
