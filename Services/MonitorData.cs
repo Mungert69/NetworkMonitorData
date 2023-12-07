@@ -36,11 +36,11 @@ namespace NetworkMonitor.Data.Services
         private ISystemParamsHelper _systemParamsHelper;
         private IDatabaseQueueService _databaseService;
 
-        private ProcessorState _processorState = new ProcessorState();
+        private IProcessorState _processorState ;
         public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
         public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
 
-        public MonitorData(IConfiguration config, ILogger<MonitorData> logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService)
+        public MonitorData(IConfiguration config, ILogger<MonitorData> logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService, IProcessorState processorState)
         {
             _config = config;
             _databaseService = databaseService;
@@ -51,6 +51,7 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
             _logger = logger;
             _systemParamsHelper = systemParamsHelper;
+            _processorState=processorState;
         }
         private void OnStopping()
         {
@@ -157,9 +158,19 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Success=false;
-                var message="Error : Can not publish event  processorInit Error was : " + e.Message.ToString();
+                var message=" Error : Can not publish event  processorInit Error was : " + e.Message.ToString();
                 result.Message+=message;
                 _logger.LogError(message);
+            }
+            try
+            {
+                await _rabbitRepo.PublishAsync("fullProcessorsList", _processorState.ProcessorList);
+                result.Message+=" Published full list of processors. ";
+            }
+            catch (Exception e)
+            {
+                result.Message+=$" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
+                _logger.LogError($" Error : Failed to Publish FullProcessorList . Error was : {e.ToString()}");
             }
             try
             {
@@ -168,7 +179,7 @@ namespace NetworkMonitor.Data.Services
                 ListUtils.RemoveNestedMonitorIPs(userInfos);
                 alertObj.UserInfos = userInfos;
                 await _rabbitRepo.PublishAsync<AlertServiceInitObj>("alertMessageInit", alertObj);
-                var message="Sent alertMessageInit event. ";
+                var message=" Sent alertMessageInit event. ";
                 result.Message+=message;
                 _logger.LogDebug(message);
             }

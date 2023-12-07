@@ -60,6 +60,8 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IFileRepo, FileRepo>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
+            services.AddSingleton<IProcessorState, ProcessorState>();
+                       services.AddSingleton<IProcessorBrokerService, ProcessorBrokerService>();
             services.AddSingleton<IReportService, ReportService>();
             services.AddSingleton<ISystemParamsHelper, SystemParamsHelper>();
             services.AddSingleton(_cancellationTokenSource);
