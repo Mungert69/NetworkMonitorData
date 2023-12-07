@@ -130,15 +130,6 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogInformation(message);
             }
             initObj.PingParams = _pingParams;
-            /*foreach (MonitorIP monIP in _processorState.MonitorIPs)
-            {
-                if (monIP.AppID == null || monIP.AppID == "")
-                {
-                    //TODO implement load balancing etc.
-                    monIP.AppID = LoadBalancer();
-                }
-            }*/
-            //initObj.MonitorIPs = _monitorIPs;
             initObj.Reset = serviceObj.InitResetProcessor;
             initObj.TotalReset = serviceObj.InitTotalResetProcesser;
             _logger.LogDebug("SavedMonitorIPs: " + JsonUtils.writeJsonObjectToString(initObj.MonitorIPs));
