@@ -163,7 +163,7 @@ namespace NetworkMonitor.Data.Services
             }
             try
             {
-                await _rabbitRepo.PublishAsync("fullProcessorsList", _processorState.ProcessorList);
+                await _rabbitRepo.PublishAsync("fullProcessorList", _processorState.ProcessorList);
                 result.Message+=" Published full list of processors. ";
             }
             catch (Exception e)
