@@ -110,7 +110,7 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogDebug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
                 var message=" Got ProcessorList, SystemParams and PingParams from appsettings. ";
                 result.Message+=message;
-                _logger.LogInformation(message);
+                _logger.LogDebug(message);
 
             }
             catch (Exception e)
@@ -135,7 +135,7 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogDebug("DATA : Retreived UserInfos " + userInfos.Count + " from database.");
                 var message=" Got MonitorIPs and UserInfos from Database. ";
                 result.Message+=message;
-                _logger.LogInformation(message);
+                _logger.LogDebug(message);
             }
             initObj.PingParams = _pingParams;
             initObj.Reset = serviceObj.InitResetProcessor;
@@ -151,7 +151,7 @@ namespace NetworkMonitor.Data.Services
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
                     message+=" Sent ProcessorInit event to appID "+processorObj.AppID+" . ";
                 }
-                _logger.LogInformation(message);
+                _logger.LogDebug(message);
                 result.Message+=message;
             }
             catch (Exception e)
@@ -164,8 +164,11 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 await _rabbitRepo.PublishAsync("fullProcessorList", _processorState.ProcessorList);
-                result.Message+=" Published full list of processors. ";
+                var message=" Published full list of processors. ";
+                result.Message+=message;
+                  _logger.LogDebug(message);
             }
+          
             catch (Exception e)
             {
                 result.Message+=$" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
@@ -198,7 +201,7 @@ namespace NetworkMonitor.Data.Services
                 await _rabbitRepo.PublishAsync<MonitorDataInitObj>("monitorDataReady", serviceObj);
                 var message=" Published event MonitorDataInitObj.IsMonitorDataReady = true";
                 result.Message+=message;
-                _logger.LogInformation(message);
+                _logger.LogDebug(message);
             
             }
             catch (Exception e)
@@ -209,6 +212,12 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogError(message);
             }
             _awake = true;
+            if (result.Success){
+                _logger.LogInformation(result.Message);
+            }
+            else{
+                _logger.LogError(result.Message);
+            }
             return result;
         }
 
