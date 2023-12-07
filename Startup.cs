@@ -61,12 +61,16 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
             services.AddSingleton<IProcessorState, ProcessorState>();
-                       services.AddSingleton<IProcessorBrokerService, ProcessorBrokerService>();
+            services.AddSingleton<IProcessorBrokerService, ProcessorBrokerService>();
             services.AddSingleton<IReportService, ReportService>();
             services.AddSingleton<ISystemParamsHelper, SystemParamsHelper>();
             services.AddSingleton(_cancellationTokenSource);
             services.Configure<HostOptions>(s => s.ShutdownTimeout = TimeSpan.FromMinutes(5));
             services.AddAsyncServiceInitialization()
+            .AddInitAction<IProcessorBrokerService>(async (processorBrokerService) =>
+                    {
+                        await processorBrokerService.Init();
+                    })
                 .AddInitAction<IMonitorData>(async (monitorService) =>
                     {
                         await monitorService.Init();
@@ -75,6 +79,7 @@ namespace NetworkMonitor.Data
                     {
                         return Task.CompletedTask;
                     });
+
         }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime appLifetime)

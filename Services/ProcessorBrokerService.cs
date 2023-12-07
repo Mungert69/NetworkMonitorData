@@ -11,9 +11,11 @@ using NetworkMonitor.Objects.ServiceMessage; // Assuming ResultObj is defined he
 
 namespace NetworkMonitor.Data.Services
 {
-    public interface IProcessorBrokerService{
+    public interface IProcessorBrokerService
+    {
         Task<ResultObj> NewProcessor(ProcessorObj processor);
         Task<ResultObj> ProcessorStateChange(ProcessorObj processor);
+        Task Init();
     }
     public class ProcessorBrokerService : IProcessorBrokerService
     {
@@ -30,6 +32,29 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
         }
 
+        public  async Task Init()
+        {
+            var message = " Service : ProcessorBrookerService : ";
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+
+                    _processorState.ProcessorList = await monitorContext.ProcessorObjs.ToListAsync();
+                    message+=" Success : Got Processor List from Databse .";
+                }
+            }
+            catch (Exception e){
+                _logger.LogError($" Error : Failed to get Processor List from Database . Error was : {e.Message}");
+                return ;
+            }
+            _logger.LogInformation(message);
+
+
+
+        }
+
         public async Task<ResultObj> NewProcessor(ProcessorObj processor)
         {
             var result = new ResultObj();
@@ -38,13 +63,13 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    processor.DateCreated=DateTime.UtcNow;
+                    processor.DateCreated = DateTime.UtcNow;
                     monitorContext.ProcessorObjs.Add(processor);
                     await monitorContext.SaveChangesAsync();
                 }
 
                 await _rabbitRepo.PublishAsync("addProcessor", processor);
-                 
+
                 result.Success = true;
                 result.Message = $" Success : New processor {processor.AppID} added and notified.";
                 _logger.LogInformation(result.Message);
@@ -78,7 +103,7 @@ namespace NetworkMonitor.Data.Services
                 }
 
                 await _rabbitRepo.PublishAsync("updateProcessor", processor);
-             
+
                 result.Success = true;
                 result.Message = $" Success : Processor {processor.AppID} state updated and notified.";
                 _logger.LogInformation(result.Message);
