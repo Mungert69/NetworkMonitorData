@@ -23,19 +23,21 @@ namespace NetworkMonitor.Data
             // Fetch necessary data first
             var swapMonitorPingInfoIDs = processorDataObj.SwapMonitorPingInfos?.Select(f => f.ID).ToList() ?? new List<int>();
             var existingMonitorPingInfos = await monitorContext.MonitorPingInfos
-                .Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID && swapMonitorPingInfoIDs.Contains(w.ID))
+                .Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID && swapMonitorPingInfoIDs.Contains(w.MonitorIPID))
                 .ToListAsync();
-
-            foreach (var f in processorDataObj.SwapMonitorPingInfos)
+            if (processorDataObj.SwapMonitorPingInfos != null)
             {
-                var m = existingMonitorPingInfos.FirstOrDefault(e => e.ID == f.ID);
-                if (m != null)
+                foreach (var f in processorDataObj.SwapMonitorPingInfos)
                 {
-                    m.AppID = f.AppID;
+                    var m = existingMonitorPingInfos.FirstOrDefault(e => e.MonitorIPID == f.ID);
+                    if (m != null)
+                    {
+                        m.AppID = f.AppID;
+                    }
                 }
             }
             uint minDateSentInt = uint.MaxValue;
-            if (processorDataObj.PingInfos != null && processorDataObj.PingInfos.Count>0)
+            if (processorDataObj.PingInfos != null && processorDataObj.PingInfos.Count > 0)
             {
                 minDateSentInt = processorDataObj.PingInfos.Min(m => m.DateSentInt);
             }
