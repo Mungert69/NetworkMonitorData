@@ -13,8 +13,8 @@ namespace NetworkMonitor.Data.Services
 {
     public interface IProcessorBrokerService
     {
-        Task<ResultObj> NewProcessor(ProcessorObj processor);
-        Task<ResultObj> ProcessorStateChange(ProcessorObj processor);
+        Task<ResultObj> ChangeProcessorAppID(Tuple<string,string> appIDs);
+        Task<ResultObj> UpdateProcessor(ProcessorObj processor);
         Task<ResultObj> Init();
     }
     public class ProcessorBrokerService : IProcessorBrokerService
@@ -34,7 +34,7 @@ namespace NetworkMonitor.Data.Services
 
         public async Task<ResultObj> Init()
         {
-            var result=new ResultObj();
+            var result = new ResultObj();
             result.Message = " Service : ProcessorBrookerService : ";
             try
             {
@@ -48,8 +48,8 @@ namespace NetworkMonitor.Data.Services
             }
             catch (Exception e)
             {
-                result.Message=$" Error : Failed to get Processor List from Database . Error was : {e.Message}";
-                result.Success=false;
+                result.Message = $" Error : Failed to get Processor List from Database . Error was : {e.Message}";
+                result.Success = false;
                 return result;
             }
             try
@@ -61,77 +61,91 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Message += $" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
-                result.Success=false;
-                return result;
-                }
-                result.Success=true;
-           
-           return result;
-
-        }
-
-        public async Task<ResultObj> NewProcessor(ProcessorObj processor)
-        {
-            var result = new ResultObj();
-            try
-            {
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    processor.DateCreated = DateTime.UtcNow;
-                    monitorContext.ProcessorObjs.Add(processor);
-                    await monitorContext.SaveChangesAsync();
-                }
-
-                await _rabbitRepo.PublishAsync("addProcessor", processor);
-
-                result.Success = true;
-                result.Message = $" Success : New processor {processor.AppID} added and notified.";
-                _logger.LogInformation(result.Message);
-            }
-            catch (Exception ex)
-            {
                 result.Success = false;
-                result.Message = $" Error : adding new processor. Error was : {ex.Message}";
-                _logger.LogError(result.Message);
+                return result;
             }
+            result.Success = true;
+
             return result;
+
         }
 
-        public async Task<ResultObj> ProcessorStateChange(ProcessorObj processor)
+
+        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs)
         {
             var result = new ResultObj();
+            result.Message = " Service : ChangeProcessorAppID : ";
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var updateProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.ID == processor.ID);
-                    if (updateProcessor != null)
+                    var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == appIDs.Item1).ToListAsync();
+                    if (monitorIPs != null)
                     {
-                        updateProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
-                        updateProcessor.IsEnabled = processor.IsEnabled;
-                        updateProcessor.Location = processor.Location;
-                        updateProcessor.MaxLoad = processor.MaxLoad;
+                        monitorIPs.ForEach(f => f.AppID = appIDs.Item2);
                         await monitorContext.SaveChangesAsync();
                     }
                 }
 
-                await _rabbitRepo.PublishAsync("updateProcessor", processor);
 
                 result.Success = true;
-                result.Message = $" Success : Processor {processor.AppID} state updated and notified.";
+                result.Message = $" Success : MonitorIPs with AppID  {appIDs.Item1} swapped to {appIDs.Item2}.";
                 _logger.LogInformation(result.Message);
             }
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Message = $" Error : updating processor state . Error was : {ex.Message}";
+                result.Message = $" Error : updating MonitorIPs AppIDs . Error was : {ex.Message}";
                 _logger.LogError(result.Message);
             }
             return result;
         }
 
-        // Additional methods for other processor-related operations
+        public async Task<ResultObj> UpdateProcessor(ProcessorObj processor)
+        {
+            var result = new ResultObj();
+            result.Message = " Service : UpdateProcessor : ";
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
+
+                    if (existingProcessor == null)
+                    {
+                        // New Processor
+                        processor.DateCreated = DateTime.UtcNow;
+                        monitorContext.ProcessorObjs.Add(processor);
+                        await _rabbitRepo.PublishAsync("addProcessor", processor);
+                        result.Message = $" Success : New processor with AppID {processor.AppID} added and notified.";
+                    }
+                    else
+                    {
+                        // Update Processor
+                        existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                        existingProcessor.IsEnabled = processor.IsEnabled;
+                        existingProcessor.Location = processor.Location;
+                        existingProcessor.MaxLoad = processor.MaxLoad;
+                        await _rabbitRepo.PublishAsync("updateProcessor", processor);
+                        result.Message = $" Success : Processor with AppID {processor.AppID} state updated and notified.";
+                    }
+
+                    await monitorContext.SaveChangesAsync();
+                }
+
+                result.Success = true;
+                _logger.LogInformation(result.Message);
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = $" Error : updating processor with AppID {processor.AppID}. Error was : {ex.Message}";
+                _logger.LogError(result.Message);
+            }
+            return result;
+        }
+
     }
 }

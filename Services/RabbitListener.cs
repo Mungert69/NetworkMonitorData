@@ -106,13 +106,13 @@ namespace NetworkMonitor.Data.Services
             });
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
-                ExchangeName = "userAddProcessor",
+                ExchangeName = "changeProcessorAppID",
                 FuncName = "userAddProcessor",
                 MessageTimeout = 2160000
             });
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
-                ExchangeName = "userUpdateProcessor",
+                ExchangeName = "updateProcessor",
                 FuncName = "userUpdateProcessor",
                 MessageTimeout = 2160000
             });
@@ -255,13 +255,13 @@ namespace NetworkMonitor.Data.Services
                             }
                         };
                             break;
-                        case "userAddProcessor":
+                        case "changeProcessorAppID":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
                         {
                             try
                             {
-                                result = await UserAddProcessor(ConvertToObject<ProcessorObj>(model, ea));
+                                result = await ChangeProcessorAppID(ConvertToObject<Tuple<string,string>>(model, ea));
                                 rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
                             }
                             catch (Exception ex)
@@ -270,13 +270,13 @@ namespace NetworkMonitor.Data.Services
                             }
                         };
                             break;
-                        case "userUpdateProcessor":
+                        case "updateProcessor":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
                         {
                             try
                             {
-                                result = await UserUpdateProcessor(ConvertToObject<ProcessorObj>(model, ea));
+                                result = await UpdateProcessor(ConvertToObject<ProcessorObj>(model, ea));
                                 rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
                             }
                             catch (Exception ex)
@@ -522,19 +522,19 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> UserAddProcessor(ProcessorObj? processorObj)
+        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string,string> appIDs)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : UserAddProcessor : ";
-            if (processorObj == null)
+            if (appIDs == null)
             {
-                result.Message += " Error : processorObj  is Null ";
+                result.Message += " Error : appIDs  is Null ";
                 return result;
             }
             try
             {
-                result = await _processorBrokerService.NewProcessor(processorObj);
+                result = await _processorBrokerService.ChangeProcessorAppID(appIDs);
                 if (result.Success)
                 {
                     _logger.LogInformation(result.Message);
@@ -555,11 +555,11 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> UserUpdateProcessor(ProcessorObj? processorObj)
+        public async Task<ResultObj> UpdateProcessor(ProcessorObj? processorObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
-            result.Message = "MessageAPI : UserUpdateProcessor : ";
+            result.Message = "MessageAPI : UpdateProcessor : ";
             if (processorObj == null)
             {
                 result.Message += " Error : processorObj  is Null ";
@@ -567,7 +567,7 @@ namespace NetworkMonitor.Data.Services
             }
             try
             {
-                result = await _processorBrokerService.ProcessorStateChange(processorObj);
+                result = await _processorBrokerService.UpdateProcessor(processorObj);
                 if (result.Success)
                 {
                     _logger.LogInformation(result.Message);
