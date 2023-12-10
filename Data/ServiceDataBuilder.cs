@@ -20,6 +20,8 @@ namespace NetworkMonitor.Data
 
             var removePingInfos = new List<RemovePingInfo>();
             var addMonitorPingInfos = new List<MonitorPingInfo>();
+            List<int> monitorIPIDs=await monitorContext.MonitorIPs.Where(w => w.AppID==processorDataObj.AppID).Select(s => s.ID).ToListAsync();
+
             // Fetch necessary data first
             var swapMonitorPingInfoIDs = processorDataObj.SwapMonitorPingInfos?.Select(f => f.ID).ToList() ?? new List<int>();
             var existingMonitorPingInfos = await monitorContext.MonitorPingInfos
@@ -32,7 +34,7 @@ namespace NetworkMonitor.Data
                     var m = existingMonitorPingInfos.FirstOrDefault(e => e.MonitorIPID == f.ID);
                     if (m != null)
                     {
-                        m.AppID = f.AppID;
+                        m.AppID = processorDataObj.AppID;
                     }
                 }
             }
@@ -53,8 +55,11 @@ namespace NetworkMonitor.Data
                 monitorPingInfos = new List<MonitorPingInfo>();
             }
             var pingInfoComparer = new PingInfoComparer();
-            processorDataObj.MonitorPingInfos.ForEach(p =>
+            processorDataObj.MonitorPingInfos.Where(w => monitorIPIDs.Contains(w.MonitorIPID)).ToList().ForEach(p =>
                 {
+                    if (monitorIPIDs.Contains(p.MonitorIPID)){
+
+                    }
                     // Use the MonitorIPID as the key as MonitorPingInfoID needs to change to database given value.
                     var monitorPingInfo = monitorPingInfos.Where(w => w.MonitorIPID == p.MonitorIPID).FirstOrDefault();
                     var pingInfos = processorDataObj.PingInfos.Where(w => w.MonitorPingInfoID == p.MonitorIPID).ToList();

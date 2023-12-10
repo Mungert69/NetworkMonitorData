@@ -7,14 +7,16 @@ using System.Linq;
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
-using NetworkMonitor.Objects.ServiceMessage; // Assuming ResultObj is defined here
+using NetworkMonitor.Objects.ServiceMessage;
+using NetworkMonitor.Utils; // Assuming ResultObj is defined here
+using NetworkMonitor.Utils.Helpers;
 
 namespace NetworkMonitor.Data.Services
 {
     public interface IProcessorBrokerService
     {
         Task<ResultObj> ChangeProcessorAppID(Tuple<string,string> appIDs);
-        Task<ResultObj> UpdateProcessor(ProcessorObj processor);
+        Task<ResultObj> UserUpdateProcessor(ProcessorObj processor);
         Task<ResultObj> Init();
     }
     public class ProcessorBrokerService : IProcessorBrokerService
@@ -23,13 +25,15 @@ namespace NetworkMonitor.Data.Services
         private readonly IRabbitRepo _rabbitRepo;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IProcessorState _processorState;
+        private readonly SystemParams _systemParams;
 
-        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory)
+        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory,ISystemParamsHelper systemParamsHelper)
         {
             _logger = logger;
             _rabbitRepo = rabbitRepo;
             _processorState = processorState;
             _scopeFactory = scopeFactory;
+            _systemParams=systemParamsHelper.GetSystemParams();
         }
 
         public async Task<ResultObj> Init()
@@ -102,17 +106,17 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> UpdateProcessor(ProcessorObj processor)
+        public async Task<ResultObj> UserUpdateProcessor(ProcessorObj processor)
         {
             var result = new ResultObj();
-            result.Message = " Service : UpdateProcessor : ";
+            result.Message = " Service : UserUpdateProcessor : ";
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
-
+                    processor.AuthKey=AesOperation.EncryptString(_systemParams.EmailEncryptKey,processor.AppID);
                     if (existingProcessor == null)
                     {
                         // New Processor
@@ -131,6 +135,7 @@ namespace NetworkMonitor.Data.Services
                         await _rabbitRepo.PublishAsync("updateProcessor", processor);
                         result.Message = $" Success : Processor with AppID {processor.AppID} state updated and notified.";
                     }
+                    await _rabbitRepo.PublishAsync($"processorAuthKey{processor.AppID}", processor.AuthKey);
 
                     await monitorContext.SaveChangesAsync();
                 }
