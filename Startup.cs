@@ -34,10 +34,15 @@ namespace NetworkMonitor.Data
         public void ConfigureServices(IServiceCollection services)
         {
             _services = services;
-            services.AddLogging(builder =>
-                          {
-                              builder.AddConsole();
-                          });
+           services.AddLogging(builder =>
+               {
+                   builder.AddSimpleConsole(options =>
+                        {
+                            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+                            options.IncludeScopes = true;
+                        });
+               });
+
             string connectionString = Configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<MonitorContext>(options =>
                 options.UseMySql(connectionString,
