@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.ServiceMessage;
-using NetworkMonitor.Data;
+using NetworkMonitor.Utils;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.Logging;
@@ -33,12 +33,14 @@ namespace NetworkMonitor.Data.Services
         private IServiceScopeFactory _scopeFactory;
         private TaskQueue taskQueue = new TaskQueue();
 
+        private string _encryptKey;
         private List<string> _queuedProcessorJobIds = new List<string>();
-        public DatabaseQueueService(IConfiguration config, ILogger<DatabaseQueueService> logger, IServiceScopeFactory scopeFactory)
+        public DatabaseQueueService(IConfiguration config, ILogger<DatabaseQueueService> logger, IServiceScopeFactory scopeFactory,ISystemParamsHelper systemParamsHelper)
         {
             _config = config;
             _logger = logger;
             _scopeFactory = scopeFactory;
+                        _encryptKey = systemParamsHelper.GetSystemParams().EmailEncryptKey;
         }
 
         public async Task<ResultObj> ShutdownTaskQueue()
@@ -102,6 +104,41 @@ namespace NetworkMonitor.Data.Services
                     timer.Start();
                     List<RemovePingInfo> removePingInfos = new List<RemovePingInfo>();
                     var processorDataObj = ProcessorDataBuilder.ExtractFromZString<ProcessorDataObj>(processorDataTuple.Item1);
+                    
+                    if (processorDataObj == null)
+                    {
+                        result.Success = false;
+                        result.Message = " Error : Failed CommitProcessorDataBytes processorDataObj is null.";
+                        _logger.LogError(result.Message);
+                        return result;
+                    }
+                    if (processorDataObj.AppID == null)
+                    {
+                        result.Success = false;
+                        result.Message = " Error : Failed CommitProcessorDataBytes processorDataObj.AppID is null.";
+                        _logger.LogError(result.Message);
+                        return result;
+                    }
+                     if (processorDataObj.AuthKey== null)
+                    {
+                        result.Success = false;
+                        result.Message = " Error : Failed CommitProcessorDataBytes processorDataObj.AppKey is null.";
+                        _logger.LogError(result.Message);
+                        return result;
+                    }
+                    if (EncryptionHelper.IsBadKey(_encryptKey, processorDataObj.AuthKey, processorDataObj.AppID))
+                    {
+                        result.Success = false;
+                        result.Message = " Error : Failed CommitProcessorDataBytes bad AuthKey .";
+                        _logger.LogError(result.Message);
+                        return result;
+                    }
+                    if (processorDataObj.MonitorPingInfos.Where(w => w.AppID != processorDataObj.AppID).Count() > 0)
+                    {
+                        result.Success = false;
+                        result.Message = " Error : Failed CommitProcessorDataBytes invalid AppID in data .";
+                        _logger.LogError(result.Message);
+                    }
                     timerStr += " Unziped at " + timer.Elapsed.TotalMilliseconds + " . ";
                     result.Message += " Processing data for Processor AppID=" + processorDataObj.AppID + " ";
 
