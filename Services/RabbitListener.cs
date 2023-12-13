@@ -565,6 +565,16 @@ namespace NetworkMonitor.Data.Services
                 result.Message += " Error : processorObj  is Null ";
                 return result;
             }
+             if (processorObj.AppID == null )
+            {
+                result.Message += " Error : processorObj.AppID  is Null ";
+                return result;
+            }
+              if (processorObj.AppID == "")
+            {
+                result.Message += " Error : processorObj.AppID  is empty ";
+                return result;
+            }
             try
             {
                 result = await _processorBrokerService.UserUpdateProcessor(processorObj);
