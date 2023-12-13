@@ -106,8 +106,8 @@ namespace NetworkMonitor.Data.Services
                     await monitorContext.SaveChangesAsync();
                
                 }*/
-                _logger.LogDebug("SystemParams: " + JsonUtils.writeJsonObjectToString(SystemParams));
-                _logger.LogDebug("PingParams: " + JsonUtils.writeJsonObjectToString(PingParams));
+                _logger.LogDebug("SystemParams: " + JsonUtils.WriteJsonObjectToString(SystemParams));
+                _logger.LogDebug("PingParams: " + JsonUtils.WriteJsonObjectToString(PingParams));
                 var message = " Got ProcessorList, SystemParams and PingParams from appsettings. ";
                 result.Message += message;
                 _logger.LogDebug(message);
@@ -140,8 +140,8 @@ namespace NetworkMonitor.Data.Services
             initObj.PingParams = _pingParams;
             initObj.Reset = serviceObj.InitResetProcessor;
             initObj.TotalReset = serviceObj.InitTotalResetProcesser;
-            _logger.LogDebug("SavedMonitorIPs: " + JsonUtils.writeJsonObjectToString(initObj.MonitorIPs));
-            _logger.LogDebug("PingParmas: " + JsonUtils.writeJsonObjectToString(initObj.PingParams));
+            _logger.LogDebug("SavedMonitorIPs: " + JsonUtils.WriteJsonObjectToString(initObj.MonitorIPs));
+            _logger.LogDebug("PingParmas: " + JsonUtils.WriteJsonObjectToString(initObj.PingParams));
             try
             {
                 var message = "";
