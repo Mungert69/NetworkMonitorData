@@ -135,7 +135,7 @@ namespace NetworkMonitor.Data.Services
                         await _rabbitRepo.PublishAsync("updateProcessor", processor);
                         result.Message = $" Success : Processor with AppID {processor.AppID} state updated and notified.";
                     }
-                    await _rabbitRepo.PublishAsync($"processorAuthKey{processor.AppID}", processor.AuthKey);
+                    await _rabbitRepo.PublishAsync<string>($"processorAuthKey{processor.AppID}", processor.AuthKey);
 
                     await monitorContext.SaveChangesAsync();
                 }
