@@ -123,7 +123,7 @@ namespace NetworkMonitor.Data.Services
                         processor.DateCreated = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
                         await _rabbitRepo.PublishAsync("addProcessor", processor);
-                        result.Message = $" Success : New processor with AppID {processor.AppID} added and notified.";
+                        result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
                     }
                     else
                     {
@@ -133,10 +133,11 @@ namespace NetworkMonitor.Data.Services
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
                         await _rabbitRepo.PublishAsync("updateProcessor", processor);
-                        result.Message = $" Success : Processor with AppID {processor.AppID} state updated and notified.";
+                        result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
                     }
                     await _rabbitRepo.PublishAsync<string>($"processorAuthKey{processor.AppID}", processor.AuthKey);
-
+                    result.Message += $" Success : Processor AuthKey sent to AppID {processor.AppID} .";
+                  
                     await monitorContext.SaveChangesAsync();
                 }
 
