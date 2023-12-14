@@ -261,7 +261,7 @@ namespace NetworkMonitor.Data.Services
                         {
                             try
                             {
-                                result = await ChangeProcessorAppID(ConvertToObject<Tuple<string,string>>(model, ea));
+                                result = await ChangeProcessorAppID(ConvertToObject<Tuple<string, string>>(model, ea));
                                 rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
                             }
                             catch (Exception ex)
@@ -365,7 +365,7 @@ namespace NetworkMonitor.Data.Services
             }
             try
             {
-                Func<string,Task<TResultObj<string>>> func = _pingInfoService.RestorePingInfosForSingleUser;
+                Func<string, Task<TResultObj<string>>> func = _pingInfoService.RestorePingInfosForSingleUser;
                 result = await _databaseService.RestorePingInfosForSingleUser(func, paymentTransaction.UserInfo.CustomerId!);
                 paymentTransaction.Result = result;
                 if (result.Success)
@@ -437,7 +437,7 @@ namespace NetworkMonitor.Data.Services
             result.Message = "MessageAPI : RestorePingInfosForAllUsers : ";
             try
             {
-                 Func<Task<ResultObj>> func = _pingInfoService.RestorePingInfosForAllUsers;
+                Func<Task<ResultObj>> func = _pingInfoService.RestorePingInfosForAllUsers;
                 result = await _databaseService.AddTaskToQueue(func);
                 _logger.LogInformation(result.Message);
             }
@@ -522,7 +522,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string,string> appIDs)
+        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
@@ -563,16 +563,22 @@ namespace NetworkMonitor.Data.Services
             if (processorObj == null)
             {
                 result.Message += " Error : processorObj  is Null ";
+                result.Success = false;
+                _logger.LogError(result.Message);
                 return result;
             }
-             if (processorObj.AppID == null )
+            if (processorObj.AppID == null)
             {
                 result.Message += " Error : processorObj.AppID  is Null ";
+                result.Success = false;
+                _logger.LogError(result.Message);
                 return result;
             }
-              if (processorObj.AppID == "")
+            if (processorObj.AppID == "")
             {
                 result.Message += " Error : processorObj.AppID  is empty ";
+                result.Success = false;
+                _logger.LogError(result.Message);
                 return result;
             }
             try
