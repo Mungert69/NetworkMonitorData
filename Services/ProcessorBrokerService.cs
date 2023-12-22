@@ -10,12 +10,13 @@ using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Utils; // Assuming ResultObj is defined here
 using NetworkMonitor.Utils.Helpers;
+using System.Collections.Generic;
 
 namespace NetworkMonitor.Data.Services
 {
     public interface IProcessorBrokerService
     {
-        Task<ResultObj> ChangeProcessorAppID(Tuple<string,string> appIDs);
+        Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs);
         Task<ResultObj> UserUpdateProcessor(ProcessorObj processor);
         Task<ResultObj> Init();
     }
@@ -26,14 +27,16 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IProcessorState _processorState;
         private readonly SystemParams _systemParams;
+        private readonly PingParams _pingParams;
 
-        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory,ISystemParamsHelper systemParamsHelper)
+        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper)
         {
             _logger = logger;
             _rabbitRepo = rabbitRepo;
             _processorState = processorState;
             _scopeFactory = scopeFactory;
-            _systemParams=systemParamsHelper.GetSystemParams();
+            _systemParams = systemParamsHelper.GetSystemParams();
+            _pingParams = systemParamsHelper.GetPingParams();
         }
 
         public async Task<ResultObj> Init()
@@ -79,6 +82,8 @@ namespace NetworkMonitor.Data.Services
         {
             var result = new ResultObj();
             result.Message = " Service : ChangeProcessorAppID : ";
+            result.Success = true;
+
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -90,10 +95,8 @@ namespace NetworkMonitor.Data.Services
                         monitorIPs.ForEach(f => f.AppID = appIDs.Item2);
                         await monitorContext.SaveChangesAsync();
                     }
+
                 }
-
-
-                result.Success = true;
                 result.Message = $" Success : MonitorIPs with AppID  {appIDs.Item1} swapped to {appIDs.Item2}.";
                 _logger.LogInformation(result.Message);
             }
@@ -103,6 +106,7 @@ namespace NetworkMonitor.Data.Services
                 result.Message = $" Error : updating MonitorIPs AppIDs . Error was : {ex.Message}";
                 _logger.LogError(result.Message);
             }
+
             return result;
         }
 
@@ -110,13 +114,20 @@ namespace NetworkMonitor.Data.Services
         {
             var result = new ResultObj();
             result.Message = " Service : UserUpdateProcessor : ";
+            ProcessorInitObj initObj = new ProcessorInitObj();
+            initObj.TotalReset = false;
+            initObj.Reset = true;
+
+            initObj.PingParams = _pingParams;
+
+           
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
-                    processor.AuthKey=AesOperation.EncryptString(_systemParams.EmailEncryptKey,processor.AppID);
+                    processor.AuthKey = AesOperation.EncryptString(_systemParams.EmailEncryptKey, processor.AppID);
                     if (existingProcessor == null)
                     {
                         // New Processor
@@ -137,7 +148,7 @@ namespace NetworkMonitor.Data.Services
                     }
                     await _rabbitRepo.PublishAsync<ProcessorObj>($"processorAuthKey{processor.AppID}", processor);
                     result.Message += $" Success : Processor AuthKey sent to AppID {processor.AppID} .";
-                  
+
                     await monitorContext.SaveChangesAsync();
                 }
 
@@ -149,7 +160,29 @@ namespace NetworkMonitor.Data.Services
                 result.Success = false;
                 result.Message = $" Error : updating processor with AppID {processor.AppID}. Error was : {ex.Message}";
                 _logger.LogError(result.Message);
+                return result;
             }
+             try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
+                    if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
+                    await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processor.AppID, initObj);
+                    result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
+                    result.Success=true;
+                }
+            }
+
+            catch (Exception e)
+            {
+                result.Message += $" Error : Could not send ProcessorInit event to appID {processor.AppID} . Error was : {e.Message} . ";
+                result.Success = false;
+                _logger.LogError(result.Message);
+
+            }
+
             return result;
         }
 
