@@ -11,13 +11,14 @@ namespace NetworkMonitor.Data
 {
     public class ServiceDataBuilder
     {
-        public static async Task<ProcessorDataObj> Merge(byte[] processorDataBytes, MonitorContext monitorContext)
+        public static async Task<ProcessorDataObj?> Merge(byte[] processorDataBytes, MonitorContext monitorContext)
         {
             return await Merge(ProcessorDataBuilder.ExtractFromZ<ProcessorDataObj>(processorDataBytes), monitorContext);
         }
-        public static async Task<ProcessorDataObj> Merge(ProcessorDataObj processorDataObj, MonitorContext monitorContext)
+        public static async Task<ProcessorDataObj?> Merge(ProcessorDataObj? processorDataObj, MonitorContext monitorContext)
         {
 
+            if (processorDataObj==null) return null;
             var removePingInfos = new List<RemovePingInfo>();
             var addMonitorPingInfos = new List<MonitorPingInfo>();
             List<int> monitorIPIDs=await monitorContext.MonitorIPs.Where(w => w.AppID==processorDataObj.AppID).Select(s => s.ID).ToListAsync();
@@ -62,7 +63,8 @@ namespace NetworkMonitor.Data
                     }
                     // Use the MonitorIPID as the key as MonitorPingInfoID needs to change to database given value.
                     var monitorPingInfo = monitorPingInfos.Where(w => w.MonitorIPID == p.MonitorIPID).FirstOrDefault();
-                    var pingInfos = processorDataObj.PingInfos.Where(w => w.MonitorPingInfoID == p.MonitorIPID).ToList();
+                    List<PingInfo> pingInfos=new List<PingInfo>();
+                    if (processorDataObj.PingInfos!=null) pingInfos = processorDataObj.PingInfos.Where(w => w.MonitorPingInfoID == p.MonitorIPID).ToList();
                     pingInfos.ForEach(pi =>
                        {
                            removePingInfos.Add(new RemovePingInfo() { ID = pi.ID, MonitorPingInfoID = p.MonitorIPID });
@@ -124,8 +126,8 @@ namespace NetworkMonitor.Data
             var returnProcessorDataObj = new ProcessorDataObj()
             {
                 RemovePingInfos = removePingInfos,
-                SwapMonitorPingInfos = processorDataObj.SwapMonitorPingInfos,
-                RemoveMonitorPingInfoIDs = processorDataObj.RemoveMonitorPingInfoIDs,
+                SwapMonitorPingInfos = processorDataObj.SwapMonitorPingInfos ?? [],
+                RemoveMonitorPingInfoIDs = processorDataObj.RemoveMonitorPingInfoIDs ?? [],
                 AppID = processorDataObj.AppID
             };
             return returnProcessorDataObj;
