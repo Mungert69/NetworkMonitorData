@@ -26,7 +26,7 @@ namespace NetworkMonitor.Data.Services
             if (pingInfos.Count % 2 != 0)
             {
                 // Combine the last two PingInfos into a single one
-                pingInfos[pingInfos.Count - 2] = CombinePoints(new List<PingInfo> { pingInfos[pingInfos.Count - 2], pingInfos[pingInfos.Count - 1] });
+                pingInfos[^2] = CombinePoints(new List<PingInfo> { pingInfos[^2], pingInfos[^1] })!;
                 pingInfos.RemoveAt(pingInfos.Count - 1);
             }
 

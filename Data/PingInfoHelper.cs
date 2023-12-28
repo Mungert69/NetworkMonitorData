@@ -63,11 +63,11 @@ namespace NetworkMonitor.Utils.Helpers
         }
         private async Task<ResultObj> UpdatePingInfosFromStatusList(List<PingInfo> pingInfos, ILogger logger, bool isLookStatusID)
         {
-             var result = new ResultObj();
-                result.Message=" SERVICE : UpdatePingInfosFromStatusList ";
+            var result = new ResultObj();
+            result.Message = " SERVICE : UpdatePingInfosFromStatusList ";
             try
             {
-               
+
                 var addStatusList = new List<StatusItem>();
                 int intCount = 0;
                 if (_statusLookup?.Any() == true)
@@ -108,32 +108,36 @@ namespace NetworkMonitor.Utils.Helpers
                     }
                     catch (Exception ex)
                     {
-                        result.Message+=$"Error processing PingInfo {f.ID} with StatusID {f.StatusID}: {ex.Message}";
+                        result.Message += $"Error processing PingInfo {f.ID} with StatusID {f.StatusID}: {ex.Message}";
                         result.Success = false;
-                        f.StatusID=0;
+                        f.StatusID = 0;
                     }
                 }
 
                 if (result.Success)
                 {
-                    _monitorContext?.StatusList.AddRange(addStatusList);
-                    await _monitorContext?.SaveChangesAsync();
+                    if (_monitorContext != null)
+                    {
+                        _monitorContext.StatusList.AddRange(addStatusList);
+                        await _monitorContext.SaveChangesAsync();
+                    }
+
                 }
             }
             catch (DbUpdateException ex)
             {
                 result.Success = false;
-                result.Message+=$"Database update error: {ex.Message}";
+                result.Message += $"Database update error: {ex.Message}";
             }
             catch (InvalidOperationException ex)
             {
                 result.Success = false;
-                result.Message+=$"Invalid operation: {ex.Message}";
+                result.Message += $"Invalid operation: {ex.Message}";
             }
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Message+=$"Unexpected error: {ex.Message}";
+                result.Message += $"Unexpected error: {ex.Message}";
             }
             return result;
         }
@@ -178,7 +182,7 @@ namespace NetworkMonitor.Utils.Helpers
                 if (pingInfo.StatusID == 0) pingInfo.Status = "Null";
                 else pingInfo.Status = _statusLookup[pingInfo.StatusID];
                 if (pingInfo.RoundTripTime == UInt16.MaxValue) pingInfo.RoundTripTimeInt = -1;
-                else pingInfo.RoundTripTimeInt = (int)pingInfo.RoundTripTime;
+                else pingInfo.RoundTripTimeInt = (int)pingInfo.RoundTripTime!;
             }
             return pingInfos;
         }

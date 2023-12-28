@@ -23,11 +23,13 @@ namespace NetworkMonitor.Data
     public class Startup
     {
         private readonly CancellationTokenSource _cancellationTokenSource;
+#pragma warning disable CS8618
         public Startup(IConfiguration configuration)
         {
             _cancellationTokenSource = new CancellationTokenSource();
             Configuration = configuration;
         }
+#pragma warning restore CS8618
         public IConfiguration Configuration { get; }
         private IServiceCollection _services;
         // This method gets called by the runtime. Use this method to add services to the container.
@@ -43,7 +45,7 @@ namespace NetworkMonitor.Data
                         });
                });
 
-            string connectionString = Configuration.GetConnectionString("DefaultConnection");
+            string connectionString = Configuration.GetConnectionString("DefaultConnection") ?? "";;
             services.AddDbContext<MonitorContext>(options =>
                 options.UseMySql(connectionString,
                 ServerVersion.AutoDetect(connectionString),

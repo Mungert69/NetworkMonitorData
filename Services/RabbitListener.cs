@@ -301,12 +301,19 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
-        public async Task<ResultObj> UpdateMonitorPingInfos(Tuple<string, string> processorDataTuple)
+        public async Task<ResultObj> UpdateMonitorPingInfos(Tuple<string, string>? processorDataTuple)
         {
             var returnResult = new ResultObj();
             TResultObj<ProcessorDataObj> result = new TResultObj<ProcessorDataObj>();
             result.Success = false;
             result.Message = "MessageAPI : dataUpdateMonitorPingInfos : ";
+            if (processorDataTuple == null)
+            {
+                returnResult.Message = result.Message + "Error : sprocessorDataTuple  is Null ";
+                returnResult.Success = false;
+
+                return returnResult;
+            }
             try
             {
                 result = await _databaseService.AddProcessorDataStringToQueue(processorDataTuple);
@@ -337,6 +344,7 @@ namespace NetworkMonitor.Data.Services
             if (serviceObj == null)
             {
                 result.Message += " Error : serviceObj  is Null ";
+                result.Success = false;
                 return result;
             }
             try
@@ -522,7 +530,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs)
+        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string, string>? appIDs)
         {
             ResultObj result = new ResultObj();
             result.Success = false;

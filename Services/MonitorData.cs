@@ -52,6 +52,8 @@ namespace NetworkMonitor.Data.Services
             _logger = logger;
             _systemParamsHelper = systemParamsHelper;
             _processorState = processorState;
+            _systemParams = _systemParamsHelper.GetSystemParams();
+            _pingParams = _systemParamsHelper.GetPingParams();
         }
         private void OnStopping()
         {
