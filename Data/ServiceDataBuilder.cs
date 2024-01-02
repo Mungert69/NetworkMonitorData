@@ -26,7 +26,7 @@ namespace NetworkMonitor.Data
             // Fetch necessary data first
             var swapMonitorPingInfoIDs = processorDataObj.SwapMonitorPingInfos?.Select(f => f.ID).ToList() ?? new List<int>();
             var existingMonitorPingInfos = await monitorContext.MonitorPingInfos
-                .Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID && swapMonitorPingInfoIDs.Contains(w.MonitorIPID))
+                .Where(w => w.DataSetID == 0  && swapMonitorPingInfoIDs.Contains(w.MonitorIPID))
                 .ToListAsync();
             if (processorDataObj.SwapMonitorPingInfos != null)
             {
@@ -36,6 +36,7 @@ namespace NetworkMonitor.Data
                     if (m != null)
                     {
                         m.AppID = processorDataObj.AppID;
+
                     }
                 }
             }
@@ -56,12 +57,10 @@ namespace NetworkMonitor.Data
                 monitorPingInfos = new List<MonitorPingInfo>();
             }
             var pingInfoComparer = new PingInfoComparer();
+            //var monitorIPIDs= origMonitorIPIDs.Except(swapMonitorPingInfoIDs);
             processorDataObj.MonitorPingInfos.Where(w => monitorIPIDs.Contains(w.MonitorIPID)).ToList().ForEach(p =>
                 {
-                    if (monitorIPIDs.Contains(p.MonitorIPID)){
-
-                    }
-                    // Use the MonitorIPID as the key as MonitorPingInfoID needs to change to database given value.
+                      // Use the MonitorIPID as the key as MonitorPingInfoID needs to change to database given value.
                     var monitorPingInfo = monitorPingInfos.Where(w => w.MonitorIPID == p.MonitorIPID).FirstOrDefault();
                     List<PingInfo> pingInfos=new List<PingInfo>();
                     if (processorDataObj.PingInfos!=null) pingInfos = processorDataObj.PingInfos.Where(w => w.MonitorPingInfoID == p.MonitorIPID).ToList();
@@ -101,13 +100,16 @@ namespace NetworkMonitor.Data
                     }
                     else
                     {
-                        p.PingInfos = new List<PingInfo>(pingInfos);
+                        if (!swapMonitorPingInfoIDs.Contains(p.MonitorIPID)){
+                               p.PingInfos = new List<PingInfo>(pingInfos);
                         p.MonitorStatus.MonitorPingInfoID = 0;
                         p.MonitorStatus.ID = 0;
                         p.ID = 0;
                         if (p.PingInfos != null) p.PacketsSent = (int)p.PingInfos.Count();
                         else p.PacketsSent = 0;
                         addMonitorPingInfos.Add(p);
+                        }
+                     
                     }
                 });
             if (processorDataObj.RemoveMonitorPingInfoIDs != null && processorDataObj.RemoveMonitorPingInfoIDs.Count() != 0)
