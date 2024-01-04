@@ -4,9 +4,9 @@
     <TargetFramework>netcoreapp8.0</TargetFramework>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <PublishProfile>DefaultContainer</PublishProfile>
-    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:8.0-jammy-amd64</ContainerBaseImage>
+    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:8.0</ContainerBaseImage>
     <ContainerImageName>mungert/networkmonitordata</ContainerImageName>
-    <ContainerImageTag>1.1.4</ContainerImageTag>
+    <ContainerImageTag>1.1.5</ContainerImageTag>
       <StartupObject>NetworkMonitor.Data.Program</StartupObject>
           <Nullable>enable</Nullable>
               <PublishAot>false</PublishAot>
