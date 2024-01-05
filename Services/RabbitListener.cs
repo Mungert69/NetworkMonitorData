@@ -406,8 +406,9 @@ namespace NetworkMonitor.Data.Services
             var results = new List<ResultObj>();
             try
             {
-                Func<Task<ResultObj>> func = _monitorData.DataPurge;
-                var resultPurge = await _databaseService.AddTaskToQueue(func);
+                //Func<Task<ResultObj>> func = _monitorData.DataPurge;
+                //var resultPurge = await _databaseService.AddTaskToQueue(func);
+                var resultPurge=await _monitorData.DataPurge();
                 result.Message += resultPurge.Message;
                 result.Success = resultPurge.Success;
             }
