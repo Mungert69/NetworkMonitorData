@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 namespace NetworkMonitor.Data.Services
 {
     public interface IPingInfoService
@@ -20,8 +21,8 @@ namespace NetworkMonitor.Data.Services
         Task FilterPingInfosBasedOnAccountType(bool filterDefaultUser);
         Task<ResultObj> FilterReducePingInfos(int filterTimeMonths, bool filterDefaultUser);
         Task<ResultObj> RestorePingInfosForAllUsers();
-        Task<TResultObj<string>> RestorePingInfosForSingleUser(string customerId );
-        
+        Task<TResultObj<string>> RestorePingInfosForSingleUser(string customerId);
+
         Task<TResultObj<string>> RestorePingInfosForSingleUser(string userId, string? customerId = null);
         Task<TResultObj<int>> ImportPingInfosFromFile(string filePath);
         Task<ResultObj> ImportMonitorPingInfosFromFile(UserInfo user, int monitorPingInfoID);
@@ -37,7 +38,7 @@ namespace NetworkMonitor.Data.Services
             _fileRepo = fileRepo;
             _logger = logger;
         }
-         public async Task<TResultObj<string>> RestorePingInfosForSingleUser( string customerId )
+        public async Task<TResultObj<string>> RestorePingInfosForSingleUser(string customerId)
         {
             return await RestorePingInfosForSingleUser("", customerId);
         }
@@ -68,6 +69,9 @@ namespace NetworkMonitor.Data.Services
                         result.Message += "Error : User not found.";
                         return result;
                     }
+                    var userDirectory = $"./data/{user.UserID}";
+                    EnsureDirectoryExists(userDirectory); // Ensure user directory exists
+
                     // Get the threshold date based on the user's account type
                     DateTime thresholdDate = GetThresholdDate(user.AccountType!);
                     int userSuccessfulImports = 0;
@@ -83,7 +87,7 @@ namespace NetworkMonitor.Data.Services
                         if (monitorPingInfo.IsArchived)
                         {
                             // Construct the file path for each MonitorPingInfo
-                            var filePath = $"./data/{user.UserID}_{monitorPingInfo.ID}.br";
+                            var filePath = $"{userDirectory}/{monitorPingInfo.ID}.br";
                             // Restore PingInfos from the file
                             TResultObj<int> restoreResult = await ImportPingInfosFromFile(filePath);
                             if (restoreResult.Success)
@@ -134,6 +138,9 @@ namespace NetworkMonitor.Data.Services
                     var users = await monitorContext.UserInfos.ToListAsync();
                     foreach (var user in users)
                     {
+                        var userDirectory = $"./data/{user.UserID}";
+                        EnsureDirectoryExists(userDirectory); // Ensure user directory exists
+
                         int userSuccessfulImports = 0;
                         int userUnsuccessfulImports = 0;
                         int userSkipped = 0;
@@ -148,7 +155,7 @@ namespace NetworkMonitor.Data.Services
                             // Restore PingInfos from the file
                             if (monitorPingInfo.IsArchived)
                             {
-                                var filePath = $"./data/{user.UserID}_{monitorPingInfo.ID}.br";
+                                var filePath = $"{userDirectory}/{monitorPingInfo.ID}.br";
                                 TResultObj<int> restoreResult = await ImportPingInfosFromFile(filePath);
                                 if (restoreResult.Success)
                                 {
@@ -202,7 +209,7 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     // Load the archived PingInfos from the file
                     var monitorPingInfo = await _fileRepo.GetStateJsonZAsync<MonitorPingInfo>(filePath);
-                    if (monitorPingInfo == null) 
+                    if (monitorPingInfo == null)
                     {
                         result.Success = false;
                         result.Data = 0;
@@ -235,10 +242,22 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
+
+        private void EnsureDirectoryExists(string directoryPath)
+        {
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+        }
+
         public async Task<ResultObj> ImportMonitorPingInfosFromFile(UserInfo user, int monitorPingInfoID)
         {
             ResultObj result = new ResultObj();
-            var filePath = $"./data/{user.UserID}_{monitorPingInfoID}.br";
+            var userDirectory = $"./data/{user.UserID}";
+            EnsureDirectoryExists(userDirectory); // Ensure user directory exists
+            var filePath = $"{userDirectory}/{monitorPingInfoID}.br";
+
             result.Message = "SERVICE : PingInfoService.ImportPingInfosFromFile() ";
             result.Success = false;
             try
@@ -333,6 +352,9 @@ namespace NetworkMonitor.Data.Services
             DateTime thresholdDate = GetThresholdDate(user.AccountType!);
             //thresholdDate=DateTime.UtcNow;
             _logger.LogInformation("Filtering user " + user.UserID);
+            var userDirectory = $"./data/{user.UserID}";
+            EnsureDirectoryExists(userDirectory); // Ensure user directory exists
+
             const int batchSize = 100; // Adjust this value based on your needs
             int skip = 0;
             bool hasMoreRecords = true;
@@ -347,7 +369,7 @@ namespace NetworkMonitor.Data.Services
                     .ToListAsync();
                 foreach (var monitorPingInfo in batchMonitorPingInfos)
                 {
-                    var filePath = $"./data/{user.UserID}_{monitorPingInfo.ID}.br";
+                    var filePath = $"{userDirectory}/{monitorPingInfo.ID}.br"; 
                     // Directly delete old PingInfos except the last one
                     var lastPingInfoId = await monitorContext.PingInfos.AsNoTracking()
                         .Where(p => p.MonitorPingInfoID == monitorPingInfo.ID)
@@ -393,6 +415,8 @@ namespace NetworkMonitor.Data.Services
                 skip += batchSize;
             }
         }
+
+
         private async Task UpdateBatch(MonitorContext monitorContext, List<PingInfo> lastPingInfos)
         {
             await new PingInfoHelper(monitorContext).UpdateStatusAndPingInfos(lastPingInfos, _logger, false);
