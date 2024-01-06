@@ -57,11 +57,11 @@ namespace NetworkMonitor.Data.Services
                     UserInfo? user;
                     if (customerId != null)
                     {
-                        user = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.CustomerId == customerId);
+                        user = await monitorContext.UserInfos.AsNoTracking().FirstOrDefaultAsync(u => u.CustomerId == customerId);
                     }
                     else
                     {
-                        user = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.UserID == userId);
+                        user = await monitorContext.UserInfos.AsNoTracking().FirstOrDefaultAsync(u => u.UserID == userId);
                     }
                     // Get the user by userId
                     if (user == null)
@@ -79,7 +79,7 @@ namespace NetworkMonitor.Data.Services
                     int userSkipped = 0;
                     var importedMonitorPingInfoIDs = new List<(int, int)>();
                     // Get the MonitorPingInfos for the user that are newer than the threshold date
-                    var userMonitorPingInfos = await monitorContext.MonitorPingInfos
+                    var userMonitorPingInfos = await monitorContext.MonitorPingInfos.AsNoTracking()
                         .Where(m => m.UserID == user.UserID && m.DateStarted >= thresholdDate && m.IsArchived)
                         .ToListAsync();
                     foreach (var monitorPingInfo in userMonitorPingInfos)
@@ -135,7 +135,7 @@ namespace NetworkMonitor.Data.Services
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     // Get all users
-                    var users = await monitorContext.UserInfos.ToListAsync();
+                    var users = await monitorContext.UserInfos.AsNoTracking().ToListAsync();
                     foreach (var user in users)
                     {
                         var userDirectory = $"./data/{user.UserID}";
@@ -146,7 +146,7 @@ namespace NetworkMonitor.Data.Services
                         int userSkipped = 0;
                         var importedMonitorPingInfoIDs = new List<(int, int)>();
                         // For each user, get their MonitorPingInfos
-                        var userMonitorPingInfos = await monitorContext.MonitorPingInfos
+                        var userMonitorPingInfos = await monitorContext.MonitorPingInfos.AsNoTracking()
                             .Where(m => m.UserID == user.UserID)
                             .ToListAsync();
                         foreach (var monitorPingInfo in userMonitorPingInfos)
@@ -447,7 +447,7 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var users = await monitorContext.UserInfos.ToListAsync();
+                    var users = await monitorContext.UserInfos.AsNoTracking().ToListAsync();
                     foreach (var user in users)
                     {
                         await FilterPingInfosForUser(user, monitorContext);
