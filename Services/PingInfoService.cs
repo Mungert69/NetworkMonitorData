@@ -369,7 +369,7 @@ namespace NetworkMonitor.Data.Services
                     .ToListAsync();
                 foreach (var monitorPingInfo in batchMonitorPingInfos)
                 {
-                    var filePath = $"{userDirectory}/{monitorPingInfo.ID}.br"; 
+                    var filePath = $"{userDirectory}/{monitorPingInfo.ID}.br";
                     // Directly delete old PingInfos except the last one
                     var lastPingInfoId = await monitorContext.PingInfos.AsNoTracking()
                         .Where(p => p.MonitorPingInfoID == monitorPingInfo.ID)
@@ -448,7 +448,11 @@ namespace NetworkMonitor.Data.Services
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var users = await monitorContext.UserInfos.ToListAsync();
-                    users.ForEach(user => FilterPingInfosForUser(user, monitorContext).Wait());
+                    foreach (var user in users)
+                    {
+                        await FilterPingInfosForUser(user, monitorContext);
+                    }
+
                 }
                 result.Success = true;
                 result.Message += "Success : Filtered PingInfos based on Account Type. ";
