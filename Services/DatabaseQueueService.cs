@@ -158,7 +158,7 @@ namespace NetworkMonitor.Data.Services
                     result.Data = returnProcessorDataObj;
                     result.Message += timerStr + " Sucess : Saved data to Database : ";
                     var test = await monitorContext.MonitorPingInfos.Where(w => w.Enabled == true && w.DataSetID == 0).FirstOrDefaultAsync();
-                    if (test != null && await monitorContext.PingInfos.AnyAsyncWhere(w => w.MonitorPingInfoID == test.ID) )
+                    if (test != null && await monitorContext.PingInfos.AnyAsync(w => w.MonitorPingInfoID == test.ID) )
                     {
                         result.Message += "DEBUG : DatabaseService got PingInfos count=" + monitorContext.PingInfos.Where(w => w.MonitorPingInfoID == test.ID).Count() + " ";
                     }
