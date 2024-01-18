@@ -6,7 +6,7 @@
     <PublishProfile>DefaultContainer</PublishProfile>
     <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:8.0</ContainerBaseImage>
     <ContainerImageName>mungert/networkmonitordata</ContainerImageName>
-    <ContainerImageTag>1.2.0</ContainerImageTag>
+    <ContainerImageTag>1.2.1</ContainerImageTag>
       <StartupObject>NetworkMonitor.Data.Program</StartupObject>
           <Nullable>enable</Nullable>
               <PublishAot>false</PublishAot>
