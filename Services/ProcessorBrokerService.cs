@@ -18,6 +18,7 @@ namespace NetworkMonitor.Data.Services
     {
         Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs);
         Task<ResultObj> UserUpdateProcessor(ProcessorObj processor);
+        Task<ResultObj> GenAuthKey(ProcessorObj processor);
         Task<ResultObj> Init();
     }
     public class ProcessorBrokerService : IProcessorBrokerService
@@ -83,28 +84,108 @@ namespace NetworkMonitor.Data.Services
             var result = new ResultObj();
             result.Message = " Service : ChangeProcessorAppID : ";
             result.Success = true;
+            /*
+                        try
+                        {
+                            using (var scope = _scopeFactory.CreateScope())
+                            {
+                                var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                                var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == appIDs.Item1).ToListAsync();
+                                if (monitorIPs != null)
+                                {
+                                    monitorIPs.ForEach(f => f.AppID = appIDs.Item2);
+                                    await monitorContext.SaveChangesAsync();
+                                }
+
+                            }
+                            result.Message = $" Success : MonitorIPs with AppID  {appIDs.Item1} swapped to {appIDs.Item2}.";
+                            _logger.LogInformation(result.Message);
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Success = false;
+                            result.Message = $" Error : updating MonitorIPs AppIDs . Error was : {ex.Message}";
+                            _logger.LogError(result.Message);
+                        }
+            */
+            result.Message += " Success : No longer changing AppIDs .";
+            return result;
+        }
+        public async Task<ResultObj> GenAuthKey(ProcessorObj processor)
+        {
+            var result = new ResultObj();
+            result.Message = " Service : SendAuthKey : ";
+            ProcessorInitObj initObj = new ProcessorInitObj();
+            initObj.TotalReset = true;
+            initObj.Reset = false;
+            initObj.AppID = processor.AppID;
+            initObj.PingParams = _pingParams;
+            initObj.MonitorIPs = new List<MonitorIP>();
+
 
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == appIDs.Item1).ToListAsync();
-                    if (monitorIPs != null)
+                    var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
+                    processor.AuthKey = AesOperation.EncryptString(_systemParams.EmailEncryptKey, processor.AppID);
+                    if (existingProcessor == null)
                     {
-                        monitorIPs.ForEach(f => f.AppID = appIDs.Item2);
-                        await monitorContext.SaveChangesAsync();
+                        // New Processor
+                        processor.DateCreated = DateTime.UtcNow;
+                        monitorContext.ProcessorObjs.Add(processor);
+                        await _rabbitRepo.PublishAsync<ProcessorObj>("addProcessor", processor);
+                        result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
                     }
+                    else
+                    {
+                        // Update Processor
+                        existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                        existingProcessor.IsEnabled = processor.IsEnabled;
+                        existingProcessor.Location = processor.Location;
+                        existingProcessor.MaxLoad = processor.MaxLoad;
+                        await _rabbitRepo.PublishAsync<ProcessorObj>("updateProcessor", processor);
+                        result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
+                        initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
 
+                    }
+                    initObj.AuthKey=processor.AuthKey;
+                    await _rabbitRepo.PublishAsync<ProcessorInitObj>($"processorAuthKey{processor.AppID}", initObj);
+                    result.Message += $" Success : ProcessorInitObj with AuthKey sent to AppID {processor.AppID} .";
+
+                    await monitorContext.SaveChangesAsync();
                 }
-                result.Message = $" Success : MonitorIPs with AppID  {appIDs.Item1} swapped to {appIDs.Item2}.";
+
+                result.Success = true;
                 _logger.LogInformation(result.Message);
             }
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Message = $" Error : updating MonitorIPs AppIDs . Error was : {ex.Message}";
+                result.Message = $" Error : updating processor with AppID {processor.AppID}. Error was : {ex.Message}";
                 _logger.LogError(result.Message);
+                return result;
+            }
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
+                    if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
+                    await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processor.AppID, initObj);
+                    result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
+                    result.Success = true;
+                }
+            }
+
+            catch (Exception e)
+            {
+                result.Message += $" Error : Could not send ProcessorInit event to appID {processor.AppID} . Error was : {e.Message} . ";
+                result.Success = false;
+                _logger.LogError(result.Message);
+
             }
 
             return result;
@@ -120,7 +201,7 @@ namespace NetworkMonitor.Data.Services
 
             initObj.PingParams = _pingParams;
 
-           
+
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -162,7 +243,7 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogError(result.Message);
                 return result;
             }
-             try
+            try
             {
                 using (var scope = _scopeFactory.CreateScope())
                 {
@@ -171,7 +252,7 @@ namespace NetworkMonitor.Data.Services
                     if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processor.AppID, initObj);
                     result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
-                    result.Success=true;
+                    result.Success = true;
                 }
             }
 

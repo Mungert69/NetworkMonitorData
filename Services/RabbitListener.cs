@@ -116,6 +116,12 @@ namespace NetworkMonitor.Data.Services
                 FuncName = "userUpdateProcessor",
                 MessageTimeout = 2160000
             });
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "genAuthKey",
+                FuncName = "genAuthKey",
+                MessageTimeout = 2160000
+            });
 
 
 
@@ -282,6 +288,21 @@ namespace NetworkMonitor.Data.Services
                             catch (Exception ex)
                             {
                                 _logger.LogError(" Error : RabbitListener.DeclareConsumers.userUpdateProcessor " + ex.Message);
+                            }
+                        };
+                            break;
+                             case "genAuthKey":
+                            rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                            rabbitMQObj.Consumer.Received += async (model, ea) =>
+                        {
+                            try
+                            {
+                                result = await GenAuthKey(ConvertToObject<ProcessorObj>(model, ea));
+                                rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(" Error : RabbitListener.DeclareConsumers.genAuthKey " + ex.Message);
                             }
                         };
                             break;
@@ -563,7 +584,57 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
+public async Task<ResultObj> GenAuthKey(ProcessorObj? processorObj)
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : GenAuthKey : ";
+            if (processorObj == null)
+            {
+                result.Message += " Error : processorObj  is Null ";
+                result.Success = false;
+                _logger.LogError(result.Message);
+                return result;
+            }
+            if (processorObj.AppID == null)
+            {
+                result.Message += " Error : processorObj.AppID  is Null ";
+                result.Success = false;
+                _logger.LogError(result.Message);
+                return result;
+            }
+            if (processorObj.AppID == "")
+            {
+                result.Message += " Error : processorObj.AppID  is empty ";
+                result.Success = false;
+                _logger.LogError(result.Message);
+                return result;
+            }
+            try
+            {
+                result = await _processorBrokerService.GenAuthKey(processorObj);
+                if (result.Success)
+                {
+                    _logger.LogInformation(result.Message);
+                }
+                else
+                {
+                    _logger.LogError(result.Message);
+                }
 
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+                _logger.LogError(result.Message);
+            }
+            return result;
+        }
+
+
+        //TODO when users no longer user the version of Processor that requires this rabbitMessage . Delete this.
         public async Task<ResultObj> UserUpdateProcessor(ProcessorObj? processorObj)
         {
             ResultObj result = new ResultObj();
