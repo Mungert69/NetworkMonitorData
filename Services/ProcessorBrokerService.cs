@@ -151,6 +151,8 @@ namespace NetworkMonitor.Data.Services
 
                     }
                     initObj.AuthKey=processor.AuthKey;
+                    initObj.RabbitHostName="monitorsrv.freenetworkmonitor.click";
+                    initObj.RabbitPort=5672;
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>($"processorAuthKey{processor.AppID}", initObj);
                     result.Message += $" Success : ProcessorInitObj with AuthKey sent to AppID {processor.AppID} .";
 
