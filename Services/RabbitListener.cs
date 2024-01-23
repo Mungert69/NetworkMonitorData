@@ -341,7 +341,7 @@ namespace NetworkMonitor.Data.Services
                 var returnProcessorDataObj = result.Data;
                 if (returnProcessorDataObj != null)
                 {
-                    _monitorData.RabbitRepo.Publish<ProcessorDataObj>("removePingInfos" + returnProcessorDataObj.AppID, returnProcessorDataObj);
+                    _monitorData.RabbitRepo.PublishAsync<ProcessorDataObj>("removePingInfos" + returnProcessorDataObj.AppID, returnProcessorDataObj);
                 }
                 _logger.LogInformation(result.Message);
             }
@@ -406,7 +406,7 @@ namespace NetworkMonitor.Data.Services
                     paymentTransaction.PingInfosComplete = false;
                 }
                 _logger.LogInformation(result.Message);
-                _monitorData.RabbitRepo.Publish<PaymentTransaction>("pingInfosComplete", paymentTransaction);
+                _monitorData.RabbitRepo.PublishAsync<PaymentTransaction>("pingInfosComplete", paymentTransaction);
             }
             catch (Exception e)
             {
