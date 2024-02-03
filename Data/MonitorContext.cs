@@ -29,6 +29,7 @@ namespace NetworkMonitor.Data
         public DbSet<LogChatGPTObj> ChatGPTLogs {get;set;}
                 public DbSet<UserAuthInfo> UserAuthInfos { get; set; }
                 public DbSet<ProcessorObj> ProcessorObjs {get;set;}
+                public DbSet<TestUser> TestUsers {get;set;}
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -47,6 +48,7 @@ namespace NetworkMonitor.Data
              modelBuilder.Entity<LogChatGPTObj>().ToTable("ChatGPTLogs");
               modelBuilder.Entity<UserAuthInfo>().ToTable("UserAuthInfos");
                modelBuilder.Entity<ProcessorObj>().ToTable("ProcessorObjs");
+                           modelBuilder.Entity<TestUser>().ToTable("TestUsers");
             
         }
     }
