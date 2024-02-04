@@ -112,16 +112,17 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        private async Task ActivateTestUser(string location, string owner,MonitorContext monitorContext)
+        private async Task ActivateTestUser(string location, string owner, MonitorContext monitorContext)
         {
             var parts = location.Split(new[] { " - " }, StringSplitOptions.RemoveEmptyEntries);
-string email = parts.Length > 0 ? parts[0].Trim() : string.Empty; // Safely trim and check existence
+            string email = parts.Length > 0 ? parts[0].Trim() : string.Empty; // Safely trim and check existence
 
             var testUser = await monitorContext.TestUsers.Where(w => w.Email == email).FirstOrDefaultAsync();
             if (testUser == null) return;
-            testUser.UserID = owner;
-            testUser.ActivatedDate = DateTime.UtcNow;
-            await monitorContext.SaveChangesAsync();
+            bool flag = false;
+            if (testUser.UserID == null) { testUser.UserID = owner; flag = true; }
+            if (testUser.ActivatedDate == null) { testUser.ActivatedDate = DateTime.UtcNow; flag = true; }
+            if (flag) await monitorContext.SaveChangesAsync();
 
         }
         public async Task<ResultObj> GenAuthKey(ProcessorObj processor)
@@ -150,7 +151,6 @@ string email = parts.Length > 0 ? parts[0].Trim() : string.Empty; // Safely trim
                         monitorContext.ProcessorObjs.Add(processor);
                         await _rabbitRepo.PublishAsync<ProcessorObj>("addProcessor", processor);
                         result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
-                        await ActivateTestUser(processor.Location, processor.Owner, monitorContext);
                     }
                     else
                     {
@@ -164,13 +164,15 @@ string email = parts.Length > 0 ? parts[0].Trim() : string.Empty; // Safely trim
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
 
                     }
+                    await monitorContext.SaveChangesAsync();
+
+                    await ActivateTestUser(processor.Location, processor.Owner, monitorContext);
+
                     initObj.AuthKey = processor.AuthKey;
-                    //initObj.RabbitHostName="monitorsrv.freenetworkmonitor.click";
-                    //initObj.RabbitPort=5672;
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>($"processorAuthKey{processor.AppID}", initObj);
                     result.Message += $" Success : ProcessorInitObj with AuthKey sent to AppID {processor.AppID} .";
 
-                    await monitorContext.SaveChangesAsync();
+
                 }
 
                 result.Success = true;
