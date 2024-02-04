@@ -111,6 +111,18 @@ namespace NetworkMonitor.Data.Services
             result.Message += " Success : No longer changing AppIDs .";
             return result;
         }
+
+        private async Task ActivateTestUser(string location, string owner,MonitorContext monitorContext)
+        {
+            string[] parts = location.Split(new[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries);
+            string email = parts[0];
+            var testUser = await monitorContext.TestUsers.Where(w => w.Email == email).FirstOrDefaultAsync();
+            if (testUser == null) return;
+            testUser.UserID = owner;
+            testUser.ActivatedDate = DateTime.UtcNow;
+            await monitorContext.SaveChangesAsync();
+
+        }
         public async Task<ResultObj> GenAuthKey(ProcessorObj processor)
         {
             var result = new ResultObj();
@@ -137,6 +149,7 @@ namespace NetworkMonitor.Data.Services
                         monitorContext.ProcessorObjs.Add(processor);
                         await _rabbitRepo.PublishAsync<ProcessorObj>("addProcessor", processor);
                         result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
+                        await ActivateTestUser(processor.Location, processor.Owner, monitorContext);
                     }
                     else
                     {
@@ -150,7 +163,7 @@ namespace NetworkMonitor.Data.Services
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
 
                     }
-                    initObj.AuthKey=processor.AuthKey;
+                    initObj.AuthKey = processor.AuthKey;
                     //initObj.RabbitHostName="monitorsrv.freenetworkmonitor.click";
                     //initObj.RabbitPort=5672;
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>($"processorAuthKey{processor.AppID}", initObj);
