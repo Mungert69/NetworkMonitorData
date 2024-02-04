@@ -114,8 +114,9 @@ namespace NetworkMonitor.Data.Services
 
         private async Task ActivateTestUser(string location, string owner,MonitorContext monitorContext)
         {
-            string[] parts = location.Split(new[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries);
-            string email = parts[0];
+            var parts = location.Split(new[] { " - " }, StringSplitOptions.RemoveEmptyEntries);
+string email = parts.Length > 0 ? parts[0].Trim() : string.Empty; // Safely trim and check existence
+
             var testUser = await monitorContext.TestUsers.Where(w => w.Email == email).FirstOrDefaultAsync();
             if (testUser == null) return;
             testUser.UserID = owner;
