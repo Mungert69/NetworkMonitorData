@@ -518,7 +518,7 @@ namespace NetworkMonitorData.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<DateTime>("ActivatedDate")
+                    b.Property<DateTime?>("ActivatedDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("CancelAt")
@@ -527,7 +527,7 @@ namespace NetworkMonitorData.Migrations
                     b.Property<bool>("Enabled")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<DateTime>("InviteSentDate")
+                    b.Property<DateTime?>("InviteSentDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("UserID")

@@ -15,18 +15,18 @@ namespace NetworkMonitorData.Migrations
                 name: "TestUsers",
                 columns: table => new
                 {
-                    UserID = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Enabled = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     Email = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    ActivatedDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    InviteSentDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UserID = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Enabled = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    ActivatedDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    InviteSentDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     CancelAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TestUsers", x => x.UserID);
+                    table.PrimaryKey("PK_TestUsers", x => x.Email);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
         }

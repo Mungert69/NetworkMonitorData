@@ -11,8 +11,8 @@ using NetworkMonitor.Data;
 namespace NetworkMonitorData.Migrations
 {
     [DbContext(typeof(MonitorContext))]
-    [Migration("20240203233445_TestUsersEmailKey")]
-    partial class TestUsersEmailKey
+    [Migration("20240204000721_TestUsers")]
+    partial class TestUsers
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -521,7 +521,7 @@ namespace NetworkMonitorData.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<DateTime>("ActivatedDate")
+                    b.Property<DateTime?>("ActivatedDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("CancelAt")
@@ -530,7 +530,7 @@ namespace NetworkMonitorData.Migrations
                     b.Property<bool>("Enabled")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<DateTime>("InviteSentDate")
+                    b.Property<DateTime?>("InviteSentDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("UserID")
