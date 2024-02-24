@@ -30,6 +30,7 @@ namespace NetworkMonitor.Data
                 public DbSet<UserAuthInfo> UserAuthInfos { get; set; }
                 public DbSet<ProcessorObj> ProcessorObjs {get;set;}
                 public DbSet<TestUser> TestUsers {get;set;}
+                public DbSet<PredictStatus> PredictStatuses { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -49,7 +50,10 @@ namespace NetworkMonitor.Data
               modelBuilder.Entity<UserAuthInfo>().ToTable("UserAuthInfos");
                modelBuilder.Entity<ProcessorObj>().ToTable("ProcessorObjs");
                            modelBuilder.Entity<TestUser>().ToTable("TestUsers");
-            
+                           modelBuilder.Entity<PredictStatus>().ToTable("PredictStatuses");
+                modelBuilder.Entity<PredictStatus>().OwnsOne(p => p.ChangeDetectionResult).WithOwner();
+            modelBuilder.Entity<PredictStatus>().OwnsOne(p => p.SpikeDetectionResult).WithOwner();
+     
         }
     }
     
