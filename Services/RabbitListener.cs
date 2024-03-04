@@ -291,7 +291,7 @@ namespace NetworkMonitor.Data.Services
                             }
                         };
                             break;
-                             case "genAuthKey":
+                        case "genAuthKey":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
                         {
@@ -325,6 +325,8 @@ namespace NetworkMonitor.Data.Services
         public async Task<ResultObj> UpdateMonitorPingInfos(Tuple<string, string>? processorDataTuple)
         {
             var returnResult = new ResultObj();
+            var publishResult = new ResultObj();
+            ProcessorDataObj? returnProcessorDataObj = null;
             TResultObj<ProcessorDataObj> result = new TResultObj<ProcessorDataObj>();
             result.Success = false;
             result.Message = "MessageAPI : dataUpdateMonitorPingInfos : ";
@@ -338,12 +340,9 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 result = await _databaseService.AddProcessorDataStringToQueue(processorDataTuple);
-                var returnProcessorDataObj = result.Data;
-                if (returnProcessorDataObj != null)
-                {
-                    _monitorData.RabbitRepo.PublishAsync<ProcessorDataObj>("removePingInfos" + returnProcessorDataObj.AppID, returnProcessorDataObj);
-                }
-                _logger.LogInformation(result.Message);
+                returnProcessorDataObj = result.Data;
+
+
             }
             catch (Exception e)
             {
@@ -352,9 +351,40 @@ namespace NetworkMonitor.Data.Services
                 result.Message += "Error : Failed to set MonitorPingInfos : Error was : " + e.Message + " ";
                 _logger.LogError("Error : Failed to set MonitorPingInfos : Error was : " + e.Message + " ");
             }
-            returnResult.Message = result.Message;
-            returnResult.Success = result.Success;
+            if (returnProcessorDataObj != null)
+            {
+                try
+                {
+                    await _monitorData.RabbitRepo.PublishAsync<ProcessorDataObj>("predictPingInfos", returnProcessorDataObj);
+                    publishResult.Success = true;
+                    publishResult.Message = " Success : published predictPingInfos. ";
+                }
+                catch (Exception e)
+                {
+                    publishResult.Success = false;
+                    result.Message += "Error : Failed to Publish predictPingInfos : Error was : " + e.Message + " ";
+                    _logger.LogError("Error : Failed to Publish predictPingInfos : Error was : " + e.Message + " ");
+                }
+                try
+                {
+                    returnProcessorDataObj.PingInfos = new List<PingInfo>();
+                    await _monitorData.RabbitRepo.PublishAsync<ProcessorDataObj>("removePingInfos" + returnProcessorDataObj.AppID, returnProcessorDataObj);
+                    publishResult.Success = true;
+                    publishResult.Message = " Success : published removePingInfos. ";
+                }
+                catch (Exception e)
+                {
+                    publishResult.Success = false;
+                    result.Message += "Error : Failed to Publish removePingInfos : Error was : " + e.Message + " ";
+                }
+            }
+            returnResult.Message += result.Message;
+            returnResult.Message += publishResult.Message;
+            returnResult.Success = result.Success && publishResult.Success;
             returnResult.Data = (object)result.Data!;
+            if (returnResult.Success) _logger.LogInformation(returnResult.Message);
+            else _logger.LogError(returnResult.Message);
+
             return returnResult;
         }
         public async Task<ResultObj> DataCheck(MonitorDataInitObj? serviceObj)
@@ -429,7 +459,7 @@ namespace NetworkMonitor.Data.Services
             {
                 //Func<Task<ResultObj>> func = _monitorData.DataPurge;
                 //var resultPurge = await _databaseService.AddTaskToQueue(func);
-                var resultPurge=await _monitorData.DataPurge();
+                var resultPurge = await _monitorData.DataPurge();
                 result.Message += resultPurge.Message;
                 result.Success = resultPurge.Success;
             }
@@ -584,7 +614,7 @@ namespace NetworkMonitor.Data.Services
             }
             return result;
         }
-public async Task<ResultObj> GenAuthKey(ProcessorObj? processorObj)
+        public async Task<ResultObj> GenAuthKey(ProcessorObj? processorObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;

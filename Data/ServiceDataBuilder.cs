@@ -124,13 +124,13 @@ namespace NetworkMonitor.Data
             }
             monitorContext.MonitorPingInfos.AddRange(addMonitorPingInfos);
             await monitorContext.SaveChangesAsync();
-
             var returnProcessorDataObj = new ProcessorDataObj()
             {
                 RemovePingInfos = removePingInfos,
                 SwapMonitorPingInfos = processorDataObj.SwapMonitorPingInfos ?? [],
                 RemoveMonitorPingInfoIDs = processorDataObj.RemoveMonitorPingInfoIDs ?? [],
-                AppID = processorDataObj.AppID
+                AppID = processorDataObj.AppID,
+                PingInfos = processorDataObj.PingInfos!
             };
             return returnProcessorDataObj;
 
