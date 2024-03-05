@@ -368,6 +368,7 @@ namespace NetworkMonitor.Data.Services
                 try
                 {
                     returnProcessorDataObj.PingInfos = new List<PingInfo>();
+                    returnProcessorDataObj.MonitorPingInfos = new List<MonitorPingInfo>();
                     await _monitorData.RabbitRepo.PublishAsync<ProcessorDataObj>("removePingInfos" + returnProcessorDataObj.AppID, returnProcessorDataObj);
                     publishResult.Success = true;
                     publishResult.Message = " Success : published removePingInfos. ";

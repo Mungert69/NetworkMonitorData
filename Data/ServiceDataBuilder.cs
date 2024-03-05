@@ -130,7 +130,8 @@ namespace NetworkMonitor.Data
                 SwapMonitorPingInfos = processorDataObj.SwapMonitorPingInfos ?? [],
                 RemoveMonitorPingInfoIDs = processorDataObj.RemoveMonitorPingInfoIDs ?? [],
                 AppID = processorDataObj.AppID,
-                PingInfos = processorDataObj.PingInfos!
+                PingInfos = processorDataObj.PingInfos!,
+                MonitorPingInfos = processorDataObj.MonitorPingInfos
             };
             return returnProcessorDataObj;
 
