@@ -131,7 +131,7 @@ namespace NetworkMonitor.Data
                 RemoveMonitorPingInfoIDs = processorDataObj.RemoveMonitorPingInfoIDs ?? [],
                 AppID = processorDataObj.AppID,
                 PingInfos = processorDataObj.PingInfos!,
-                MonitorPingInfos = processorDataObj.MonitorPingInfos
+                MonitorPingInfos = await monitorContext.MonitorPingInfos.Where(w => w.DataSetID == 0 && w.AppID == processorDataObj.AppID).ToListAsync()
             };
             return returnProcessorDataObj;
 
