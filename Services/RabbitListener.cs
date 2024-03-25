@@ -317,7 +317,7 @@ namespace NetworkMonitor.Data.Services
             {
                 string message = " Error : failed to declate consumers. Error was : " + e.ToString() + " . ";
                 result.Message += message;
-                Console.WriteLine(result.Message);
+                 _logger.LogError(result.Message);
                 result.Success = false;
             }
             return result;
