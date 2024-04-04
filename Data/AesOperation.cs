@@ -2,6 +2,9 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using System.IO;
+
+
 namespace NetworkMonitor.Utils
 {
     public static class AesOperation
@@ -57,8 +60,8 @@ namespace NetworkMonitor.Utils
                 return decrypted;
             }
         }
-    
-   public static string EncryptString(string passphrase, string data)
+
+        public static string EncryptString(string passphrase, string data)
         {
             var salt = SaltGeneration.GenerateSalt(16);
             var key = GenerateKey(salt, passphrase);
@@ -92,5 +95,71 @@ namespace NetworkMonitor.Utils
                 return base64EncryptedData;
             }
         }
-      }
+
+        public static void GenerateKeyAndIV(string passphrase, out byte[] key, out byte[] iv)
+        {
+            byte[] salt = Encoding.UTF8.GetBytes("YourUniqueSaltHere"); // Consider making this dynamic or configurable
+
+            using (var pbkdf2 = new Rfc2898DeriveBytes(passphrase, salt, 10000, HashAlgorithmName.SHA256))
+            {
+                key = pbkdf2.GetBytes(16); // 128-bit key
+                iv = pbkdf2.GetBytes(16);  // 128-bit IV
+            }
+        }
+
+        public static string SimpleEncryptString(string passphrase, string data)
+        {
+            GenerateKeyAndIV(passphrase, out byte[] key, out byte[] iv);
+
+            using (MemoryStream msEncrypt = new MemoryStream())
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.Key = key;
+                aesAlg.IV = iv;
+                aesAlg.Mode = CipherMode.CFB;
+                aesAlg.Padding = PaddingMode.None;
+
+                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+
+                using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write, leaveOpen: true))
+                {
+                    using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                    {
+                        swEncrypt.Write(data);
+                    }
+                }
+
+                byte[] encrypted = msEncrypt.ToArray();
+                return Convert.ToBase64String(encrypted);
+            }
+        }
+
+        public static string SimpleDecryptString(string passphrase, string base64EncryptedData)
+        {
+            GenerateKeyAndIV(passphrase, out byte[] key, out byte[] iv);
+            byte[] cipherText = Convert.FromBase64String(base64EncryptedData);
+
+            using (MemoryStream msDecrypt = new MemoryStream(cipherText))
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.Key = key;
+                aesAlg.IV = iv;
+                aesAlg.Mode = CipherMode.CFB;
+                aesAlg.Padding = PaddingMode.None;
+
+                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+
+                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read, leaveOpen: true))
+                {
+                    using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                    {
+                        return srDecrypt.ReadToEnd();
+                    }
+                }
+            }
+        }
+
+    }
+
+    // Adjusted to use a passphrase directly and generate both key and IV
 }
