@@ -130,14 +130,20 @@ namespace NetworkMonitor.Utils
                 }
 
                 byte[] encrypted = msEncrypt.ToArray();
-                return Convert.ToBase64String(encrypted);
+                string base64String = Convert.ToBase64String(encrypted);
+                string urlSafeBase64String = base64String.Replace("+", "-").Replace("/", "_");
+                return urlSafeBase64String;
+
             }
         }
 
-        public static string SimpleDecryptString(string passphrase, string base64EncryptedData)
+        public static string SimpleDecryptString(string passphrase, string urlSafeBase64EncryptedData)
         {
             GenerateKeyAndIV(passphrase, out byte[] key, out byte[] iv);
-            byte[] cipherText = Convert.FromBase64String(base64EncryptedData);
+
+            string standardBase64EncryptedData = urlSafeBase64EncryptedData.Replace("-", "+").Replace("_", "/");
+            byte[] cipherText = Convert.FromBase64String(standardBase64EncryptedData);
+
 
             using (MemoryStream msDecrypt = new MemoryStream(cipherText))
             using (Aes aesAlg = Aes.Create())
