@@ -144,7 +144,6 @@ namespace NetworkMonitor.Utils
             string standardBase64EncryptedData = urlSafeBase64EncryptedData.Replace("-", "+").Replace("_", "/");
             byte[] cipherText = Convert.FromBase64String(standardBase64EncryptedData);
 
-
             using (MemoryStream msDecrypt = new MemoryStream(cipherText))
             using (Aes aesAlg = Aes.Create())
             {
