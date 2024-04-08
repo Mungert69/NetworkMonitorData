@@ -1,6 +1,7 @@
 ﻿
 using Microsoft.EntityFrameworkCore;
 using NetworkMonitor.Objects;
+using NetworkMonitor.Objects.Entity;
 using System.Collections.Generic;
 
 namespace NetworkMonitor.Data
@@ -31,6 +32,8 @@ namespace NetworkMonitor.Data
         public DbSet<ProcessorObj> ProcessorObjs { get; set; }
         public DbSet<TestUser> TestUsers { get; set; }
         public DbSet<PredictStatus> PredictStatuses { get; set; }
+        public DbSet<LLMSessionLog> LLMSessionLogs { get; set; }
+        public DbSet<LLMSessionOutput> LLMSessionOutputs { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -53,6 +56,8 @@ namespace NetworkMonitor.Data
             modelBuilder.Entity<PredictStatus>().ToTable("PredictStatuses");
             modelBuilder.Entity<PredictStatus>().OwnsOne(p => p.ChangeDetectionResult).WithOwner();
             modelBuilder.Entity<PredictStatus>().OwnsOne(p => p.SpikeDetectionResult).WithOwner();
+            modelBuilder.Entity<LLMSessionLog>().ToTable("LLMSessionLogs");
+            modelBuilder.Entity<LLMSessionOutput>().ToTable("LLMSessionOutputs");
 
         }
     }
