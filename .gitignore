@@ -353,4 +353,4 @@ nohup.out
 /data/*
 /bin/*
 /obj/*
-
+/.mono/*
