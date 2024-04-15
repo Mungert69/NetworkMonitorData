@@ -43,7 +43,7 @@ namespace NetworkMonitor.Data.Services
             monitorIPs.ForEach(f =>
             {
                 f.Enabled = false;
-                hostListBuilder.Append(f.Address + ",");
+                hostListBuilder.Append(f.Address + ", ");
             });
 
             // Remove the last comma if the StringBuilder is not empty
