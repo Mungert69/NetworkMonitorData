@@ -481,6 +481,8 @@ namespace NetworkMonitor.Data.Services
                     return "2 years";
                 case "Enterprise":
                     return "unlimited time"; // or whatever is appropriate for Enterprise
+                case "God":
+                    return "This is the God account"; 
                 default:
                     return "invalid account type";
             }
@@ -501,6 +503,8 @@ namespace NetworkMonitor.Data.Services
                     return DateTime.UtcNow.AddYears(-2);
                 case "Enterprise":
                     return DateTime.MinValue; // No filtering for Enterprise
+                case "God":
+                    return DateTime.MinValue; // No filtering for God
                 default:
                     return DateTime.MinValue; // No filtering if account type not found
             }
