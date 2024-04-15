@@ -36,25 +36,6 @@ namespace NetworkMonitor.Data.Services
             _systemParams = systemParamsHelper.GetSystemParams();
 
         }
-        private string DisableAndbuildHostList(List<MonitorIP> monitorIPs)
-        {
-            var hostListBuilder = new StringBuilder().Append("(");
-
-            monitorIPs.ForEach(f =>
-            {
-                f.Enabled = false;
-                hostListBuilder.Append(f.Address + ", ");
-            });
-
-            // Remove the last comma if the StringBuilder is not empty
-            if (hostListBuilder.Length > 2)
-            {
-                hostListBuilder.Length--;  // Reduces the length by 1, effectively removing the last comma
-                hostListBuilder.Length--;
-            }
-
-            return hostListBuilder.Append(")").ToString();
-        }
         public async Task<ResultObj> DisableMonitorIPs()
         {
             var result = new ResultObj();
@@ -76,7 +57,7 @@ namespace NetworkMonitor.Data.Services
                         if (monitorIPs.Count > 0)
                         {
 
-                            string hostList = DisableAndbuildHostList(monitorIPs);
+                            string hostList = DataHelpers.DisableAndbuildHostList(monitorIPs);
                             monitorContext.EmailInfos.Add(emailInfo);
                             await monitorContext.SaveChangesAsync();
                             if (!user.DisableEmail) emailList.Add(new GenericEmailObj() { UserInfo = user, HeaderImageUri = uri, ID = emailInfo.ID, ExtraMessage = hostList });
@@ -100,7 +81,7 @@ namespace NetworkMonitor.Data.Services
                         bool isEmailVerified = monitorIPsDefault.Any(mip => mip.IsEmailVerified);
 
                         // Assuming DisableAndbuildHostList is a method that disables the hosts and returns a string list of hosts
-                        string hostList = DisableAndbuildHostList(monitorIPsDefault);
+                        string hostList = DataHelpers.DisableAndbuildHostList(monitorIPsDefault);
 
                         // Create email info object
                         var emailInfo = new EmailInfo() { Email = addUserEmail, EmailType = "UserHostExpire" };

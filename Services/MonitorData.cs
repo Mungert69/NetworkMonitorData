@@ -386,8 +386,8 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    
-                    
+
+
                     int maxDataSetID = 0;
                     try { maxDataSetID = await monitorContext.MonitorPingInfos.MaxAsync(m => m.DataSetID); }
                     catch (Exception e)
@@ -403,12 +403,12 @@ namespace NetworkMonitor.Data.Services
                         f.DataSetID = maxDataSetID;
                         i++;
                     });
-                   await  monitorContext.SaveChangesAsync();
-                      var allMonitorIPs = await monitorContext.MonitorIPs
-                        .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-3))
-                        .ToListAsync();
+                    await monitorContext.SaveChangesAsync();
+                    var allMonitorIPs = await monitorContext.MonitorIPs
+                      .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-3))
+                      .ToListAsync();
 
-                    // Group by AddUserEmail to process each unique email once
+                    // Group by AppID set LastAccessDate
                     var groupedByAppID = currentMonitorPingInfos.GroupBy(ip => ip.AppID);
 
                     foreach (var group in groupedByAppID)
@@ -416,12 +416,26 @@ namespace NetworkMonitor.Data.Services
                         if (string.IsNullOrEmpty(group.Key))
                             continue;
                         string appID = group.Key;
-                        var processorObj = monitorContext.ProcessorObjs.FirstOrDefault(p => p.AppID==appID);
-                        if (processorObj != null) {
+                        var processorObj = monitorContext.ProcessorObjs.FirstOrDefault(p => p.AppID == appID);
+                        if (processorObj != null)
+                        {
                             processorObj.LastAccessDate = DateTime.UtcNow;
-                           await  monitorContext.SaveChangesAsync();
+                            processorObj.Load = group.Count();
+                            await monitorContext.SaveChangesAsync();
                         }
                     }
+                    var disableProcessors = await monitorContext.ProcessorObjs.Where(w => w.LastAccessDate < DateTime.UtcNow.AddMonths(-3) && w.IsPrivate).ToListAsync();
+                    foreach (ProcessorObj disableProcessor in disableProcessors)
+                    {
+                        var userInfo = monitorContext.UserInfos.Where(w => w.UserID == disableProcessor.Owner && (w.AccountType == "Free" || w.AccountType == "Standard")).FirstOrDefault();
+                        if (userInfo != null)
+                        {
+                            var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == disableProcessor.AppID).ToListAsync();
+                            disableProcessor.IsEnabled = false;
+                            await SendDisableProcessorEmailAlert(userInfo, monitorIPs,monitorContext);
+                        }
+                    }
+                    await monitorContext.SaveChangesAsync();
                     result.Message += "Success : DB Updated. Updated " + i + " records to DB ";
                     result.Success = true;
                 }
@@ -473,7 +487,40 @@ namespace NetworkMonitor.Data.Services
 
         }
 
+        private async Task SendDisableProcessorEmailAlert(UserInfo user, List<MonitorIP> monitorIPs, MonitorContext monitorContext)
+        {
+            try
+            {
+                var emailList = new List<GenericEmailObj>();
 
+                bool isEmailVerified = user.Email_verified; ;
+
+                // Assuming DisableAndbuildHostList is a method that disables the hosts and returns a string list of hosts
+                string hostList = DataHelpers.BuildHostList(monitorIPs);
+
+                // Create email info object
+                var emailInfo = new EmailInfo() { Email = user.Email!, EmailType = "UserProcessorExpire" };
+                monitorContext.EmailInfos.Add(emailInfo);
+                await monitorContext.SaveChangesAsync();
+
+
+
+                // Assuming you have a logic to check if the user wants to receive emails or similar logic applied
+                emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = "default", Email = user.Email, Email_verified = user.Email_verified, DisableEmail = user.DisableEmail }, HeaderImageUri = _systemParams.ThisSystemUrl.ExternalUrl, ID = emailInfo.ID, ExtraMessage = hostList });
+
+
+
+                await _rabbitRepo.PublishAsync<List<GenericEmailObj>>("userProcessorExpire", emailList);
+          
+                _logger.LogInformation($" Success : published event userProccesorExpire for userID {user.UserID} ");
+             }
+            catch (Exception e)
+            {
+                _logger.LogError("Error : Can not publish event  userProccesorExpire" + e.Message.ToString());
+            }
+        }
     }
+
+
 
 }
