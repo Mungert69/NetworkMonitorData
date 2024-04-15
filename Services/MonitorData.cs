@@ -506,7 +506,7 @@ namespace NetworkMonitor.Data.Services
 
 
                 // Assuming you have a logic to check if the user wants to receive emails or similar logic applied
-                emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = "default", Email = user.Email, Email_verified = user.Email_verified, DisableEmail = user.DisableEmail }, HeaderImageUri = _systemParams.ThisSystemUrl.ExternalUrl, ID = emailInfo.ID, ExtraMessage = hostList });
+                emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = user.UserID, Email = user.Email, Email_verified = user.Email_verified, DisableEmail = user.DisableEmail }, HeaderImageUri = _systemParams.ThisSystemUrl.ExternalUrl, ID = emailInfo.ID, ExtraMessage = hostList });
 
 
 
