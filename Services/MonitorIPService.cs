@@ -47,9 +47,10 @@ namespace NetworkMonitor.Data.Services
             });
 
             // Remove the last comma if the StringBuilder is not empty
-            if (hostListBuilder.Length > 1)
+            if (hostListBuilder.Length > 2)
             {
                 hostListBuilder.Length--;  // Reduces the length by 1, effectively removing the last comma
+                hostListBuilder.Length--;
             }
 
             return hostListBuilder.Append(")").ToString();
@@ -111,7 +112,7 @@ namespace NetworkMonitor.Data.Services
                             await monitorContext.SaveChangesAsync();
 
                             // Assuming you have a logic to check if the user wants to receive emails or similar logic applied
-                            emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = "default", Email = addUserEmail, Email_verified=isEmailVerified }, HeaderImageUri = uri, ID = emailInfo.ID, ExtraMessage = hostList });
+                            emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = "default", Email = addUserEmail, Email_verified=isEmailVerified , DisableEmail=!isEmailVerified}, HeaderImageUri = uri, ID = emailInfo.ID, ExtraMessage = hostList });
                         }
                     }
 
