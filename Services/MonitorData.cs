@@ -386,6 +386,8 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    
+                    
                     int maxDataSetID = 0;
                     try { maxDataSetID = await monitorContext.MonitorPingInfos.MaxAsync(m => m.DataSetID); }
                     catch (Exception e)
@@ -401,7 +403,25 @@ namespace NetworkMonitor.Data.Services
                         f.DataSetID = maxDataSetID;
                         i++;
                     });
-                    monitorContext.SaveChanges();
+                   await  monitorContext.SaveChangesAsync();
+                      var allMonitorIPs = await monitorContext.MonitorIPs
+                        .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-3))
+                        .ToListAsync();
+
+                    // Group by AddUserEmail to process each unique email once
+                    var groupedByAppID = currentMonitorPingInfos.GroupBy(ip => ip.AppID);
+
+                    foreach (var group in groupedByAppID)
+                    {
+                        if (string.IsNullOrEmpty(group.Key))
+                            continue;
+                        string appID = group.Key;
+                        var processorObj = monitorContext.ProcessorObjs.FirstOrDefault(p => p.AppID==appID);
+                        if (processorObj != null) {
+                            processorObj.LastAccessDate = DateTime.UtcNow;
+                           await  monitorContext.SaveChangesAsync();
+                        }
+                    }
                     result.Message += "Success : DB Updated. Updated " + i + " records to DB ";
                     result.Success = true;
                 }
