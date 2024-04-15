@@ -83,7 +83,7 @@ namespace NetworkMonitor.Data.Services
                     }
                     // Fetch all MonitorIPs for the default user that haven't been verified for over 3 months
                     var allMonitorIPs = await monitorContext.MonitorIPs
-                        .Where(w => w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-3))
+                        .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-3))
                         .ToListAsync();
 
                     // Group by AddUserEmail to process each unique email once
