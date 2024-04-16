@@ -432,7 +432,18 @@ namespace NetworkMonitor.Data.Services
                         {
                             var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == disableProcessor.AppID).ToListAsync();
                             disableProcessor.IsEnabled = false;
-                            await SendDisableProcessorEmailAlert(userInfo, monitorIPs,monitorContext);
+                            await SendDisableProcessorEmailAlert(userInfo, monitorIPs, monitorContext,false);
+                        }
+                        else {
+                            var tempUserInfo = new UserInfo()
+                            {
+                                UserID = disableProcessor.Owner,
+                                Email = "support@mahadeva.co.uk",
+                                Email_verified = true,
+                                DisableEmail = false
+                            };
+                             await SendDisableProcessorEmailAlert(tempUserInfo, new List<MonitorIP>(), monitorContext,true);   
+                             disableProcessor.IsEnabled = false;
                         }
                     }
                     await monitorContext.SaveChangesAsync();
@@ -487,7 +498,7 @@ namespace NetworkMonitor.Data.Services
 
         }
 
-        private async Task SendDisableProcessorEmailAlert(UserInfo user, List<MonitorIP> monitorIPs, MonitorContext monitorContext)
+        private async Task SendDisableProcessorEmailAlert(UserInfo user, List<MonitorIP> monitorIPs, MonitorContext monitorContext, bool isAdminMessage)
         {
             try
             {
@@ -496,7 +507,8 @@ namespace NetworkMonitor.Data.Services
                 bool isEmailVerified = user.Email_verified; ;
 
                 // Assuming DisableAndbuildHostList is a method that disables the hosts and returns a string list of hosts
-                string hostList = DataHelpers.BuildHostList(monitorIPs);
+                string hostList = $"Warning user never logged in {user.UserID} ";
+                if (!isAdminMessage) hostList = DataHelpers.BuildHostList(monitorIPs);
 
                 // Create email info object
                 var emailInfo = new EmailInfo() { Email = user.Email!, EmailType = "UserProcessorExpire" };
