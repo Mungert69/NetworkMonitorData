@@ -148,6 +148,7 @@ namespace NetworkMonitor.Data.Services
                     {
                         // New Processor
                         processor.DateCreated = DateTime.UtcNow;
+                        processor.LastAccessDate = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
                         await _rabbitRepo.PublishAsync<ProcessorObj>("addProcessor", processor);
                         result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
@@ -231,6 +232,7 @@ namespace NetworkMonitor.Data.Services
                     {
                         // New Processor
                         processor.DateCreated = DateTime.UtcNow;
+                        processor.LastAccessDate = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
                         await _rabbitRepo.PublishAsync<ProcessorObj>("addProcessor", processor);
                         result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
