@@ -424,7 +424,7 @@ namespace NetworkMonitor.Data.Services
                             await monitorContext.SaveChangesAsync();
                         }
                     }
-                    var disableProcessors = await monitorContext.ProcessorObjs.Where(w => w.LastAccessDate < DateTime.UtcNow.AddMonths(-3) && w.IsPrivate).ToListAsync();
+                    var disableProcessors = await monitorContext.ProcessorObjs.Where(w => w.IsEnabled &&  w.LastAccessDate < DateTime.UtcNow.AddMonths(-3) && w.IsPrivate).ToListAsync();
                     foreach (ProcessorObj disableProcessor in disableProcessors)
                     {
                         var userInfo = monitorContext.UserInfos.Where(w => w.UserID == disableProcessor.Owner && (w.AccountType == "Free" || w.AccountType == "Standard")).FirstOrDefault();
