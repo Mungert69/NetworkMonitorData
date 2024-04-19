@@ -49,7 +49,7 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && u.AccountType == "Free" && u.DisableEmail == false && u.LastLoginDate < DateTime.Now.AddMonths(-3)).ToListAsync();
+                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && u.AccountType == "Free" && u.DisableEmail == false && u.LastLoginDate < DateTime.Now.AddMonths(-_systemParams.ExpireMonths)).ToListAsync();
                     foreach (var user in users)
                     {
                         var emailInfo = new EmailInfo() { Email = user.Email!, EmailType = "UserHostExpire" };
@@ -65,7 +65,7 @@ namespace NetworkMonitor.Data.Services
                     }
                     // Fetch all MonitorIPs for the default user that haven't been verified for over 3 months
                     var allMonitorIPs = await monitorContext.MonitorIPs
-                        .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-3))
+                        .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-_systemParams.ExpireMonths))
                         .ToListAsync();
 
                     // Group by AddUserEmail to process each unique email once
