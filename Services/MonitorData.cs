@@ -4,7 +4,7 @@ using System.Linq;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects.Repository;
-using NetworkMonitor.Data;
+using NetworkMonitor.Data.Repo;
 using NetworkMonitor.Utils;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
