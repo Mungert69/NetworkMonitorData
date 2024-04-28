@@ -19,6 +19,7 @@ namespace NetworkMonitor.Data.Services
     Task<ResultObj> DataCheck(MonitorDataInitObj checkObj);
         Task<ResultObj> DataPurge();
         Task<ResultObj> SaveData();
+        Task<ResultObj> FillUserTokens();
 
   }
 }

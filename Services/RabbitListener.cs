@@ -88,6 +88,12 @@ namespace NetworkMonitor.Data.Services
             });
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
+                ExchangeName = "fillUserTokens",
+                FuncName = "fillUserTokens",
+                MessageTimeout = 2160000
+            });
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
                 ExchangeName = "saveData",
                 FuncName = "saveData",
                 MessageTimeout = 2160000
@@ -216,6 +222,21 @@ namespace NetworkMonitor.Data.Services
                             }
                         };
                             break;
+                        case "fillUserTokens":
+                            rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                            rabbitMQObj.Consumer.Received += async (model, ea) =>
+                        {
+                            try
+                            {
+                                result = await FillUserTokens();
+                                rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(" Error : RabbitListener.DeclareConsumers.fillUserTokens " + ex.Message);
+                            }
+                        };
+                            break;
                         case "saveData":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
@@ -317,7 +338,7 @@ namespace NetworkMonitor.Data.Services
             {
                 string message = " Error : failed to declate consumers. Error was : " + e.ToString() + " . ";
                 result.Message += message;
-                 _logger.LogError(result.Message);
+                _logger.LogError(result.Message);
                 result.Success = false;
             }
             return result;
@@ -490,6 +511,31 @@ namespace NetworkMonitor.Data.Services
             else _logger.LogError(result.Message);
             return result;
         }
+
+        public async Task<ResultObj> FillUserTokens()
+        {
+            ResultObj result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : FillUserTokens : ";
+            var results = new List<ResultObj>();
+            try
+            {
+                var resultFill = await _monitorData.FillUserTokens();
+                result.Message += resultFill.Message;
+                result.Success = resultFill.Success;
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed FillUserTokens : Error was : " + e.Message + " ";
+
+            }
+            if (result.Success) _logger.LogInformation(result.Message);
+            else _logger.LogError(result.Message);
+            return result;
+        }
+
 
         public async Task<ResultObj> RestorePingInfosForAllUsers()
         {

@@ -32,6 +32,7 @@ namespace NetworkMonitor.Data.Services
         private bool _awake;
 
         private IRabbitRepo _rabbitRepo;
+        private IUserRepo _userRepo;
         public IRabbitRepo RabbitRepo { get => _rabbitRepo; }
         private ISystemParamsHelper _systemParamsHelper;
         private IDatabaseQueueService _databaseService;
@@ -40,12 +41,13 @@ namespace NetworkMonitor.Data.Services
         public SystemParams SystemParams { get => _systemParams; set => _systemParams = value; }
         public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
 
-        public MonitorData(IConfiguration config, ILogger<MonitorData> logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService, IProcessorState processorState)
+        public MonitorData(IConfiguration config, ILogger<MonitorData> logger, IUserRepo userRepo, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDatabaseQueueService databaseService, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IPingInfoService pingInfoService, IProcessorState processorState)
         {
             _config = config;
             _databaseService = databaseService;
             _pingInfoService = pingInfoService;
             _rabbitRepo = rabbitRepo;
+            _userRepo = userRepo;
             _token = cancellationTokenSource.Token;
             _token.Register(() => OnStopping());
             _scopeFactory = scopeFactory;
@@ -54,6 +56,7 @@ namespace NetworkMonitor.Data.Services
             _processorState = processorState;
             _systemParams = _systemParamsHelper.GetSystemParams();
             _pingParams = _systemParamsHelper.GetPingParams();
+
         }
         private void OnStopping()
         {
@@ -359,6 +362,27 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
+        public async Task<ResultObj> FillUserTokens()
+        {
+            var result = new ResultObj();
+            result.Message = " Service : FillUserTokens ";
+            try
+            {
+                await _userRepo.FillTokensUsed();
+                result.Message += " Success : Tokens fill run for all users.";
+                result.Success = true;
+            }
+            catch (Exception e)
+            {
+                result.Message += " Failed to run Token Fill for users . Error was : " + e.ToString();
+                result.Success = false;
+                _logger.LogError(result.Message);
+            }
+
+            return result;
+        }
+
+
         public async Task<ResultObj> SaveData()
         {
 
@@ -424,7 +448,7 @@ namespace NetworkMonitor.Data.Services
                             await monitorContext.SaveChangesAsync();
                         }
                     }
-                    var disableProcessors = await monitorContext.ProcessorObjs.Where(w => w.IsEnabled &&  w.LastAccessDate < DateTime.UtcNow.AddMonths(-_systemParams.ExpireMonths) && w.IsPrivate).ToListAsync();
+                    var disableProcessors = await monitorContext.ProcessorObjs.Where(w => w.IsEnabled && w.LastAccessDate < DateTime.UtcNow.AddMonths(-_systemParams.ExpireMonths) && w.IsPrivate).ToListAsync();
                     foreach (ProcessorObj disableProcessor in disableProcessors)
                     {
                         var userInfo = monitorContext.UserInfos.Where(w => w.UserID == disableProcessor.Owner && (w.AccountType == "Free" || w.AccountType == "Standard")).FirstOrDefault();
@@ -432,9 +456,10 @@ namespace NetworkMonitor.Data.Services
                         {
                             var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == disableProcessor.AppID).ToListAsync();
                             disableProcessor.IsEnabled = false;
-                            await SendDisableProcessorEmailAlert(userInfo, monitorIPs, monitorContext,false);
+                            await SendDisableProcessorEmailAlert(userInfo, monitorIPs, monitorContext, false);
                         }
-                        else {
+                        else
+                        {
                             var tempUserInfo = new UserInfo()
                             {
                                 UserID = disableProcessor.Owner,
@@ -442,8 +467,8 @@ namespace NetworkMonitor.Data.Services
                                 Email_verified = true,
                                 DisableEmail = false
                             };
-                             await SendDisableProcessorEmailAlert(tempUserInfo, new List<MonitorIP>(), monitorContext,true);   
-                             disableProcessor.IsEnabled = false;
+                            await SendDisableProcessorEmailAlert(tempUserInfo, new List<MonitorIP>(), monitorContext, true);
+                            disableProcessor.IsEnabled = false;
                         }
                     }
                     await monitorContext.SaveChangesAsync();
@@ -523,9 +548,9 @@ namespace NetworkMonitor.Data.Services
 
 
                 await _rabbitRepo.PublishAsync<List<GenericEmailObj>>("userProcessorExpire", emailList);
-          
+
                 _logger.LogInformation($" Success : published event userProccesorExpire for userID {user.UserID} ");
-             }
+            }
             catch (Exception e)
             {
                 _logger.LogError("Error : Can not publish event  userProccesorExpire" + e.Message.ToString());
