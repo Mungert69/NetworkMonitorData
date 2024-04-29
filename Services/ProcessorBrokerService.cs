@@ -144,6 +144,7 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
                     processor.AuthKey = AesOperation.EncryptString(_systemParams.EmailEncryptKey, processor.AppID);
+                    processor.Location = processor.Location.ToLower();
                     if (existingProcessor == null)
                     {
                         // New Processor
@@ -155,6 +156,7 @@ namespace NetworkMonitor.Data.Services
                     }
                     else
                     {
+
                         // Update Processor
                         existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
                         existingProcessor.IsEnabled = processor.IsEnabled;
