@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetworkMonitor.Data.Services;
 using NetworkMonitor.Data;
+using NetworkMonitor.Data.Repo;
 using NetworkMonitor.Objects;
 using Microsoft.AspNetCore.Http;
 using System;
@@ -65,6 +66,7 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IRabbitListener, RabbitListener>();
             services.AddSingleton<IRabbitRepo, RabbitRepo>();
             services.AddSingleton<IFileRepo, FileRepo>();
+            services.AddSingleton<IUserRepo, UserRepo>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
             services.AddSingleton<IProcessorState, ProcessorState>();
