@@ -84,7 +84,7 @@ public class UserRepo : IUserRepo
         {
             MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
             var users = await monitorContext.UserInfos.AsNoTracking().ToListAsync();
-            return users ;
+            return users;
         }
 
     }
@@ -132,18 +132,22 @@ public class UserRepo : IUserRepo
             }
         }
     }
-   private void ResetTokens(List<UserInfo> userInfos)
-{
-    foreach (var user in userInfos)
+    private void ResetTokens(List<UserInfo> userInfos)
     {
-        var accountType = AccountTypeFactory.GetAccountTypeByName(user.AccountType.ToLower());
+        foreach (var user in userInfos)
+        {
+            ResetTokenForUser(user);
+        }
+    }
+    private void ResetTokenForUser(UserInfo user)
+    {
+        var accountType = AccountTypeFactory.GetAccountTypeByName(user.AccountType);
 
         if (accountType != null)
         {
             user.TokensUsed = accountType.TokenLimit;
         }
     }
-}
     public async Task ResetTokensUsed()
     {
         var users = _cachedUsers;
@@ -174,21 +178,21 @@ public class UserRepo : IUserRepo
         }
     }
 
- private void FillTokens(List<UserInfo> userInfos)
-{
-    var accountTypes = AccountTypeFactory.GetAccountTypes(); // Get the account type configurations
-
-    foreach (var user in userInfos)
+    private void FillTokens(List<UserInfo> userInfos)
     {
-        var accountType = accountTypes.FirstOrDefault(a => a.Name.ToLower() == user.AccountType.ToLower());
+        var accountTypes = AccountTypeFactory.GetAccountTypes(); // Get the account type configurations
 
-        if (accountType != null)
+        foreach (var user in userInfos)
         {
-            int newTokenCount = Math.Min(user.TokensUsed + accountType.DailyTokens, accountType.TokenLimit);
-            user.TokensUsed = newTokenCount; 
+            var accountType = accountTypes.FirstOrDefault(a => a.Name == user.AccountType);
+
+            if (accountType != null)
+            {
+                int newTokenCount = Math.Min(user.TokensUsed + accountType.DailyTokens, accountType.TokenLimit);
+                user.TokensUsed = newTokenCount;
+            }
         }
     }
-}
 
 
 
@@ -273,6 +277,7 @@ public class UserRepo : IUserRepo
             userInfo.AccountType = "Standard";
             userInfo.CancelAt = DateTime.UtcNow.AddMonths(3);
             userInfo.HostLimit = 50;
+            ResetTokenForUser(user);
             await monitorContext.SaveChangesAsync();
             UpdateCachedUserInfo(userInfo);
             result.Message = " Success : User account has been upgraded from Free to Standard.";
@@ -335,6 +340,7 @@ public class UserRepo : IUserRepo
                     if (user.Updated_at == DateTime.MinValue) { user.Updated_at = DateTime.UtcNow; }
                     user.LastLoginDate = DateTime.UtcNow;
                     user.MonitorIPs = new List<MonitorIP>();
+                    ResetTokenForUser(user);
                     await monitorContext.UserInfos.AddAsync(user);
                     CachedUsers.Add(user);
 
