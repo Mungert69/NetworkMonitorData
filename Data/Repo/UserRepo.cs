@@ -92,9 +92,8 @@ public class UserRepo : IUserRepo
 
     public async Task<UserInfo?> GetUserFromID(string userId)
     {
-        if (_cachedUsers == null || _cachedUsers.Count == 0) _cachedUsers = await GetAllDBUsersDBNoTracking();
-
-        return _cachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
+      
+        return CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
     public async Task<UserInfo?> GetUserFromIDDB(string userId)
@@ -109,13 +108,12 @@ public class UserRepo : IUserRepo
 
     public async Task<int> GetTokenCount(string userId)
     {
-        if (_cachedUsers == null || _cachedUsers.Count == 0) _cachedUsers = await GetAllDBUsersDBNoTracking();
-
-        return _cachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
+      
+        return CachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
     }
     public async Task UpdateTokensUsed(string userId, int tokensUsed)
     {
-        var user = _cachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
+        var user = CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
         if (user != null)
         {
             user.TokensUsed -= tokensUsed;
@@ -150,7 +148,7 @@ public class UserRepo : IUserRepo
     }
     public async Task ResetTokensUsed()
     {
-        var users = _cachedUsers;
+        var users = CachedUsers;
 
         ResetTokens(users);
         using (var scope = _scopeFactory.CreateScope())
@@ -165,7 +163,7 @@ public class UserRepo : IUserRepo
 
     public async Task FillTokensUsed()
     {
-        var users = _cachedUsers;
+        var users = CachedUsers;
 
         FillTokens(users);
         using (var scope = _scopeFactory.CreateScope())
