@@ -36,6 +36,7 @@ public interface IUserRepo
     Task<int> GetTokenCount(string userId);
     Task ResetTokensUsed();
     Task FillTokensUsed();
+    Task RefreshUsers();
 }
 public class UserRepo : IUserRepo
 {
@@ -54,6 +55,10 @@ public class UserRepo : IUserRepo
             if (_cachedUsers == null || _cachedUsers.Count == 0) _cachedUsers = GetAllDBUsersDBNoTracking().Result;
             return _cachedUsers;
         }
+    }
+
+    public async Task RefreshUsers() { 
+         _cachedUsers = await GetAllDBUsersDBNoTracking();
     }
 
     public UserRepo(ILogger<UserRepo> logger, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, IProcessorState processorState)

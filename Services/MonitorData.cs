@@ -370,6 +370,8 @@ namespace NetworkMonitor.Data.Services
             {
                 await _userRepo.FillTokensUsed();
                 result.Message += " Success : Tokens fill run for all users.";
+                await _rabbitRepo.PublishAsync("refreshUsers",null);
+                  result.Message += " Success : published refresh users.";
                 result.Success = true;
             }
             catch (Exception e)
