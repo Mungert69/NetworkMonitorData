@@ -57,8 +57,9 @@ public class UserRepo : IUserRepo
         }
     }
 
-    public async Task RefreshUsers() { 
-         _cachedUsers = await GetAllDBUsersDBNoTracking();
+    public async Task RefreshUsers()
+    {
+        _cachedUsers = await GetAllDBUsersDBNoTracking();
     }
 
     public UserRepo(ILogger<UserRepo> logger, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, IProcessorState processorState)
@@ -97,7 +98,7 @@ public class UserRepo : IUserRepo
 
     public async Task<UserInfo?> GetUserFromID(string userId)
     {
-      
+
         return CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
@@ -113,7 +114,7 @@ public class UserRepo : IUserRepo
 
     public async Task<int> GetTokenCount(string userId)
     {
-      
+
         return CachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
     }
     public async Task UpdateTokensUsed(string userId, int tokensUsed)
@@ -471,10 +472,14 @@ public class UserRepo : IUserRepo
                 {
                     if (user.UserID != null && _processorState.HasUserGotProcessor(user.UserID))
                     {
-                        var processorUserEventObj = new ProcessorUserEventObj();
-                        processorUserEventObj.IsLoggedInWebsite = true;
-                        await _rabbitRepo.PublishAsync<ProcessorUserEventObj>("processorUserEvent" + user.Sub, processorUserEventObj);
-                        result.Message += " Info : Published processorUserEvent message";
+                        foreach (var processor in _processorState.UserProcessorListAll(user.UserID))
+                        {
+                            var processorUserEventObj = new ProcessorUserEventObj();
+                            processorUserEventObj.IsLoggedInWebsite = true;
+                            await _rabbitRepo.PublishAsync<ProcessorUserEventObj>("processorUserEvent" + processor.AppID, processorUserEventObj);
+                            result.Message += $" Info : Published processorUserEvent message for procesor AppID {processor.AppID}";
+
+                        }
                     }
                 }
                 catch (Exception e)
