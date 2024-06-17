@@ -182,6 +182,7 @@ namespace NetworkMonitor.Data.Services
                         existingProcessor.IsEnabled = processor.IsEnabled;
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
+                        existingProcessor.RabbitHost = processor.RabbitHost;
                         await PublishRepo.UpdateProcessor(_logger, _rabbitRepos,processor);
                         result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
