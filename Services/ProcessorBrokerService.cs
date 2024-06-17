@@ -11,6 +11,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Utils; // Assuming ResultObj is defined here
 using NetworkMonitor.Utils.Helpers;
 using System.Collections.Generic;
+using Microsoft.IdentityModel.Tokens;
 
 namespace NetworkMonitor.Data.Services
 {
@@ -155,6 +156,7 @@ namespace NetworkMonitor.Data.Services
             initObj.AppID = processor.AppID;
             initObj.PingParams = _pingParams;
             initObj.MonitorIPs = new List<MonitorIP>();
+            if (processor.RabbitHost.IsNullOrEmpty()) processor.RabbitHost = "rabbitmq";
 
 
             try
