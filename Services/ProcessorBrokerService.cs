@@ -54,7 +54,6 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-
                     _processorState.ProcessorList = await monitorContext.ProcessorObjs.ToListAsync();
                     result.Message += " Success : Got Processor List from Database .";
                 }
@@ -172,7 +171,7 @@ namespace NetworkMonitor.Data.Services
                         processor.LastAccessDate = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
                         await PublishRepo.AddProcessor(_logger, _rabbitRepos,processor);
-                        result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
+                        result.Message += $" Success : New processor message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                     }
                     else
                     {
@@ -184,7 +183,7 @@ namespace NetworkMonitor.Data.Services
                         existingProcessor.MaxLoad = processor.MaxLoad;
                         existingProcessor.RabbitHost = processor.RabbitHost;
                         await PublishRepo.UpdateProcessor(_logger, _rabbitRepos,processor);
-                        result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
+                        result.Message += $" Success : Update message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
 
                     }
@@ -194,7 +193,7 @@ namespace NetworkMonitor.Data.Services
 
                     initObj.AuthKey = processor.AuthKey;
                     await PublishRepo.ProcessorAuthKey(_logger,_rabbitRepos,processor, initObj);
-                    result.Message += $" Success : ProcessorInitObj with AuthKey sent to AppID {processor.AppID} .";
+                    result.Message += $" Success : AuthKey message sent to RabbitHost {processor.RabbitHost} for Processot with AppID {processor.AppID} .";
 
 
                 }
@@ -217,7 +216,7 @@ namespace NetworkMonitor.Data.Services
                     initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
                     if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
                     await PublishRepo.ProcessorInit(_logger,_rabbitRepos,processor, initObj);
-                    result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
+                    result.Message += $" Success : Init message sent to RabbitHost {processor.RabbitHost} for Processor with appID " + processor.AppID + " . ";
                     result.Success = true;
                 }
             }
