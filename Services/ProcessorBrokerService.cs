@@ -25,6 +25,8 @@ namespace NetworkMonitor.Data.Services
     {
         private readonly ILogger<ProcessorBrokerService> _logger;
         private readonly IRabbitRepo _rabbitRepo;
+
+        private List<IRabbitRepo> _rabbitRepos = new List<IRabbitRepo>();
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IProcessorState _processorState;
         private readonly SystemParams _systemParams;
@@ -38,6 +40,20 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
             _systemParams = systemParamsHelper.GetSystemParams();
             _pingParams = systemParamsHelper.GetPingParams();
+                try
+            {
+                systemParamsHelper.GetSystemParams().SystemUrls.ForEach(f =>
+                {
+                    ISystemParamsHelper localSystemParamsHelper = new LocalSystemParamsHelper(f);
+                    _logger.LogInformation(" Adding RabbitRepo for : " + f.ExternalUrl + " . ");
+                    _rabbitRepos.Add(new RabbitRepo(_loggerFactory.CreateLogger<RabbitRepo>(), localSystemParamsHelper));
+                });
+            }
+            catch (Exception e)
+            {
+                result.Message += " Error : Could not setup RabbitListner. Error was : " + e.ToString() + " . ";
+                result.Success = false;
+            }
         }
 
         public async Task<ResultObj> Init()
