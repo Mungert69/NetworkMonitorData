@@ -13,23 +13,16 @@ namespace NetworkMonitor.Objects.Repository
         {
 
             // publish to all systems.
-            foreach (ProcessorObj processorObj in processorObjs)
+            foreach (RabbitRepo rabbitRepo in rabbitRepos)
             {
-                IRabbitRepo? rabbitRepo = rabbitRepos.Where(r => r.SystemUrl.RabbitHostName == processorObj.RabbitHost).FirstOrDefault();
-                if (rabbitRepo != null)
-                {
-                    var sendProcessorObjs = processorObjs.Where(w => w.RabbitHost == processorObj.RabbitHost).ToList();
+               
+                    var sendProcessorObjs = processorObjs.Where(w => w.RabbitHost == rabbitRepo.SystemUrl.RabbitHostName).ToList();
                     if (sendProcessorObjs != null && sendProcessorObjs.Count > 0)
                     {
                         await rabbitRepo.PublishAsync("fullProcessorList", sendProcessorObjs);
-                        logger.LogInformation(" Published event fullProcessorList for RabbitHost = " + processorObj.RabbitHost);
+                        logger.LogInformation(" Published event fullProcessorList for RabbitHost = " + rabbitRepo.SystemUrl.RabbitHostName);
                     }
-                }
-                else
-                {
-                    logger.LogError($" Error : RabbitRepo for {processorObj.RabbitHost} can not be found");
-
-                }
+                
             }
         }
         public static async Task<bool> AddProcessor(ILogger logger, List<IRabbitRepo> rabbitRepos, ProcessorObj processorObj)
