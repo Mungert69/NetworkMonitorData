@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 namespace NetworkMonitor.Objects.Repository
 {
-    public class PublishRepo
+    public class DataPublishRepo
     {
 
         public static async Task FullProcessorList(ILogger logger, List<IRabbitRepo> rabbitRepos, List<ProcessorObj> processorObjs)
