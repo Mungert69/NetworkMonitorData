@@ -25,16 +25,16 @@ namespace NetworkMonitor.Data.Services
     public class ProcessorBrokerService : IProcessorBrokerService
     {
         private readonly ILogger<ProcessorBrokerService> _logger;
-        private  ILoggerFactory _loggerFactory;
+        private ILoggerFactory _loggerFactory;
         //private readonly IRabbitRepo _rabbitRepo;
-         private readonly List<IRabbitRepo> _rabbitRepos = new List<IRabbitRepo>();
+        private readonly List<IRabbitRepo> _rabbitRepos = new List<IRabbitRepo>();
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IProcessorState _processorState;
         private readonly SystemParams _systemParams;
         private readonly PingParams _pingParams;
 
-        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger,  ILoggerFactory loggerFactory,IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper)
+        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, ILoggerFactory loggerFactory, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper)
         {
             _logger = logger;
             _loggerFactory = loggerFactory;
@@ -43,7 +43,7 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
             _systemParams = systemParamsHelper.GetSystemParams();
             _pingParams = systemParamsHelper.GetPingParams();
-             
+
         }
 
         public async Task<ResultObj> Init()
@@ -67,19 +67,6 @@ namespace NetworkMonitor.Data.Services
             }
             try
             {
-                await DataPublishRepo.FullProcessorList(_logger,_rabbitRepos,_processorState.ProcessorList);
-                result.Message += " Published full list of processors. ";
-            }
-
-            catch (Exception e)
-            {
-                result.Message += $" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
-                result.Success = false;
-                return result;
-            }
-
-             try
-            {
                 _systemParams.SystemUrls.ForEach(f =>
                 {
                     ISystemParamsHelper localSystemParamsHelper = new LocalSystemParamsHelper(f);
@@ -90,6 +77,18 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Message += " Error : Could not setup RabbitRepos. Error was : " + e.ToString() + " . ";
+                 result.Success = false;
+                return result;
+            }
+            try
+            {
+                await DataPublishRepo.FullProcessorList(_logger, _rabbitRepos, _processorState.ProcessorList);
+                result.Message += " Published full list of processors. ";
+            }
+
+            catch (Exception e)
+            {
+                result.Message += $" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
                 result.Success = false;
                 return result;
             }
@@ -172,7 +171,7 @@ namespace NetworkMonitor.Data.Services
                         processor.DateCreated = DateTime.UtcNow;
                         processor.LastAccessDate = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
-                        await DataPublishRepo.AddProcessor(_logger, _rabbitRepos,processor);
+                        await DataPublishRepo.AddProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : New processor message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                     }
                     else
@@ -184,7 +183,7 @@ namespace NetworkMonitor.Data.Services
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
                         existingProcessor.RabbitHost = processor.RabbitHost;
-                        await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos,processor);
+                        await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Update message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
 
@@ -194,7 +193,7 @@ namespace NetworkMonitor.Data.Services
                     await ActivateTestUser(processor.Location, processor.Owner, monitorContext);
 
                     initObj.AuthKey = processor.AuthKey;
-                    await DataPublishRepo.ProcessorAuthKey(_logger,_rabbitRepos,processor, initObj);
+                    await DataPublishRepo.ProcessorAuthKey(_logger, _rabbitRepos, processor, initObj);
                     result.Message += $" Success : AuthKey message sent to RabbitHost {processor.RabbitHost} for Processot with AppID {processor.AppID} .";
 
 
@@ -217,7 +216,7 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
                     if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
-                    await DataPublishRepo.ProcessorInit(_logger,_rabbitRepos,processor, initObj);
+                    await DataPublishRepo.ProcessorInit(_logger, _rabbitRepos, processor, initObj);
                     result.Message += $" Success : Init message sent to RabbitHost {processor.RabbitHost} for Processor with appID " + processor.AppID + " . ";
                     result.Success = true;
                 }
@@ -258,7 +257,7 @@ namespace NetworkMonitor.Data.Services
                         processor.DateCreated = DateTime.UtcNow;
                         processor.LastAccessDate = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
-                        await  DataPublishRepo.AddProcessor(_logger,_rabbitRepos, processor);
+                        await DataPublishRepo.AddProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
                     }
                     else
@@ -268,10 +267,10 @@ namespace NetworkMonitor.Data.Services
                         existingProcessor.IsEnabled = processor.IsEnabled;
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
-                        await DataPublishRepo.UpdateProcessor(_logger,_rabbitRepos, processor);
+                        await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
                     }
-                    await DataPublishRepo.ProcessorAuthKey(_logger,_rabbitRepos,processor, initObj);
+                    await DataPublishRepo.ProcessorAuthKey(_logger, _rabbitRepos, processor, initObj);
                     result.Message += $" Success : Processor AuthKey sent to AppID {processor.AppID} .";
 
                     await monitorContext.SaveChangesAsync();
@@ -294,7 +293,7 @@ namespace NetworkMonitor.Data.Services
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
                     if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
-                    await DataPublishRepo.ProcessorInit(_logger,_rabbitRepos,processor, initObj);
+                    await DataPublishRepo.ProcessorInit(_logger, _rabbitRepos, processor, initObj);
                     result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
                     result.Success = true;
                 }
