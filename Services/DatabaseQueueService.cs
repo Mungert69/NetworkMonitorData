@@ -126,7 +126,7 @@ namespace NetworkMonitor.Data.Services
                         _logger.LogError(result.Message);
                         return result;
                     }
-                    if (EncryptionHelper.IsBadKey(_encryptKey, processorDataObj.AuthKey, processorDataObj.AppID))
+                    if (EncryptHelper.IsBadKey(_encryptKey, processorDataObj.AuthKey, processorDataObj.AppID))
                     {
                         result.Success = false;
                         result.Message = $" Error : Failed CommitProcessorDataBytes bad AuthKey for AppID {processorDataObj.AppID}";

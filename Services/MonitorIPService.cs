@@ -6,6 +6,7 @@ using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Data;
+using NetworkMonitor.Data.Repo;
 using NetworkMonitor.Utils;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Factory;
@@ -21,19 +22,27 @@ namespace NetworkMonitor.Data.Services
     public interface IMonitorIPService
     {
         Task<ResultObj> DisableMonitorIPs();
+        Task<ResultObj> SaveMonitorIPsWithUser(ProcessorDataObj processorDataObj);
     }
     public class MonitorIPService : IMonitorIPService
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private ILogger _logger;
         private IRabbitRepo _rabbitRepo;
+        private IUserRepo _userRepo;
         private SystemParams _systemParams;
-        public MonitorIPService(IServiceScopeFactory scopeFactory, ILogger<MonitorIPService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper)
+        private PingParams _pingParams;
+        private IProcessorState _processorState;
+        public MonitorIPService(IServiceScopeFactory scopeFactory, ILogger<MonitorIPService> logger, IUserRepo userRepo, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState)
         {
             _scopeFactory = scopeFactory;
             _rabbitRepo = rabbitRepo;
             _logger = logger;
+            _userRepo = userRepo;
             _systemParams = systemParamsHelper.GetSystemParams();
+            _pingParams = systemParamsHelper.GetPingParams();
+
+            _processorState = processorState;
 
         }
         public async Task<ResultObj> DisableMonitorIPs()
@@ -93,7 +102,7 @@ namespace NetworkMonitor.Data.Services
                             await monitorContext.SaveChangesAsync();
 
                             // Assuming you have a logic to check if the user wants to receive emails or similar logic applied
-                            emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = "default", Email = addUserEmail, Email_verified=isEmailVerified , DisableEmail=!isEmailVerified}, HeaderImageUri = uri, ID = emailInfo.ID, ExtraMessage = hostList });
+                            emailList.Add(new GenericEmailObj() { UserInfo = new UserInfo { UserID = "default", Email = addUserEmail, Email_verified = isEmailVerified, DisableEmail = !isEmailVerified }, HeaderImageUri = uri, ID = emailInfo.ID, ExtraMessage = hostList });
                         }
                     }
 
@@ -127,6 +136,135 @@ namespace NetworkMonitor.Data.Services
 
             }
 
+            return result;
+        }
+
+        public async Task<ResultObj> SaveMonitorIPsWithUser(ProcessorDataObj processorDataObj)
+        {
+            ResultObj result = new ResultObj();
+            result.Message = "Save Host Data : ";
+            result.Success = false;
+            List<MonitorIP> newData = processorDataObj.MonitorIPs;
+            string authKey = processorDataObj.AuthKey;
+            var userId = "";
+            var appId = processorDataObj.AppID;
+             if (EncryptHelper.IsBadKey(_systemParams.EmailEncryptKey, authKey, appId))
+                    {
+                      result.Message += $" Error : Processor AuthKey not valid for AppID {appId}. ";
+                        result.Success = false;
+                        return result;
+                    }
+            try
+            {
+                if (newData == null)
+                {
+                    result.Message += "Info : Nothing to save";
+                    result.Success = true;
+                    return result;
+                }
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                    // Two different ways of setting userId because database contains UserInfo object whereas data from api call does not.
+                    var firstMon = newData.FirstOrDefault();
+                    if (firstMon == null || firstMon.UserID == null)
+                    {
+                        result.Message += " Error : Data is empty. ";
+                        result.Success = false;
+                        return result;
+                    }
+                    
+                    userId = firstMon.UserID;
+                    appId = firstMon.AppID;
+                    
+                    var data = await monitorContext.MonitorIPs.Include(e => e.UserInfo).Where(w => w.UserInfo!.UserID == userId && w.Hidden == false).ToListAsync();
+                    //ListUtils.RemoveNestedMonitorIPs(data);
+                    var userInfo = await _userRepo.GetUserFromID(userId);
+                    if (userInfo == null)
+                    {
+                        result.Message += " Error : User in data does not exist. ";
+                        result.Success = false;
+                        return result;
+                    }
+                    var countUserIDs = data.Count(w => w.UserID == userId);
+                    if (countUserIDs != data.Count())
+                    {
+                        result.Message += " Error : UserID is not the same for all data. ";
+                        result.Success = false;
+                        return result;
+                    }
+                    var countAppIDs = data.Count(w => w.AppID == appId);
+                    if (countAppIDs != data.Count())
+                    {
+                        result.Message += " Error : AppID is not the same for all data. ";
+                        result.Success = false;
+                        return result;
+                    }
+                     var processorObj = _processorState.ProcessorList.Where(w => w.AppID == appId).FirstOrDefault();
+                      if (processorObj==null) { 
+                        result.Message += " Error : Processor with AppID not found. ";
+                        result.Success = false;
+                        return result;
+                    }
+                    if (processorObj.AuthKey != authKey) { 
+                        result.Message += " Error : Processor AuthKey does not match. ";
+                        result.Success = false;
+                        return result;
+                    }
+                    var updateMonitorIPs = new List<UpdateMonitorIP>();
+                    if (newData.Count <= userInfo.HostLimit)
+                    {
+                        foreach (MonitorIP monIP in data)
+                        {
+                            var dataMonIP = newData.FirstOrDefault(m => m.ID == monIP.ID);
+                            if (dataMonIP != null)
+                            {
+                                await MonitorIPUpdateHelper.AddUpdateMonitorIP(monIP, dataMonIP, updateMonitorIPs, userId, monitorContext, _systemParams.EmailEncryptKey, _processorState, _pingParams.Timeout);
+                            }
+                            //user = monIP.UserInfo;
+                        }
+                        await monitorContext.SaveChangesAsync();
+                        ProcessorQueueDicObj queueDicObj = new ProcessorQueueDicObj();
+                        //queueDicObj.MonitorIPs = newData;
+                        queueDicObj.UserId = userId!;
+                        
+                        queueDicObj.MonitorIPs = updateMonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
+                        if (queueDicObj.MonitorIPs.Count > 0)
+                        {
+                            await _rabbitRepo.PublishAsync<ProcessorQueueDicObj>("processorQueueDic" + processorObj.AppID, queueDicObj);
+                            _logger.LogInformation("Sent event ProcessorQueueDic for AppID  " + processorObj.AppID);
+                        }
+
+                        //result.Data = data;
+                        if (userInfo.Email_verified)
+                        {
+                            result.Success = true;
+                            result.Message += "Success : Data will become live in around 2 minutes ";
+                        }
+                        else
+                        {
+                            result.Success = false;
+                            result.Message += "Warning : Data has been saved but you will receive not email alerts until you verify you email.";
+                        }
+                    }
+                    else
+                    {
+                        result.Message += "Error : User " + userInfo.Name + " has reached the host limit of " + userInfo.HostLimit + " . Delete a host before saving again.";
+                        result.Success = false;
+                        //result.Data = data;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Message += "Error : DB Update Failed : Error was : " + e.Message + " ";
+                result.Success = false;
+                _logger.LogError("Error :  DB Update Failed: Error was : " + e.Message + " Inner Exception : " + e.Message.ToString());
+            }
+            finally
+            {
+            }
             return result;
         }
 
