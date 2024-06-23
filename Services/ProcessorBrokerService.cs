@@ -183,6 +183,7 @@ namespace NetworkMonitor.Data.Services
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
                         existingProcessor.RabbitHost = processor.RabbitHost;
+                        existingProcessor.AuthKey = processor.AuthKey;
                         await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Update message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();

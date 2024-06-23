@@ -193,8 +193,8 @@ namespace NetworkMonitor.Data.Services
                         result.Success = false;
                         return result;
                     }
-                    var countAppIDs = data.Count(w => w.AppID == appId);
-                    if (countAppIDs != data.Count())
+                    var appIDNotSame = data.Any(w => w.AppID != appId);
+                    if (!appIDNotSame)
                     {
                         result.Message += " Error : AppID is not the same for all data. ";
                         result.Success = false;

@@ -456,7 +456,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> SaveMonitorIPs(ProcessorDataObj processorDataObj)
+        public async Task<ResultObj> SaveMonitorIPs(ProcessorDataObj? processorDataObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
