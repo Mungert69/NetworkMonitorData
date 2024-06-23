@@ -14,9 +14,7 @@ using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
-using System.ComponentModel.DataAnnotations;
-using Microsoft.IdentityModel.Tokens;
-using Org.BouncyCastle.Bcpg;
+
 namespace NetworkMonitor.Data.Services
 {
     public interface IMonitorIPService

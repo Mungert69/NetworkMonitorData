@@ -55,7 +55,7 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    _processorState.ProcessorList = await monitorContext.ProcessorObjs.ToListAsync();
+                    _processorState.ResetConcurrentProcessorList(await monitorContext.ProcessorObjs.ToListAsync());
                     result.Message += " Success : Got Processor List from Database .";
                 }
             }
@@ -171,19 +171,32 @@ namespace NetworkMonitor.Data.Services
                         processor.DateCreated = DateTime.UtcNow;
                         processor.LastAccessDate = DateTime.UtcNow;
                         monitorContext.ProcessorObjs.Add(processor);
+                        _processorState.ConcurrentProcessorList.Add(processor);
                         await DataPublishRepo.AddProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : New processor message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                     }
                     else
                     {
 
-                        // Update Processor
+                        var stateProcessor = _processorState.ConcurrentProcessorList.Where(w => w.AppID == processor.AppID).FirstOrDefault();
                         existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
                         existingProcessor.IsEnabled = processor.IsEnabled;
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
                         existingProcessor.RabbitHost = processor.RabbitHost;
                         existingProcessor.AuthKey = processor.AuthKey;
+                        if (stateProcessor != null)
+                        {
+                            stateProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                            stateProcessor.IsEnabled = processor.IsEnabled;
+                            stateProcessor.Location = processor.Location;
+                            stateProcessor.MaxLoad = processor.MaxLoad;
+                            stateProcessor.RabbitHost = processor.RabbitHost;
+                            stateProcessor.AuthKey = processor.AuthKey;
+                        }
+                        else {
+                            _logger.LogCritical($" Error : Data service is missing a processor with AppID {processor.AppID} that is not in state but is in the database. ");
+                        }
                         await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Update message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
