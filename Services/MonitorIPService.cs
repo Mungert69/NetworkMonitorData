@@ -146,12 +146,12 @@ namespace NetworkMonitor.Data.Services
             string authKey = processorDataObj.AuthKey;
             var userId = "";
             var appId = processorDataObj.AppID;
-             if (EncryptHelper.IsBadKey(_systemParams.EmailEncryptKey, authKey, appId))
-                    {
-                      result.Message += $" Error : Processor AuthKey not valid for AppID {appId}. ";
-                        result.Success = false;
-                        return result;
-                    }
+            if (EncryptHelper.IsBadKey(_systemParams.EmailEncryptKey, authKey, appId))
+            {
+                result.Message += $" Error : Processor AuthKey not valid for AppID {appId}. ";
+                result.Success = false;
+                return result;
+            }
             try
             {
                 if (newData == null)
@@ -171,11 +171,11 @@ namespace NetworkMonitor.Data.Services
                         result.Success = false;
                         return result;
                     }
-                    
+
                     userId = firstMon.UserID;
-                    appId = firstMon.AppID;
-                    
-                    var data = await monitorContext.MonitorIPs.Include(e => e.UserInfo).Where(w => w.UserInfo!.UserID == userId && w.Hidden == false).ToListAsync();
+                   // appId = firstMon.AppID;
+
+                    var data = await monitorContext.MonitorIPs.Include(e => e.UserInfo).Where(w => w.AppID == appId && w.Hidden == false).ToListAsync();
                     //ListUtils.RemoveNestedMonitorIPs(data);
                     var userInfo = await _userRepo.GetUserFromID(userId);
                     if (userInfo == null)
@@ -184,73 +184,69 @@ namespace NetworkMonitor.Data.Services
                         result.Success = false;
                         return result;
                     }
-                    var countUserIDs = data.Count(w => w.UserID == userId);
-                    if (countUserIDs != data.Count())
+                    var userIDsNotSame = newData.Any(w => w.UserID != userId);
+                    if (userIDsNotSame)
                     {
                         result.Message += " Error : UserID is not the same for all data. ";
                         result.Success = false;
                         return result;
                     }
-                    var appIDNotSame = data.Any(w => w.AppID != appId);
-                    if (!appIDNotSame)
+                    var appIDNotSame = newData.Any(w => w.AppID != appId);
+                    if (appIDNotSame)
                     {
                         result.Message += " Error : AppID is not the same for all data. ";
                         result.Success = false;
                         return result;
                     }
-                     var processorObj = _processorState.ProcessorList.Where(w => w.AppID == appId).FirstOrDefault();
-                      if (processorObj==null) { 
+                    var processorObj = _processorState.ProcessorList.Where(w => w.AppID == appId).FirstOrDefault();
+                    if (processorObj == null)
+                    {
                         result.Message += " Error : Processor with AppID not found. ";
                         result.Success = false;
                         return result;
                     }
-                    if (processorObj.AuthKey != authKey) { 
+                    if (processorObj.AuthKey != authKey)
+                    {
                         result.Message += " Error : Processor AuthKey does not match. ";
                         result.Success = false;
                         return result;
                     }
                     var updateMonitorIPs = new List<UpdateMonitorIP>();
-                    if (newData.Count <= userInfo.HostLimit)
+                    int counter = data.Count();
+                    foreach (MonitorIP monIP in newData)
                     {
-                        foreach (MonitorIP monIP in data)
+                        bool isExist = data.Any(w => w.Address == monIP.Address && w.EndPointType == monIP.EndPointType && w.Port == monIP.Port);
+                        if (!isExist)
                         {
-                            var dataMonIP = newData.FirstOrDefault(m => m.ID == monIP.ID);
-                            if (dataMonIP != null)
-                            {
-                                await MonitorIPUpdateHelper.AddUpdateMonitorIP(monIP, dataMonIP, updateMonitorIPs, userId, monitorContext, _systemParams.EmailEncryptKey, _processorState, _pingParams.Timeout);
-                            }
-                            //user = monIP.UserInfo;
+                            if (counter > userInfo.HostLimit) monIP.Enabled = false;
+                            await monitorContext.MonitorIPs.AddAsync(monIP);
+                            await monitorContext.SaveChangesAsync();
+                            updateMonitorIPs.Add(new UpdateMonitorIP(monIP));
                         }
-                        await monitorContext.SaveChangesAsync();
-                        ProcessorQueueDicObj queueDicObj = new ProcessorQueueDicObj();
-                        //queueDicObj.MonitorIPs = newData;
-                        queueDicObj.UserId = userId!;
-                        
-                        queueDicObj.MonitorIPs = updateMonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
-                        if (queueDicObj.MonitorIPs.Count > 0)
-                        {
-                            await _rabbitRepo.PublishAsync<ProcessorQueueDicObj>("processorQueueDic" + processorObj.AppID, queueDicObj);
-                            _logger.LogInformation("Sent event ProcessorQueueDic for AppID  " + processorObj.AppID);
-                        }
+                    }
 
-                        //result.Data = data;
-                        if (userInfo.Email_verified)
-                        {
-                            result.Success = true;
-                            result.Message += "Success : Data will become live in around 2 minutes ";
-                        }
-                        else
-                        {
-                            result.Success = false;
-                            result.Message += "Warning : Data has been saved but you will receive not email alerts until you verify you email.";
-                        }
+                    ProcessorQueueDicObj queueDicObj = new ProcessorQueueDicObj();
+                    queueDicObj.UserId = userId!;
+                    queueDicObj.MonitorIPs = updateMonitorIPs;
+                    if (queueDicObj.MonitorIPs.Count > 0)
+                    {
+                        await _rabbitRepo.PublishAsync<ProcessorQueueDicObj>("processorQueueDic" + processorObj.AppID, queueDicObj);
+                        _logger.LogInformation("Sent event ProcessorQueueDic for AppID  " + processorObj.AppID);
+                    }
+
+                    //result.Data = data;
+                    if (userInfo.Email_verified)
+                    {
+                        result.Success = true;
+                        result.Message += "Success : Data will become live in around 2 minutes ";
                     }
                     else
                     {
-                        result.Message += "Error : User " + userInfo.Name + " has reached the host limit of " + userInfo.HostLimit + " . Delete a host before saving again.";
                         result.Success = false;
-                        //result.Data = data;
+                        result.Message += "Warning : Data has been saved but you will receive not email alerts until you verify you email.";
                     }
+
+
                 }
             }
             catch (Exception e)
