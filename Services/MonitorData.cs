@@ -370,8 +370,8 @@ namespace NetworkMonitor.Data.Services
             {
                 await _userRepo.FillTokensUsed();
                 result.Message += " Success : Tokens fill run for all users.";
-                await _rabbitRepo.PublishAsync("refreshUsers",null);
-                  result.Message += " Success : published refresh users.";
+                await _rabbitRepo.PublishAsync("refreshUsers", null);
+                result.Message += " Success : published refresh users.";
                 result.Success = true;
             }
             catch (Exception e)
@@ -424,12 +424,31 @@ namespace NetworkMonitor.Data.Services
                     maxDataSetID++;
                     int i = 0;
                     var currentMonitorPingInfos = await monitorContext.MonitorPingInfos.Where(w => w.DataSetID == 0).ToListAsync();
+                    var resetIDs = new Dictionary<int, string>();
                     currentMonitorPingInfos.ForEach(f =>
                     {
                         f.DataSetID = maxDataSetID;
                         i++;
                     });
                     await monitorContext.SaveChangesAsync();
+                    var resetData = currentMonitorPingInfos
+                        .Where(f => f.PacketsLost == 0 && f.MonitorStatus.AlertFlag && f.MonitorStatus.AlertSent)
+                        .Select(f => new { AppID = f.AppID!, MonitorIPID = f.MonitorIPID }) // Create anonymous objects with relevant properties
+                        .GroupBy(f => f.AppID) // Group by AppID
+                        .ToDictionary(g => g.Key, g => g.Select(x => x.MonitorIPID).ToList()); // Convert to dictionary with AppID as key and list of MonitorIPIDs
+
+                    foreach (var appID in resetData.Keys)
+                    {
+                        var monitorIPIDs = resetData[appID];
+                        try
+                        {
+                            await _rabbitRepo.PublishAsync<List<int>>("processorResetAlerts" + appID, monitorIPIDs);
+                        }
+                        catch (Exception ex)
+                        {
+                           _logger.LogError($"Error : unable to send processorResetAlerts. Error was : {ex.Message}");
+                        }
+                    }
                     var allMonitorIPs = await monitorContext.MonitorIPs
                       .Where(w => w.Enabled && w.UserID == "default" && !string.IsNullOrEmpty(w.AddUserEmail) && w.DateAdded < DateTime.UtcNow.AddMonths(-_systemParams.ExpireMonths))
                       .ToListAsync();
