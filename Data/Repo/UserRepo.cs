@@ -32,7 +32,7 @@ public interface IUserRepo
     Task<ResultObj> UpgradeAccounts();
     List<UserInfo> CachedUsers { get; }
     Task<ResultObj> LogEmailOpen(Guid id);
-    Task UpdateTokensUsed(string userId, int tokensUsed);
+    Task<int> UpdateTokensUsed(string userId, int tokensUsed);
     Task<int> GetTokenCount(string userId);
     Task ResetTokensUsed();
     Task FillTokensUsed();
@@ -117,24 +117,36 @@ public class UserRepo : IUserRepo
 
         return CachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
     }
-    public async Task UpdateTokensUsed(string userId, int tokensUsed)
+    public async Task<int> UpdateTokensUsed(string userId, int tokensUsed)
     {
-        var user = CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
-        if (user != null)
-        {
-            user.TokensUsed -= tokensUsed;
-
-        }
+        int newTokensRemaining = 0;
         using (var scope = _scopeFactory.CreateScope())
         {
             MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
             var dbUser = await monitorContext.UserInfos.Where(w => w.UserID == userId).FirstOrDefaultAsync();
             if (dbUser != null)
             {
+                // Note the incorrect choosen name TokensUsed in the database field it should be something like TokensRemaining
                 dbUser.TokensUsed -= tokensUsed;
                 monitorContext.SaveChanges();
+                newTokensRemaining = dbUser.TokensUsed;
             }
+            else
+            {
+                _logger.LogWarning($" Warning : User {userId} not found in database so RemainingTokens returned zero");
+            }
+
         }
+        var user = CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
+        if (user != null)
+        {
+            user.TokensUsed = newTokensRemaining;
+        }
+        else
+        {
+            _logger.LogWarning($" Warning : User {userId} not found in cachedUsers so RemainingTokens returned zero");
+        }
+        return newTokensRemaining;
     }
     private void ResetTokens(List<UserInfo> userInfos)
     {
