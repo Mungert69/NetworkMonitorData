@@ -121,7 +121,7 @@ namespace NetworkMonitor.Data.Services
             catch (Exception e)
             {
                 result.Success = false;
-                var message = " Error : Unable to set SystemParms . Error was : " + e.ToString();
+                var message = " Error : Unable to set SystemParams . Error was : " + e.ToString();
                 result.Message += message;
                 _logger.LogCritical(message);
             }
