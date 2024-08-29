@@ -1,6 +1,7 @@
 
 using System;
 using NetworkMonitor.Objects;
+using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Objects.ServiceMessage;
 using System.Collections.Generic;
 using System.Linq;
