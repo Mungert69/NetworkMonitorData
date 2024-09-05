@@ -180,6 +180,7 @@ namespace NetworkMonitor.Data.Services
 
                         var stateProcessor = _processorState.ConcurrentProcessorList.Where(w => w.AppID == processor.AppID).FirstOrDefault();
                         existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                        existingProcessor.DisabledCommands = processor.DisabledCommands;
                         existingProcessor.IsEnabled = processor.IsEnabled;
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
@@ -188,6 +189,7 @@ namespace NetworkMonitor.Data.Services
                         if (stateProcessor != null)
                         {
                             stateProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                            stateProcessor.DisabledCommands = processor.DisabledCommands;
                             stateProcessor.IsEnabled = processor.IsEnabled;
                             stateProcessor.Location = processor.Location;
                             stateProcessor.MaxLoad = processor.MaxLoad;
@@ -278,6 +280,7 @@ namespace NetworkMonitor.Data.Services
                     {
                         // Update Processor
                         existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                         existingProcessor.DisabledCommands = processor.DisabledCommands;
                         existingProcessor.IsEnabled = processor.IsEnabled;
                         existingProcessor.Location = processor.Location;
                         existingProcessor.MaxLoad = processor.MaxLoad;
