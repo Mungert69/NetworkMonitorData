@@ -17,12 +17,13 @@ using Microsoft.IdentityModel.Tokens;
 namespace NetworkMonitor.Data.Repo;
 
 public interface ILoadServerRepo
-  {
+{
     Task<LoadServer?> GetLoadServerFromUserID(string userId);
     Task<List<LoadServer>> GetAllLoadServersDBNoTracking(); // This can be removed if you don't expose this functionality
     Task<ResultObj> AddLoadServer(LoadServer loadServer);
-    void UpdateCachedLoadServer(LoadServer newLoadServer); // This can be made internal if cache updates are handled internally
-  }public class LoadServerRepo : ILoadServerRepo
+    Task UpdateCachedLoadServer(LoadServer newLoadServer); // This can be made internal if cache updates are handled internally
+}
+public class LoadServerRepo : ILoadServerRepo
 {
 
     private readonly IServiceScopeFactory _scopeFactory;
@@ -31,14 +32,7 @@ public interface ILoadServerRepo
     private IRabbitRepo _rabbitRepo;
     private ISystemParamsHelper _systemParamsHelper;
 
-    public List<LoadServer> CachedLoadServers
-    {
-        get
-        {
-            if (_cachedLoadServers == null || _cachedLoadServers.Count == 0) _cachedLoadServers = GetAllLoadServersDBNoTracking().Result;
-            return _cachedLoadServers;
-        }
-    }
+
 
     public async Task RefreshLoadServers()
     {
@@ -78,9 +72,17 @@ public interface ILoadServerRepo
             }
         }
     }
-    public void UpdateCachedLoadServer(LoadServer newLoadServer)
+    public async Task<List<LoadServer>> GetCachedLoadServers()
     {
-        var loadServer = CachedLoadServers.Where(w => w.ID == newLoadServer.ID).FirstOrDefault();
+
+        if (_cachedLoadServers == null || _cachedLoadServers.Count == 0) _cachedLoadServers = await GetAllLoadServersDBNoTracking();
+        return _cachedLoadServers;
+
+    }
+    public async Task UpdateCachedLoadServer(LoadServer newLoadServer)
+    {
+        var cachedLoadservers = await GetCachedLoadServers();
+        var loadServer = cachedLoadservers.Where(w => w.ID == newLoadServer.ID).FirstOrDefault();
         if (loadServer == null)
         {
             _logger.LogError($" Error ; Unabled to update cachedLoadserver . Could not find loadServer with Id {newLoadServer.ID}");
@@ -103,8 +105,9 @@ public interface ILoadServerRepo
 
     public async Task<LoadServer?> GetLoadServerFromUserID(string userId)
     {
+        var cachedLoadservers = await GetCachedLoadServers();
 
-        return CachedLoadServers.Where(w => w.UserID == userId).FirstOrDefault();
+        return cachedLoadservers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
     public async Task<LoadServer?> GetLoadServerFromUserIDDB(string userId)
