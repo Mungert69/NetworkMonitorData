@@ -9,8 +9,6 @@
     <ContainerImageTag>1.5.3</ContainerImageTag>
       <StartupObject>NetworkMonitor.Data.Program</StartupObject>
           <Nullable>enable</Nullable>
-              <PublishAot>false</PublishAot>
-              <Optomize>true</Optomize>
 </PropertyGroup>
 
  <!-- <snippet_SuppressWarnings> -->
@@ -20,13 +18,18 @@
   </PropertyGroup>
   <!-- </snippet_SuppressWarnings> -->
 
+ <!-- Conditional AOT and optimization for Release configuration -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishAot>true</PublishAot>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="HostInitActions" Version="1.2.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.2">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.2">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
