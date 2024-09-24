@@ -20,7 +20,7 @@
 
  <!-- Conditional AOT and optimization for Release configuration -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishAot>true</PublishAot>
+     <!-- <PublishAot>true</PublishAot> -->
     <Optimize>true</Optimize>
   </PropertyGroup>
   <ItemGroup>
