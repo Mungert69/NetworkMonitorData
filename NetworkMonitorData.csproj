@@ -21,7 +21,7 @@
  <!-- Conditional AOT and optimization for Release configuration -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
      <!-- <PublishAot>true</PublishAot> -->
-    <Optimize>true</Optimize>
+     <Optimize>true</Optimize> 
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="HostInitActions" Version="1.2.0" />
