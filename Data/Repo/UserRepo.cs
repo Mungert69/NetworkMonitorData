@@ -38,6 +38,7 @@ public interface IUserRepo
     Task ResetTokensUsed();
     Task FillTokensUsed();
     Task RefreshUsers();
+    Task<ResultObj> BoostTokenForUser(string userId, int tokenBoost)
 }
 public class UserRepo : IUserRepo
 {
@@ -149,6 +150,8 @@ public class UserRepo : IUserRepo
         }
         return newTokensRemaining;
     }
+
+
     private void ResetTokens(List<UserInfo> userInfos)
     {
         foreach (var user in userInfos)
@@ -160,7 +163,7 @@ public class UserRepo : IUserRepo
     {
         var accountType = AccountTypeFactory.GetAccountTypeByName(user.AccountType);
 
-        if (accountType != null)
+        if (accountType != null && user.TokensUsed < accountType.TokenLimit)
         {
             user.TokensUsed = accountType.TokenLimit;
         }
@@ -195,6 +198,7 @@ public class UserRepo : IUserRepo
         }
     }
 
+
     private void FillTokens(List<UserInfo> userInfos)
     {
         var accountTypes = AccountTypeFactory.GetAccountTypes(); // Get the account type configurations
@@ -203,7 +207,7 @@ public class UserRepo : IUserRepo
         {
             var accountType = accountTypes.FirstOrDefault(a => a.Name == user.AccountType);
 
-            if (accountType != null)
+            if (accountType != null && user.TokensUsed < accountType.TokenLimit)
             {
                 int newTokenCount = Math.Min(user.TokensUsed + accountType.DailyTokens, accountType.TokenLimit);
                 user.TokensUsed = newTokenCount;
@@ -212,6 +216,29 @@ public class UserRepo : IUserRepo
     }
 
 
+    public async Task<ResultObj> BoostTokenForUser(string userId, int tokenBoost)
+    {
+        var user = await GetUserFromID(userId);
+        if (user != null)
+        {
+            var tokensUsed = await GetTokenCount(userId);
+            tokensUsed += tokenBoost;
+            await UpdateTokensUsed(userId, tokensUsed);
+            return new ResultObj
+            {
+                Success = true,
+                Message = $"Success: Added Token Boost of {tokenBoost} to with UserID {userId}. Available Tokens is now {tokensUsed}"
+            };
+        }
+        else
+        {
+            return new ResultObj
+            {
+                Success = true,
+                Message = $"Error: Can't find user with UserID {userId}"
+            };
+        }
+    }
 
 
 
@@ -352,7 +379,10 @@ public class UserRepo : IUserRepo
 
                     AlertMessage alertMessage;
                     user.UserID = user.Sub;
-                    user.HostLimit = _systemParamsHelper.GetPingParams().HostLimit;
+                    var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free")
+                    user.HostLimit = freeAccountType.HostLimit;
+                    user.TokensUsed = freeAccountType.TokenLimit;
+                    user.AccountType = freeAccountType.Name;
                     if (user.DateCreated == DateTime.MinValue) { user.DateCreated = DateTime.UtcNow; }
                     if (user.Updated_at == DateTime.MinValue) { user.Updated_at = DateTime.UtcNow; }
                     user.LastLoginDate = DateTime.UtcNow;
@@ -407,8 +437,10 @@ public class UserRepo : IUserRepo
                         List<MonitorIP> updateMonitorIPs;
                         if (saveUser.CancelAt < DateTime.UtcNow)
                         {
-                            saveUser.HostLimit = _systemParamsHelper.GetPingParams().HostLimit;
-                            saveUser.AccountType = "Free";
+                            var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free");
+                            saveUser.HostLimit = freeAccountType.HostLimit;
+                            saveUser.AccountType = freeAccountType.Name;
+                            ResetTokenForUser(saveUser)
                             updateMonitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && w.Enabled == true).Include(i => i.UserInfo).ToListAsync();
                             if (updateMonitorIPs.Count > _systemParamsHelper.GetPingParams().HostLimit)
                             {
@@ -571,6 +603,7 @@ public class UserRepo : IUserRepo
                     dbUser.HostLimit = user.HostLimit;
                     dbUser.CancelAt = user.CancelAt;
                     dbUser.CustomerId = user.CustomerId;
+                    ResetTokenForUser(dbUser)
                     await monitorContext.SaveChangesAsync();
                     UpdateCachedUserInfo(dbUser);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", dbUser);
@@ -804,6 +837,7 @@ public class UserRepo : IUserRepo
                         user.AccountType = "Standard";
                         user.CancelAt = DateTime.UtcNow.AddMonths(6);
                         user.HostLimit = 50;
+                        ResetTokenForUser(user)
                         var emailInfo = new EmailInfo() { Email = user.Email!, EmailType = "UserUpgrade" };
                         monitorContext.EmailInfos.Add(emailInfo);
                         emailList.Add(new GenericEmailObj() { UserInfo = user, HeaderImageUri = uri, ID = emailInfo.ID });
