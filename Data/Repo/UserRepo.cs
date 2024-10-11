@@ -33,12 +33,12 @@ public interface IUserRepo
     Task<ResultObj> UpgradeAccounts();
     List<UserInfo> CachedUsers { get; }
     Task<ResultObj> LogEmailOpen(Guid id);
-    Task<int> UpdateTokensUsed(string userId, int tokensUsed);
+    Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens=false);
     Task<int> GetTokenCount(string userId);
     Task ResetTokensUsed();
     Task FillTokensUsed();
     Task RefreshUsers();
-    Task<TResultObj<string>> BoostTokenForUser(string userId, int tokenBoost);
+    Task<TResultObj<string>> BoostTokenForUser(UserInfo user, int tokenBoost);
 }
 public class UserRepo : IUserRepo
 {
@@ -104,10 +104,12 @@ public class UserRepo : IUserRepo
         return CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
-    public async Task<UserInfo?> GetUserEmail(string email)
+    public async Task<string?> GetUserIdFromEmail(string email)
     {
 
-        return CachedUsers.Where(w => w.Email == email).FirstOrDefault();
+        var user=CachedUsers.Where(w => w.Email == email).FirstOrDefault();
+        if (user==null) return null;
+        return user.UserID;
 
     }
     public async Task<UserInfo?> GetUserFromIDDB(string userId)
@@ -125,7 +127,7 @@ public class UserRepo : IUserRepo
 
         return CachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
     }
-    public async Task<int> UpdateTokensUsed(string userId, int tokensUsed)
+    public async Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens=false)
     {
         int newTokensRemaining = 0;
         using (var scope = _scopeFactory.CreateScope())
@@ -135,7 +137,8 @@ public class UserRepo : IUserRepo
             if (dbUser != null)
             {
                 // Note the incorrect choosen name TokensUsed in the database field it should be something like TokensRemaining
-                dbUser.TokensUsed -= tokensUsed;
+                if (addTokens) dbUser.TokensUsed += tokensUsed;
+                else dbUser.TokensUsed -= tokensUsed;
                 monitorContext.SaveChanges();
                 newTokensRemaining = dbUser.TokensUsed;
             }
@@ -611,21 +614,30 @@ public class UserRepo : IUserRepo
         return result;
     }
 
-      public async Task<TResultObj<string>> BoostTokenForUser(UserInfo user, int tokenBoost)
+      public async Task<TResultObj<string>> BoostTokenForUser(UserInfo user ,int tokenBoost)
     {
-        UserInfo user;
-        if (!string.IsNullOrEmpty(user.UserID)) user = await GetUserFromID(user.UserID);
-        else user = await GetUserEmail(user.Email)
-        
-        if (user != null)
+         if (user==null)
         {
-            var tokensUsed = await GetTokenCount(userId);
-            tokensUsed += tokenBoost;
-            await UpdateTokensUsed(userId, tokensUsed);
             return new TResultObj<string>
             {
                 Success = true,
-                Message = $"Success: Added Token Boost of {tokenBoost} to with UserID {userId}. Available Tokens is now {tokensUsed}",
+                Message = $"Error: User can not be null",
+                Data=$"Error: User can not be null"
+            };
+        }
+        var userId=user.UserID;
+        var email=user.Email;
+        if (!string.IsNullOrEmpty(email) && string.IsNullOrEmpty(userId)) userId = await GetUserIdFromEmail(email);
+    
+    
+        if (!string.IsNullOrEmpty(userId))
+        {
+          
+            int newTokensRemaining =await UpdateTokensUsed(userId, tokenBoost, true);
+            return new TResultObj<string>
+            {
+                Success = true,
+                Message = $"Success: Added Token Boost of {tokenBoost} to with UserID {userId}. new tokes remaining {newTokensRemaining}",
                 Data=""
             };
         }
@@ -634,8 +646,8 @@ public class UserRepo : IUserRepo
             return new TResultObj<string>
             {
                 Success = true,
-                Message = $"Error: Can't find user with UserID {userId}",
-                Data=$"Error: Can't find user with UserID {userId}"
+                Message = $"Error: Can't find user with email {email} Id {userId}",
+                Data=$"Error: Can't find user with email {email} Id {userId}"
             };
         }
     }
