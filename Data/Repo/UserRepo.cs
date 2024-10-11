@@ -104,6 +104,12 @@ public class UserRepo : IUserRepo
         return CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
+    public async Task<UserInfo?> GetUserEmail(string email)
+    {
+
+        return CachedUsers.Where(w => w.Email == email).FirstOrDefault();
+
+    }
     public async Task<UserInfo?> GetUserFromIDDB(string userId)
     {
         using (var scope = _scopeFactory.CreateScope())
@@ -605,9 +611,12 @@ public class UserRepo : IUserRepo
         return result;
     }
 
-      public async Task<TResultObj<string>> BoostTokenForUser(string userId, int tokenBoost)
+      public async Task<TResultObj<string>> BoostTokenForUser(UserInfo user, int tokenBoost)
     {
-        var user = await GetUserFromID(userId);
+        UserInfo user;
+        if (!string.IsNullOrEmpty(user.UserID)) user = await GetUserFromID(user.UserID);
+        else user = await GetUserEmail(user.Email)
+        
         if (user != null)
         {
             var tokensUsed = await GetTokenCount(userId);
