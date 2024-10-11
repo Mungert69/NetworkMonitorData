@@ -38,7 +38,7 @@ public interface IUserRepo
     Task ResetTokensUsed();
     Task FillTokensUsed();
     Task RefreshUsers();
-    Task<ResultObj> BoostTokenForUser(string userId, int tokenBoost)
+    Task<TResultObj<string>> BoostTokenForUser(string userId, int tokenBoost);
 }
 public class UserRepo : IUserRepo
 {
@@ -216,31 +216,7 @@ public class UserRepo : IUserRepo
     }
 
 
-    public async Task<ResultObj> BoostTokenForUser(string userId, int tokenBoost)
-    {
-        var user = await GetUserFromID(userId);
-        if (user != null)
-        {
-            var tokensUsed = await GetTokenCount(userId);
-            tokensUsed += tokenBoost;
-            await UpdateTokensUsed(userId, tokensUsed);
-            return new ResultObj
-            {
-                Success = true,
-                Message = $"Success: Added Token Boost of {tokenBoost} to with UserID {userId}. Available Tokens is now {tokensUsed}"
-            };
-        }
-        else
-        {
-            return new ResultObj
-            {
-                Success = true,
-                Message = $"Error: Can't find user with UserID {userId}"
-            };
-        }
-    }
-
-
+  
 
     public async Task<ResultObj> AddAuthUserInfo(UserAuthInfo userAuthInfo)
     {
@@ -379,7 +355,7 @@ public class UserRepo : IUserRepo
 
                     AlertMessage alertMessage;
                     user.UserID = user.Sub;
-                    var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free")
+                    var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free");
                     user.HostLimit = freeAccountType.HostLimit;
                     user.TokensUsed = freeAccountType.TokenLimit;
                     user.AccountType = freeAccountType.Name;
@@ -440,7 +416,7 @@ public class UserRepo : IUserRepo
                             var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free");
                             saveUser.HostLimit = freeAccountType.HostLimit;
                             saveUser.AccountType = freeAccountType.Name;
-                            ResetTokenForUser(saveUser)
+                            ResetTokenForUser(saveUser);
                             updateMonitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && w.Enabled == true).Include(i => i.UserInfo).ToListAsync();
                             if (updateMonitorIPs.Count > _systemParamsHelper.GetPingParams().HostLimit)
                             {
@@ -603,7 +579,7 @@ public class UserRepo : IUserRepo
                     dbUser.HostLimit = user.HostLimit;
                     dbUser.CancelAt = user.CancelAt;
                     dbUser.CustomerId = user.CustomerId;
-                    ResetTokenForUser(dbUser)
+                    ResetTokenForUser(dbUser);
                     await monitorContext.SaveChangesAsync();
                     UpdateCachedUserInfo(dbUser);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", dbUser);
@@ -628,6 +604,34 @@ public class UserRepo : IUserRepo
         }
         return result;
     }
+
+      public async Task<TResultObj<string>> BoostTokenForUser(string userId, int tokenBoost)
+    {
+        var user = await GetUserFromID(userId);
+        if (user != null)
+        {
+            var tokensUsed = await GetTokenCount(userId);
+            tokensUsed += tokenBoost;
+            await UpdateTokensUsed(userId, tokensUsed);
+            return new TResultObj<string>
+            {
+                Success = true,
+                Message = $"Success: Added Token Boost of {tokenBoost} to with UserID {userId}. Available Tokens is now {tokensUsed}",
+                Data=""
+            };
+        }
+        else
+        {
+            return new TResultObj<string>
+            {
+                Success = true,
+                Message = $"Error: Can't find user with UserID {userId}",
+                Data=$"Error: Can't find user with UserID {userId}"
+            };
+        }
+    }
+
+
     public async Task<TResultObj<string>> UpdateUserCustomerId(UserInfo user)
     {
         var result = new TResultObj<string>();
@@ -834,10 +838,11 @@ public class UserRepo : IUserRepo
                 {
                     if (userEmails.Where(w => w.Email == user.Email).FirstOrDefault() != null)
                     {
-                        user.AccountType = "Standard";
+                        var standardUserAccount = AccountTypeFactory.GetAccountTypeByName("Standard");
+                        user.HostLimit = standardUserAccount.HostLimit;
+                        user.AccountType = standardUserAccount.Name;
                         user.CancelAt = DateTime.UtcNow.AddMonths(6);
-                        user.HostLimit = 50;
-                        ResetTokenForUser(user)
+                        ResetTokenForUser(user);
                         var emailInfo = new EmailInfo() { Email = user.Email!, EmailType = "UserUpgrade" };
                         monitorContext.EmailInfos.Add(emailInfo);
                         emailList.Add(new GenericEmailObj() { UserInfo = user, HeaderImageUri = uri, ID = emailInfo.ID });
