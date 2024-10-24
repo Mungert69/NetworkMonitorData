@@ -182,8 +182,11 @@ namespace NetworkMonitor.Utils.Helpers
         {
             foreach (var pingInfo in pingInfos)
             {
-                if (pingInfo.StatusID == 0) pingInfo.Status = "Null";
-                else pingInfo.Status = _statusLookup[pingInfo.StatusID];
+                try { if (pingInfo.StatusID == 0) pingInfo.Status = "Null";
+                else pingInfo.Status = _statusLookup[pingInfo.StatusID];}catch {
+                    pingInfo.Status="N/A";
+                }
+               
                 if (pingInfo.RoundTripTime == UInt16.MaxValue) pingInfo.RoundTripTimeInt = -1;
                 else pingInfo.RoundTripTimeInt = (int)pingInfo.RoundTripTime!;
             }
@@ -233,7 +236,7 @@ namespace NetworkMonitor.Utils.Helpers
             return await UpdatePingInfosFromStatusList(pingInfos, logger, isLookStatusID);
         }
 
-        public async Task<TResultObj<HostResponseObj>> GetMonitorPingInfoDTOByFilter(TResultObj<HostResponseObj> result, DateRangeQuery query, string authUserId,  IDataFileService fileService, IUserRepo userRepo)
+        public async Task<TResultObj<HostResponseObj>> GetMonitorPingInfoDTOByFilter(TResultObj<HostResponseObj> result, DateRangeQuery query, string authUserId, IDataFileService fileService, IUserRepo userRepo)
         {
 
             // CHeck User and MonitorPingInfoId are valid checking against MonitorIPs
@@ -245,19 +248,27 @@ namespace NetworkMonitor.Utils.Helpers
                 return result;
             }
 
-            MonitorPingInfo? monitorPingInfo = null;
             IQueryable<MonitorPingInfo>? matchingMonitorPingInfosQuery = null;
+            var matchingMonitorPingInfos = new List<MonitorPingInfo>();
             if (query.MonitorPingInfoID.HasValue)
             {
-                monitorPingInfo = await _monitorContext.MonitorPingInfos
+                var mpi = await _monitorContext.MonitorPingInfos
                     .FirstOrDefaultAsync(m => m.ID == query.MonitorPingInfoID.Value && m.UserID == query.User!.UserID!);
-                if (monitorPingInfo != null && (monitorPingInfo.DateStarted > query.EndDate || monitorPingInfo.DateEnded < query.StartDate))
+                if (mpi != null && (mpi.DateStarted > query.EndDate || mpi.DateEnded < query.StartDate))
                 {
                     result.Success = false;
                     result.Data = null;
-                    result.Message += $"Error : You have selected a date range that does not overlap the MonitorPingInfo with ID {monitorPingInfo.ID} date range ({monitorPingInfo.DateStarted} to {monitorPingInfo.DateEnded}). Either query using the address and date range instead or choose another MonitorPingInfo ID that has an overlapping date range .";
+                    result.Message += $"Error : You have selected a date range that does not overlap the MonitorPingInfo with ID {mpi.ID} date range ({mpi.DateStarted} to {mpi.DateEnded}). Either query using the address and date range instead or choose another MonitorPingInfo ID that has an overlapping date range .";
                     return result;
                 }
+                if (mpi == null)
+                {
+                    result.Success = false;
+                    result.Data = null;
+                    result.Message += $"Error : No MonitorPingInfo with ID {query.MonitorPingInfoID} ";
+                    return result;
+                }
+                matchingMonitorPingInfos.Add(mpi);
             }
             else if (!string.IsNullOrEmpty(query.Address))
             {
@@ -288,75 +299,86 @@ namespace NetworkMonitor.Utils.Helpers
                     matchingMonitorPingInfosQuery = matchingMonitorPingInfosQuery.Where(m => m.DateStarted <= query.EndDate || m.DateEnded <= query.EndDate);
                 }
 
-                var matchingMonitorPingInfos = await matchingMonitorPingInfosQuery.ToListAsync();
+                matchingMonitorPingInfos = await matchingMonitorPingInfosQuery.ToListAsync();
 
 
-                if (matchingMonitorPingInfos.Count > 1)
+                if (matchingMonitorPingInfos.Count > 1 && !string.IsNullOrEmpty(query.Address))
                 {
-                    var idsAndAddresses = matchingMonitorPingInfos
-                        .Select(m => $"(MonitorPingInfoID: {m.ID}, Address: {m.Address}, DateStarted: {m.DateStarted}, End Point Type: {m.EndPointType})")
-                        .Aggregate((current, next) => current + ", " + next);
+                    var multiMonitoIPs = _monitorContext.MonitorIPs
+                     .Where(m =>
+                        EF.Functions.Like(m.Address, $"%{query.Address}%") && m.UserID == query.User!.UserID).ToList();
+                    if (multiMonitoIPs != null && multiMonitoIPs.Count > 1)
+                    {
+                        var idsAndAddresses = multiMonitoIPs
+                       .Select(m => $"(MonitoIPID: {m.ID}, Address: {m.Address}, End Point Type: {m.EndPointType}, Port : {m.Port} , AppID : {m.AppID})")
+                       .Aggregate((current, next) => current + ", " + next);
 
-                    result.Message += $"Warning: Multiple MonitorPingInfos found for the given address. Found: {idsAndAddresses}. Please call the API again using the corresponding MonitorPingInfoID.";
-                    return result;
+                        result.Message += $"Warning: Multiple MonitorIPIDs found for the given address. Found: {idsAndAddresses}. Please call the API again using the corresponding MonitorID.";
+                        return result;
+                    }
+
                 }
 
-                else if (matchingMonitorPingInfos.Count == 1)
-                {
-                    monitorPingInfo = matchingMonitorPingInfos.First();
-                }
+
 
             }
 
-            if (monitorPingInfo == null)
+            if (matchingMonitorPingInfos == null || matchingMonitorPingInfos.Count==0)
             {
                 result.Success = false;
                 result.Message += " Warning : No response data found for the given criteria.";
                 return result;
             }
 
-            //var pingInfoHelper = new PingInfoHelper(_monitorContext);
-            if (monitorPingInfo.IsArchived)
+            var pingInfos=new List<PingInfo>();
+            foreach (var monitorPingInfo in matchingMonitorPingInfos)
             {
-                var pingInfo = await _monitorContext.PingInfos
-                    .FirstOrDefaultAsync(p => p.MonitorPingInfoID == monitorPingInfo.ID);
-                if (pingInfo != null)
+                var tempPingInfos=await _monitorContext.PingInfos
+                        .Where(p => p.MonitorPingInfoID == monitorPingInfo.ID).ToListAsync();
+                if (monitorPingInfo.IsArchived)
                 {
-                    var aPingInfos = new List<PingInfo>();
-                    aPingInfos.Add(pingInfo);
-                    await SetStatusList();
-                    MapPingInfoStatuses(aPingInfos);
-                    result.Success = false;
-                    result.Message += $"Error : {aPingInfos[0].Status}";
-                    return result;
+                    var pingInfo = tempPingInfos
+                        .FirstOrDefault();
+                    if (pingInfo != null)
+                    {
+                        var aPingInfos = new List<PingInfo>();
+                        aPingInfos.Add(pingInfo);
+                        await SetStatusList();
+                        MapPingInfoStatuses(aPingInfos);
+                        result.Success = false;
+                        result.Message += $"Error : {aPingInfos[0].Status}";
+                        return result;
+                    }
                 }
-
+                
+                 pingInfos.AddRange(tempPingInfos);
             }
 
-            var pingInfos = await ProcessPingInfos(monitorPingInfo.ID, query.StartDate, query.EndDate);
-
+          
             var pingInfosDTO = MapPingInfosToDTO(pingInfos);
-            var hostResponseObj = MonitorPingInfoHelper.CreateNewMonitorPingInfoFromPingInfos(monitorPingInfo, pingInfosDTO);
+              var firstMonitorPingInfo=matchingMonitorPingInfos.First();
+           
+            var hostResponseObj = MonitorPingInfoHelper.CreateNewMonitorPingInfoFromPingInfos(firstMonitorPingInfo, pingInfosDTO);
             hostResponseObj.PingInfosDTO = pingInfosDTO;
 
-            result.DataFileUrl = fileService.SaveDataToFile<HostResponseObj>(hostResponseObj, monitorPingInfo.ID);
+            result.DataFileUrl = fileService.SaveDataToFile<HostResponseObj>(hostResponseObj, firstMonitorPingInfo.ID);
             var countOrigPI = pingInfos.Count();
             pingInfos = PingInfoProcessor.ReducePingInfosToTarget(pingInfos);
             var countReducedPI = pingInfos.Count();
-            pingInfos = MapPingInfoStatuses(pingInfos);
+           pingInfos = MapPingInfoStatuses(pingInfos);
             pingInfosDTO = MapPingInfosToDTO(pingInfos);
             hostResponseObj.PingInfosDTO = pingInfosDTO;
             result.Data = hostResponseObj;
             result.Success = true;
             if (countReducedPI < countOrigPI)
-                result.Message += $" Warning : Data has been compressed Displaying {countReducedPI} response times from {countOrigPI}. Reduce time range to less than 20 mins to get full detail. ";
-            result.Message += $"Success : Got Response data for Host {monitorPingInfo.Address} with MontiorPingInfoID {monitorPingInfo.ID} . You can download the full data from {result.DataFileUrl} . This link is only valid for one hour . ";
+            result.Message += $" Warning : Data has been compressed Displaying {countReducedPI} response times from {countOrigPI}. Reduce time range to less than 20 mins to get full detail. ";
+            result.Message += $"Success : Got Response data for Host {firstMonitorPingInfo.Address} with MontiorPingInfoID {firstMonitorPingInfo.ID} . You can download the full data from {result.DataFileUrl} . This link is only valid for one hour . ";
             return result;
 
         }
 
 
-        public async Task<TResultObj<HostResponseObj, SentUserData>> GetMonitorPingInfoDTO(TResultObj<HostResponseObj, SentUserData> result, SentUserData sentData, string? authUserId,  IDataFileService fileService, IUserRepo userRepo)
+        public async Task<TResultObj<HostResponseObj, SentUserData>> GetMonitorPingInfoDTO(TResultObj<HostResponseObj, SentUserData> result, SentUserData sentData, string? authUserId, IDataFileService fileService, IUserRepo userRepo)
         {
             UserInfo user = sentData.User!;
             result.SentData = sentData;

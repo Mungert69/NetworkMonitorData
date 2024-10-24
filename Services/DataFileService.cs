@@ -19,6 +19,8 @@ namespace NetworkMonitor.Data.Services
         string SaveDataToFile<T>(T data, int id) where T : class;
         string SaveImageFile(byte[] imageData, string imageName);
         Task<ResultObj> SaveFileAsync(DataFileObj message);
+         string SaveHtmlFile(string htmlContent, string htmlName); 
+   
         void DeleteOldFiles(TimeSpan maxAge);
         Task<ResultObj> CreateAndTarPingInfoFilesForUser(string userId);
 
@@ -35,12 +37,14 @@ namespace NetworkMonitor.Data.Services
         private ILogger _logger;
         private string _serverBaseUrl;
         private readonly string _imageFilePath;
+        private readonly string _htmlDirectory;
         private bool _useAlternateBehavior = false;
 
         public DataFileService(ILogger<DataFileService> logger, IServiceScopeFactory scopeFactory, IFileRepo fileRepo, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, bool useAlternateBehavior)
         {
             _baseFilePath = "wwwroot/files";
             _imageFilePath = Path.Combine(_baseFilePath, "images");
+            _htmlDirectory = Path.Combine(_baseFilePath, "html");
             _fileRepo = fileRepo;
             _rabbitRepo = rabbitRepo;
             _logger = logger;
@@ -55,15 +59,52 @@ namespace NetworkMonitor.Data.Services
             {
                 Directory.CreateDirectory(_baseFilePath);
             }
+              if (!Directory.Exists(_htmlDirectory))
+            {
+                Directory.CreateDirectory(_htmlDirectory);
+            }
         }
 
+ public string SaveHtmlFile(string htmlContent, string htmlName)
+    {
+        try
+        {
+            string fileName = $"html_{htmlName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html";
+            string fullPath = Path.Combine(_htmlDirectory, fileName); // Save under 'html' directory
+            string fileUrl = $"{_serverBaseUrl}{fullPath}";
+
+            if (_useAlternateBehavior)
+                {
+                    var dataFileObj = new DataFileObj()
+                    {
+                        FilePath = fullPath,
+                        Url = fileUrl,
+                        Html=htmlContent
+                    };
+                    _rabbitRepo.PublishAsync<DataFileObj>("saveDataToFile", dataFileObj);
+                }
+                else
+                {
+                               File.WriteAllText(fullPath, htmlContent);
+                }
+
+
+            _logger.LogInformation($"HTML file saved successfully: {fileUrl}");
+            return fileUrl;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError($"Error saving HTML file: {e.Message}");
+            throw;
+        }
+    }
         public string SaveImageFile(byte[] imageData, string imageName)
         {
             try
             {
 
 
-                string fileName = $"image_{imageName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.png";
+                string fileName = $"image_{imageName}.png";
                 string fullPath = Path.Combine(_imageFilePath, fileName);
                 string fileUrl = $"{_serverBaseUrl}/files/images/{fileName}";
                 if (_useAlternateBehavior)
@@ -74,7 +115,7 @@ namespace NetworkMonitor.Data.Services
                         Url = fileUrl,
                         Data = imageData
                     };
-                    _rabbitRepo.PublishAsync<DataFileObj>("saveDataFile", dataFileObj);
+                    _rabbitRepo.PublishAsync<DataFileObj>("saveDataToFile", dataFileObj);
                 }
                 else
                 {
@@ -111,7 +152,9 @@ namespace NetworkMonitor.Data.Services
                 };
                 _rabbitRepo.PublishAsync<DataFileObj>("saveDataFile", dataFileObj);
             }
-            else { JsonUtils.WriteObjectToFile<T>(fullPath, data); }
+            else { 
+                JsonUtils.WriteObjectToFile<T>(fullPath, data);
+             }
 
 
             // Return the URL where the file can be accessed
@@ -170,9 +213,31 @@ namespace NetworkMonitor.Data.Services
                     result.Message=$"Image file saved successfully at {message.FilePath}";
                     result.Success=true;
                 }
+                else  if (message.Html != null)
+                {
+                    // Handle saving JSON data
+                    if (string.IsNullOrEmpty(message.FilePath))
+                    {
+                        result.Message="Invalid file path for Html data.";
+                        result.Success=false;
+                        return result;
+                    }
+
+                    // Ensure the directory exists before saving
+                    var directory = Path.GetDirectoryName(message.FilePath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    // Write JSON data to file
+                    await File.WriteAllTextAsync(message.FilePath, message.Html);
+                      result.Message=$"Html file saved successfully at {message.FilePath}";
+                        result.Success=true;
+                }
                 else
                 {
-                    result.Message="Message contains neither JSON data nor image data.";
+                    result.Message="Message contains neither Json, html or data";
                     result.Success=false;
                 }
             }

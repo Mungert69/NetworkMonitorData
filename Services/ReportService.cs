@@ -1,6 +1,6 @@
 using System;
-using SkiaSharp; 
-using System.IO;  
+using SkiaSharp;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -174,10 +174,10 @@ namespace NetworkMonitor.Data.Services
 
                 var pingInfoHelper = new PingInfoHelper(monitorContext);
                 var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID, _fileService, _userRepo);
-                var hostResponseObj=result.Data;
-                var pingInfos=new List<PingInfoDTO>();
-                if (hostResponseObj!=null) pingInfos = hostResponseObj.PingInfosDTO ;
-                
+                var hostResponseObj = result.Data;
+                var pingInfos = new List<PingInfoDTO>();
+                if (hostResponseObj != null) pingInfos = hostResponseObj.PingInfosDTO;
+
 
                 if (monitorIP.Enabled && monitorPingInfos != null && monitorPingInfos.Count > 0)
                 {
@@ -198,9 +198,15 @@ namespace NetworkMonitor.Data.Services
                     reportBuilder.AppendLine($"<p>- Stability: {GetRandomPhrase(incidentCount > 0 ? "Unstable" : "Stable")}</p>");
 
                     // Generate response time graph and embed it in the report
-                    string responseTimeGraphUrl = GenerateResponseTimeGraph(pingInfos);
-                    reportBuilder.AppendLine("<h3>Response Time Graph</h3>");
-                    reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' />");
+                    // Add a timestamp to the file name to avoid caching issues
+                    var fileName = $"{monitorIP.Address}_{monitorIP.EndPointType}_{monitorIP.Port}_{monitorIP.AppID}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
+
+                    string responseTimeGraphUrl = GenerateResponseTimeGraph(pingInfos, fileName);
+                    if (!string.IsNullOrEmpty(responseTimeGraphUrl))
+                    {
+                        reportBuilder.AppendLine("<h3>Response Time Graph</h3>");
+                        reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' />");
+                    }
 
                 }
                 else
@@ -216,64 +222,142 @@ namespace NetworkMonitor.Data.Services
 
             return reportBuilder.ToString();
         }
-        private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos)
+private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos, string fileName)
+{
+    // Prepare data for graph (response times and dates)
+    var responseTimes = pingInfos.Select(p => p.ResponseTime).ToList();
+    var dates = pingInfos.Select(p => p.DateSent.ToString("MM/dd HH:mm")).ToList();
+
+    if (!responseTimes.Any() || !dates.Any())
+    {
+        _logger.LogError("No data points available to plot the graph.");
+        return string.Empty;
+    }
+
+    // Define graph dimensions
+    int width = 600;
+    int height = 400;
+    int margin = 50;
+
+    // Find the maximum and minimum response times for dynamic scaling
+    float maxResponseTime = responseTimes.Max();
+    float minResponseTime = Math.Min(0, responseTimes.Min()); // Ensure Y-axis starts from 0
+    float yScale = (height - (2 * margin)) / (maxResponseTime - minResponseTime); // Y scaling
+
+    using (var surface = SKSurface.Create(new SKImageInfo(width, height)))
+    {
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.White);
+
+        // Draw gridlines and axes
+        var gridPaint = new SKPaint
         {
-            // Prepare data for graph (response times and dates)
-            var responseTimes = pingInfos.Select(p => p.ResponseTime).ToList(); // Use 0 for null values
-            var dates = pingInfos.Select(p => p.DateSent.ToString("MM/dd HH:mm")).ToList(); // Include time for more precision
+            Color = SKColors.LightGray,
+            StrokeWidth = 1,
+            IsAntialias = true
+        };
 
-            // Define graph dimensions
-            int width = 600;
-            int height = 400;
-            using (var surface = SKSurface.Create(new SKImageInfo(width, height)))
-            {
-                var canvas = surface.Canvas;
-                canvas.Clear(SKColors.White);
-
-                // Draw axes
-                var paint = new SKPaint
-                {
-                    Color = SKColors.Black,
-                    StrokeWidth = 2,
-                    IsAntialias = true
-                };
-                canvas.DrawLine(50, 50, 50, height - 50, paint); // Y-axis
-                canvas.DrawLine(50, height - 50, width - 50, height - 50, paint); // X-axis
-
-                // Draw response time data as a line chart
-                paint.Color = SKColors.Blue;
-                paint.StrokeWidth = 3;
-                for (int i = 1; i < responseTimes.Count; i++)
-                {
-                    float startX = 50 + (i - 1) * ((width - 100) / responseTimes.Count);
-                    float startY = height - 50 - (float)(responseTimes[i - 1] / 10); // Adjust scaling
-                    float endX = 50 + i * ((width - 100) / responseTimes.Count);
-                    float endY = height - 50 - (float)(responseTimes[i] / 10);
-
-                    canvas.DrawLine(startX, startY, endX, endY, paint);
-                }
-
-                // Add labels for dates
-                paint.TextSize = 16;
-                paint.Color = SKColors.Black;
-                for (int i = 0; i < dates.Count; i++)
-                {
-                    float x = 50 + i * ((width - 100) / dates.Count);
-                    canvas.DrawText(dates[i], x, height - 30, paint);
-                }
-
-                // Save the graph as an image
-                using (var image = surface.Snapshot())
-                using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
-                {
-                    // Save the image file using the file service
-                    byte[] imageBytes = data.ToArray();
-                    string imageUrl = _fileService.SaveImageFile(imageBytes, "response_time_graph");
-
-                    return imageUrl; // Return the public URL for the saved image
-                }
-            }
+        // Horizontal gridlines (Y-axis)
+        for (int i = 0; i <= 5; i++)
+        {
+            float y = margin + i * ((height - 2 * margin) / 5);
+            canvas.DrawLine(margin, y, width - margin, y, gridPaint);
         }
+
+        // Vertical gridlines (X-axis)
+        for (int i = 0; i <= 5; i++)
+        {
+            float x = margin + i * ((width - 2 * margin) / 5);
+            canvas.DrawLine(x, margin, x, height - margin, gridPaint);
+        }
+
+        // Draw axes
+        var axisPaint = new SKPaint
+        {
+            Color = SKColors.Black,
+            StrokeWidth = 2,
+            IsAntialias = true
+        };
+        canvas.DrawLine(margin, margin, margin, height - margin, axisPaint); // Y-axis
+        canvas.DrawLine(margin, height - margin, width - margin, height - margin, axisPaint); // X-axis
+
+        // Y-axis label and values
+        axisPaint.TextSize = 16;
+        axisPaint.Color = new SKColor(0x60, 0x74, 0x66); // Primary theme color (visible green)
+        for (int i = 0; i <= 5; i++)
+        {
+            float yValue = minResponseTime + (i * (maxResponseTime - minResponseTime) / 5);
+            float yPosition = height - margin - (i * ((height - 2 * margin) / 5));
+            canvas.DrawText($"{yValue:F0}", 10, yPosition + 5, axisPaint); // Adjust the position for visibility
+        }
+
+        // Draw response time data as a line chart
+        var linePaint = new SKPaint
+        {
+            Color = SKColors.Blue,
+            StrokeWidth = 3,
+            IsAntialias = true
+        };
+
+        for (int i = 1; i < responseTimes.Count; i++)
+        {
+            float startX = margin + (i - 1) * ((width - 2 * margin) / (responseTimes.Count - 1));
+            float startY = height - margin - ((responseTimes[i - 1] - minResponseTime) * yScale); // Adjust scaling
+            float endX = margin + i * ((width - 2 * margin) / (responseTimes.Count - 1));
+            float endY = height - margin - ((responseTimes[i] - minResponseTime) * yScale);
+
+            canvas.DrawLine(startX, startY, endX, endY, linePaint);
+        }
+
+        // Add labels for dates, reduce their frequency to avoid clashing
+        var textPaint = new SKPaint
+        {
+            Color = SKColors.Black,
+            TextSize = 14,
+            IsAntialias = true
+        };
+
+        int labelInterval = Math.Max(1, dates.Count / 4); // Reduce the number of labels shown
+        for (int i = 0; i < dates.Count; i += labelInterval)
+        {
+            float x = margin + i * ((width - 2 * margin) / (dates.Count - 1));
+            canvas.DrawText(dates[i], x, height - 20, textPaint); // Place date labels
+        }
+
+        // Draw points at each data location for visibility
+        linePaint.Color = new SKColor(0x60, 0x74, 0x66); // Primary theme green for regular points
+        linePaint.StrokeWidth = 5;
+        for (int i = 0; i < responseTimes.Count; i++)
+        {
+            float x = margin + i * ((width - 2 * margin) / (responseTimes.Count - 1));
+            float y = height - margin - ((responseTimes[i] - minResponseTime) * yScale);
+
+            // If response time is -1, mark it with error color, otherwise primary green
+            if (responseTimes[i] == -1)
+            {
+                linePaint.Color = new SKColor(0xeb, 0x51, 0x60); // Error color
+            }
+            else
+            {
+                linePaint.Color = new SKColor(0x60, 0x74, 0x66); // Primary theme green
+            }
+
+            canvas.DrawCircle(x, y, 5, linePaint); // Draw a small circle at each data point
+        }
+
+        // Save the graph as an image
+        using (var image = surface.Snapshot())
+        using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+        {
+            byte[] imageBytes = data.ToArray();
+            string imageUrl = _fileService.SaveImageFile(imageBytes, fileName);
+
+            return imageUrl; // Return the public URL for the saved image
+        }
+    }
+}
+
+
 
         private string DeterminePerformanceCategory(bool serverDownWholeTime, double uptimePercentage, double averageResponseTime, int incidentCount)
         {
