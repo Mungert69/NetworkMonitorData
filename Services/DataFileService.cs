@@ -17,6 +17,8 @@ namespace NetworkMonitor.Data.Services
     public interface IDataFileService
     {
         string SaveDataToFile<T>(T data, int id) where T : class;
+        string SaveImageFile(byte[] imageData, string imageName);
+        Task<ResultObj> SaveFileAsync(DataFileObj message);
         void DeleteOldFiles(TimeSpan maxAge);
         Task<ResultObj> CreateAndTarPingInfoFilesForUser(string userId);
 
@@ -29,18 +31,66 @@ namespace NetworkMonitor.Data.Services
         private readonly IServiceScopeFactory _scopeFactory;
 
         private IFileRepo _fileRepo;
+        private IRabbitRepo _rabbitRepo;
         private ILogger _logger;
         private string _serverBaseUrl;
+        private readonly string _imageFilePath;
+        private bool _useAlternateBehavior = false;
 
-        public DataFileService(ILogger<DataFileService> logger, IServiceScopeFactory scopeFactory, IFileRepo fileRepo, ISystemParamsHelper systemParamsHelper)
+        public DataFileService(ILogger<DataFileService> logger, IServiceScopeFactory scopeFactory, IFileRepo fileRepo, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, bool useAlternateBehavior)
         {
             _baseFilePath = "wwwroot/files";
+            _imageFilePath = Path.Combine(_baseFilePath, "images");
             _fileRepo = fileRepo;
+            _rabbitRepo = rabbitRepo;
             _logger = logger;
             _scopeFactory = scopeFactory;
+            _useAlternateBehavior = useAlternateBehavior;
             _serverBaseUrl = systemParamsHelper.GetSystemParams().ThisSystemUrl.ExternalUrl;
+            if (!Directory.Exists(_imageFilePath))
+            {
+                Directory.CreateDirectory(_imageFilePath);
+            }
+            if (!Directory.Exists(_baseFilePath))
+            {
+                Directory.CreateDirectory(_baseFilePath);
+            }
         }
 
+        public string SaveImageFile(byte[] imageData, string imageName)
+        {
+            try
+            {
+
+
+                string fileName = $"image_{imageName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.png";
+                string fullPath = Path.Combine(_imageFilePath, fileName);
+                string fileUrl = $"{_serverBaseUrl}/files/images/{fileName}";
+                if (_useAlternateBehavior)
+                {
+                    var dataFileObj = new DataFileObj()
+                    {
+                        FilePath = fullPath,
+                        Url = fileUrl,
+                        Data = imageData
+                    };
+                    _rabbitRepo.PublishAsync<DataFileObj>("saveDataFile", dataFileObj);
+                }
+                else
+                {
+                    File.WriteAllBytes(fullPath, imageData); // Save image data as a PNG file
+                }
+
+
+                _logger.LogInformation($"Image saved successfully: {fileUrl}");
+                return fileUrl;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Error saving image: {e.Message}");
+                throw;
+            }
+        }
         public string SaveDataToFile<T>(T data, int id) where T : class
         {
 
@@ -48,14 +98,92 @@ namespace NetworkMonitor.Data.Services
             string dateTimeString = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             string fileName = $"{typeof(T).Name}_{dateTimeString}_{id}.json";
             string fullPath = Path.Combine(_baseFilePath, fileName);
+            string fileUrl = $"{_serverBaseUrl}/files/{fileName}";
 
             // Save the file
-            JsonUtils.WriteObjectToFile<T>(fullPath, data);
+            if (_useAlternateBehavior)
+            {
+                var dataFileObj = new DataFileObj()
+                {
+                    FilePath = fullPath,
+                    Url = fileUrl,
+                    Json = JsonUtils.WriteJsonObjectToString<T>(data)
+                };
+                _rabbitRepo.PublishAsync<DataFileObj>("saveDataFile", dataFileObj);
+            }
+            else { JsonUtils.WriteObjectToFile<T>(fullPath, data); }
+
 
             // Return the URL where the file can be accessed
-            string fileUrl = $"{_serverBaseUrl}/files/{fileName}";
+
             return fileUrl;
         }
+
+        public async Task<ResultObj> SaveFileAsync(DataFileObj message)
+        {
+            var result=new ResultObj();
+            try
+
+            {
+                
+                if (message.Json != null)
+                {
+                    // Handle saving JSON data
+                    if (string.IsNullOrEmpty(message.FilePath))
+                    {
+                        result.Message="Invalid file path for JSON data.";
+                        result.Success=false;
+                        return result;
+                    }
+
+                    // Ensure the directory exists before saving
+                    var directory = Path.GetDirectoryName(message.FilePath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    // Write JSON data to file
+                    await File.WriteAllTextAsync(message.FilePath, message.Json);
+                      result.Message=$"JSON file saved successfully at {message.FilePath}";
+                        result.Success=true;
+                }
+                else if (message.Data != null)
+                {
+                    // Handle saving image data
+                    if (string.IsNullOrEmpty(message.FilePath))
+                    {
+                        result.Message="Invalid file path for image data.";
+                        result.Success=false;
+                        return result;
+                    }
+
+                    // Ensure the directory exists before saving
+                    var directory = Path.GetDirectoryName(message.FilePath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    // Save the image file
+                    await File.WriteAllBytesAsync(message.FilePath, message.Data);
+                    result.Message=$"Image file saved successfully at {message.FilePath}";
+                    result.Success=true;
+                }
+                else
+                {
+                    result.Message="Message contains neither JSON data nor image data.";
+                    result.Success=false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error saving file: {ex.Message}");
+                throw; // Let the exception bubble up
+            }
+            return result;
+        }
+
 
         public void DeleteOldFiles(TimeSpan maxAge)
         {
@@ -64,6 +192,13 @@ namespace NetworkMonitor.Data.Services
             {
                 foreach (var directory in Directory.GetDirectories(path))
                 {
+                    // Skip directories that are used for reports (e.g., "/reports" folder)
+                    if (directory.Contains("/images"))
+                    {
+                        _logger.LogInformation($"Skipping report directory: {directory}");
+                        continue;
+                    }
+
                     DeleteOldFilesAndDirectories(directory); // Recursive call to handle subdirectories
                     if (!Directory.EnumerateFileSystemEntries(directory).Any())
                     {
@@ -80,6 +215,14 @@ namespace NetworkMonitor.Data.Services
                 foreach (var file in Directory.GetFiles(path))
                 {
                     var fileInfo = new FileInfo(file);
+
+                    // Skip report files based on naming convention or other criteria
+                    if (fileInfo.FullName.Contains("/images"))
+                    {
+                        _logger.LogInformation($"Skipping report file: {file}");
+                        continue;
+                    }
+
                     if (DateTime.UtcNow - fileInfo.CreationTimeUtc > maxAge)
                     {
                         File.Delete(file);
@@ -151,7 +294,7 @@ namespace NetworkMonitor.Data.Services
                     result.Success = true;
 
                     string fileUrl = $"{_serverBaseUrl}/files/{userId}/{Path.GetFileName(tarPath)}";
-                    result.Data =_serverBaseUrl+"/files/"+ CreateHtmlFile(fileUrl, _baseFilePath, userId);
+                    result.Data = _serverBaseUrl + "/files/" + CreateHtmlFile(fileUrl, _baseFilePath, userId);
                 }
             }
             catch (Exception e)
@@ -164,11 +307,11 @@ namespace NetworkMonitor.Data.Services
 
             return result;
         }
-       private string CreateHtmlFile(string fileUrl, string directoryPath, string userId)
-{
-    string htmlFileName = $"download_page_{userId}.html";
-    string htmlFilePath = Path.Combine(directoryPath, htmlFileName);
-    string htmlContent = $@"
+        private string CreateHtmlFile(string fileUrl, string directoryPath, string userId)
+        {
+            string htmlFileName = $"download_page_{userId}.html";
+            string htmlFilePath = Path.Combine(directoryPath, htmlFileName);
+            string htmlContent = $@"
 <html>
 <head>
     <title>Download Your Data</title>
@@ -214,9 +357,9 @@ namespace NetworkMonitor.Data.Services
 </body>
 </html>";
 
-    File.WriteAllText(htmlFilePath, htmlContent);
-    return htmlFileName;
-}
+            File.WriteAllText(htmlFilePath, htmlContent);
+            return htmlFileName;
+        }
 
         private void TarFolder(string sourceDirectory, string destinationTarFile)
         {

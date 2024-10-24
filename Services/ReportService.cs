@@ -1,4 +1,6 @@
 using System;
+using SkiaSharp; 
+using System.IO;  
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,9 +33,9 @@ namespace NetworkMonitor.Data.Services
         private IRabbitRepo _rabbitRepo;
         private SystemParams _systemParams;
         private IProcessorState _processorState;
-          private IDataFileService _fileService;
-          private IUserRepo _userRepo;
-        
+        private IDataFileService _fileService;
+        private IUserRepo _userRepo;
+
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo)
         {
             _scopeFactory = scopeFactory;
@@ -41,8 +43,8 @@ namespace NetworkMonitor.Data.Services
             _logger = logger;
             _systemParams = systemParamsHelper.GetSystemParams();
             _processorState = processorState;
-            _fileService=fileService;
-            _userRepo=userRepo;
+            _fileService = fileService;
+            _userRepo = userRepo;
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -61,7 +63,7 @@ namespace NetworkMonitor.Data.Services
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     foreach (var userInfo in users)
                     {
-                        var emailInfo = new EmailInfo() { Email = userInfo.Email!, EmailType="HostReport" };
+                        var emailInfo = new EmailInfo() { Email = userInfo.Email!, EmailType = "HostReport" };
                         UserInfo? user = new UserInfo();
                         StringBuilder reportBuilder = new StringBuilder();
                         var userList = new List<UserInfo>();
@@ -84,7 +86,7 @@ namespace NetworkMonitor.Data.Services
 
                             foreach (var monitorIP in monitorIPs)
                             {
-                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext));
+                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo));
 
                             }
                             reportBuilder.AppendLine("<h3>That's it for this week! Stay tuned for more insights next time.</h3>");
@@ -147,29 +149,35 @@ namespace NetworkMonitor.Data.Services
         }
 
 
-        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext)
+        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo)
         {
             StringBuilder reportBuilder = new StringBuilder();
             try
             {
                 var endDate = DateTime.UtcNow;
                 var startDate = endDate.AddDays(-7);
-                string portStr="";
-                if (monitorIP.Port!=0) portStr= $" : Port {monitorIP.Port}";
+                string portStr = monitorIP.Port != 0 ? $" : Port {monitorIP.Port}" : "";
                 reportBuilder.AppendLine($"<h2>Report for Host at {monitorIP.Address} : Endpoint {monitorIP.EndPointType}{portStr} : Agent Location {_processorState.LocationFromID(monitorIP.AppID)} </h2>");
                 reportBuilder.AppendLine($"<p>Covering Dates: {startDate.ToShortDateString()} to {endDate.ToShortDateString()}.</p>");
 
                 var monitorPingInfos = monitorContext.MonitorPingInfos
-                                          .Where(mpi => mpi.MonitorIPID == monitorIP.ID && mpi.DateStarted >= startDate && mpi.DateEnded <= endDate)
-                                          .ToList();
-                var query= new DateRangeQuery();
-                var result=new TResultObj<HostResponseObj>();
-                query.MonitorIPID=monitorIP.ID;
-                query.StartDate=startDate;
-                query.EndDate=endDate;
-                var pingInfoHelper=new PingInfoHelper(monitorContext);
-                result=await pingInfoHelper.GetMonitorPingInfoDTOByFilter(result, query, monitorIP.UserID, _fileService, _userRepo);
-                var pingInfos=result.Data;
+                                        .Where(mpi => mpi.MonitorIPID == monitorIP.ID && mpi.DateStarted >= startDate && mpi.DateEnded <= endDate)
+                                        .ToList();
+
+                var query = new DateRangeQuery
+                {
+                    MonitorIPID = monitorIP.ID,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    User = userInfo
+                };
+
+                var pingInfoHelper = new PingInfoHelper(monitorContext);
+                var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID, _fileService, _userRepo);
+                var hostResponseObj=result.Data;
+                var pingInfos=new List<PingInfoDTO>();
+                if (hostResponseObj!=null) pingInfos = hostResponseObj.PingInfosDTO ;
+                
 
                 if (monitorIP.Enabled && monitorPingInfos != null && monitorPingInfos.Count > 0)
                 {
@@ -177,76 +185,96 @@ namespace NetworkMonitor.Data.Services
                     var averageResponseTime = monitorPingInfos.Average(mpi => mpi.RoundTripTimeAverage);
                     var packetsLostPercentage = monitorPingInfos.Average(mpi => mpi.PacketsLostPercentage);
                     var uptimePercentage = 100 - packetsLostPercentage;
-
-                    // Identifying incidents
                     var incidentCount = monitorPingInfos.Count(mpi => mpi.PacketsLost > 0);
-                    //var totalDowntime = monitorPingInfos.Sum(mpi => mpi.PacketsLost);
 
-                    // Check if the server was down the whole time
-                    bool serverDownWholeTime = uptimePercentage == 0;
-
-                    reportBuilder.AppendLine($"<p>- Average Response Time: {(serverDownWholeTime ? "N/A" : averageResponseTime.ToString("F0"))} ms.</p>");
+                    reportBuilder.AppendLine($"<p>- Average Response Time: {(uptimePercentage == 0 ? "N/A" : averageResponseTime.ToString("F0"))} ms.</p>");
                     reportBuilder.AppendLine($"<p>- Uptime: {uptimePercentage.ToString("F2")}%.</p>");
                     reportBuilder.AppendLine($"<p>- Number of Incidents: {incidentCount}</p>");
 
                     // User-friendly summaries and insights
                     reportBuilder.AppendLine($"<p>Some insights from the week:</p>");
+                    reportBuilder.AppendLine($"<p>- Uptime: {GetRandomPhrase(DeterminePerformanceCategory(false, uptimePercentage, averageResponseTime, incidentCount))}</p>");
+                    reportBuilder.AppendLine($"<p>- Response Time: {GetRandomPhrase(averageResponseTime < 500 ? "GoodResponseTime" : "PoorResponseTime")}</p>");
+                    reportBuilder.AppendLine($"<p>- Stability: {GetRandomPhrase(incidentCount > 0 ? "Unstable" : "Stable")}</p>");
 
-                    // Uptime
-                    var uptimeCategory = "";
-                    if (serverDownWholeTime)
-                    {
-                        uptimeCategory = "ZeroUptime";
-                    }
-                    else if (uptimePercentage > 98)
-                    {
-                        uptimeCategory = "GoodUptime";
-                    }
-                    else if (uptimePercentage > 80) // Assuming that below 80% is considered 'BadUptime'
-                    {
-                        uptimeCategory = "PoorUptime";
-                    }
-                    else
-                    {
-                        uptimeCategory = "BadUptime";
-                    }
-
-                    reportBuilder.AppendLine($"<p>- Uptime: {GetRandomPhrase(uptimeCategory)}</p>");
-
-                    // Response Time
-                    var responseTimeCategory = serverDownWholeTime ? "N/A" : (averageResponseTime < 500 ? "GoodResponseTime" : "PoorResponseTime");
-                    reportBuilder.AppendLine($"<p>- Response Time: {GetRandomPhrase(responseTimeCategory)}</p>");
-
-                    // Stability
-                    var stabilityCategory = serverDownWholeTime ? "Down" : (incidentCount > 0 ? "Unstable" : "Stable");
-                    reportBuilder.AppendLine($"<p>- Stability: {GetRandomPhrase(stabilityCategory)}</p>");
-
-                    // Inside the GetReportForHost method
-
-                    string performanceCategory = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount);
-                    reportBuilder.AppendLine($"<p>- Overall Performance: {GetRandomPhrase(performanceCategory)}</p>");
+                    // Generate response time graph and embed it in the report
+                    string responseTimeGraphUrl = GenerateResponseTimeGraph(pingInfos);
+                    reportBuilder.AppendLine("<h3>Response Time Graph</h3>");
+                    reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' />");
 
                 }
                 else
                 {
-                    if (monitorIP.Enabled) reportBuilder.AppendLine("There is not data for this host during this time period . ");
-
-                    else reportBuilder.AppendLine("<p>The host was not enabled so not data was collected for this week. </p>");
-
+                    reportBuilder.AppendLine("<p>No data for this host during this time period.</p>");
                 }
-                // Visual data analysis (if applicable)
-                // Note: Include graphs or charts if your system supports it
-                // reportBuilder.AppendLine($"[Insert graphical analysis here if applicable]");
-
             }
             catch (Exception ex)
             {
-                // Handle exceptions
                 _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
-                reportBuilder.AppendLine($"<p>Oops! We ran into an issue while generating your report. Don't worry, our team is on it: {ex.Message}</p>");
+                reportBuilder.AppendLine($"<p>Oops! We ran into an issue while generating your report: {ex.Message}</p>");
             }
+
             return reportBuilder.ToString();
         }
+        private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos)
+        {
+            // Prepare data for graph (response times and dates)
+            var responseTimes = pingInfos.Select(p => p.ResponseTime).ToList(); // Use 0 for null values
+            var dates = pingInfos.Select(p => p.DateSent.ToString("MM/dd HH:mm")).ToList(); // Include time for more precision
+
+            // Define graph dimensions
+            int width = 600;
+            int height = 400;
+            using (var surface = SKSurface.Create(new SKImageInfo(width, height)))
+            {
+                var canvas = surface.Canvas;
+                canvas.Clear(SKColors.White);
+
+                // Draw axes
+                var paint = new SKPaint
+                {
+                    Color = SKColors.Black,
+                    StrokeWidth = 2,
+                    IsAntialias = true
+                };
+                canvas.DrawLine(50, 50, 50, height - 50, paint); // Y-axis
+                canvas.DrawLine(50, height - 50, width - 50, height - 50, paint); // X-axis
+
+                // Draw response time data as a line chart
+                paint.Color = SKColors.Blue;
+                paint.StrokeWidth = 3;
+                for (int i = 1; i < responseTimes.Count; i++)
+                {
+                    float startX = 50 + (i - 1) * ((width - 100) / responseTimes.Count);
+                    float startY = height - 50 - (float)(responseTimes[i - 1] / 10); // Adjust scaling
+                    float endX = 50 + i * ((width - 100) / responseTimes.Count);
+                    float endY = height - 50 - (float)(responseTimes[i] / 10);
+
+                    canvas.DrawLine(startX, startY, endX, endY, paint);
+                }
+
+                // Add labels for dates
+                paint.TextSize = 16;
+                paint.Color = SKColors.Black;
+                for (int i = 0; i < dates.Count; i++)
+                {
+                    float x = 50 + i * ((width - 100) / dates.Count);
+                    canvas.DrawText(dates[i], x, height - 30, paint);
+                }
+
+                // Save the graph as an image
+                using (var image = surface.Snapshot())
+                using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+                {
+                    // Save the image file using the file service
+                    byte[] imageBytes = data.ToArray();
+                    string imageUrl = _fileService.SaveImageFile(imageBytes, "response_time_graph");
+
+                    return imageUrl; // Return the public URL for the saved image
+                }
+            }
+        }
+
         private string DeterminePerformanceCategory(bool serverDownWholeTime, double uptimePercentage, double averageResponseTime, int incidentCount)
         {
             if (serverDownWholeTime) return "PoorPerformance";

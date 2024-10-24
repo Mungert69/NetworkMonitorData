@@ -37,16 +37,16 @@ namespace NetworkMonitor.Data
         public void ConfigureServices(IServiceCollection services)
         {
             _services = services;
-           services.AddLogging(builder =>
-               {
-                   builder.AddSimpleConsole(options =>
-                        {
-                            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
-                            options.IncludeScopes = true;
-                        });
-               });
+            services.AddLogging(builder =>
+                {
+                    builder.AddSimpleConsole(options =>
+                         {
+                             options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+                             options.IncludeScopes = true;
+                         });
+                });
 
-            string connectionString = Configuration.GetConnectionString("DefaultConnection") ?? "";;
+            string connectionString = Configuration.GetConnectionString("DefaultConnection") ?? ""; ;
             services.AddDbContext<MonitorContext>(options =>
                 options.UseMySql(connectionString,
                 ServerVersion.AutoDetect(connectionString),
@@ -67,6 +67,18 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IRabbitRepo, RabbitRepo>();
             services.AddSingleton<IFileRepo, FileRepo>();
             services.AddSingleton<IUserRepo, UserRepo>();
+            services.AddSingleton<IDataFileService>(provider =>
+                {
+                    bool useAlternateBehavior = true;
+                    return new DataFileService(
+                        provider.GetService<ILogger<DataFileService>>(),
+                        provider.GetService<IServiceScopeFactory>(),
+                        provider.GetService<IFileRepo>(),
+                        provider.GetService<ISystemParamsHelper>(),
+                        provider.GetService<IRabbitRepo>(),
+                        useAlternateBehavior
+                    );
+                });
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
             services.AddSingleton<IProcessorState, ProcessorState>();
