@@ -2,18 +2,22 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using NetworkMonitor.Objects;
-using NetworkMonitor.Objects.ServiceMessage;
-using NetworkMonitor.Objects.Repository;
-using NetworkMonitor.Data;
-using NetworkMonitor.Utils;
-using Microsoft.Extensions.Logging;
-using NetworkMonitor.Objects.Factory;
-using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Logging;
+using NetworkMonitor.Objects;
+using NetworkMonitor.Objects.ServiceMessage;
+using NetworkMonitor.Objects.Repository;
+using NetworkMonitor.Objects.Entity;
+using NetworkMonitor.Objects.Factory;
+using NetworkMonitor.Data;
+using NetworkMonitor.Utils;
+using NetworkMonitor.Utils.Helpers;
+using NetworkMonitor.Data.Repo;
+using NetworkMonitor.DTOs;
+
 namespace NetworkMonitor.Data.Services
 {
     public interface IReportService
@@ -26,12 +30,19 @@ namespace NetworkMonitor.Data.Services
         private ILogger _logger;
         private IRabbitRepo _rabbitRepo;
         private SystemParams _systemParams;
-        public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper)
+        private IProcessorState _processorState;
+          private IDataFileService _fileService;
+          private IUserRepo _userRepo;
+        
+        public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo)
         {
             _scopeFactory = scopeFactory;
             _rabbitRepo = rabbitRepo;
             _logger = logger;
             _systemParams = systemParamsHelper.GetSystemParams();
+            _processorState = processorState;
+            _fileService=fileService;
+            _userRepo=userRepo;
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -73,7 +84,7 @@ namespace NetworkMonitor.Data.Services
 
                             foreach (var monitorIP in monitorIPs)
                             {
-                                reportBuilder.Append(GetReportForHost(monitorIP, monitorContext));
+                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext));
 
                             }
                             reportBuilder.AppendLine("<h3>That's it for this week! Stay tuned for more insights next time.</h3>");
@@ -136,19 +147,30 @@ namespace NetworkMonitor.Data.Services
         }
 
 
-        private string GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext)
+        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext)
         {
             StringBuilder reportBuilder = new StringBuilder();
             try
             {
                 var endDate = DateTime.UtcNow;
                 var startDate = endDate.AddDays(-7);
-                reportBuilder.AppendLine($"<h2>Report for {monitorIP.Address} : {monitorIP.EndPointType}</h2>");
+                string portStr="";
+                if (monitorIP.Port!=0) portStr= $" : Port {monitorIP.Port}";
+                reportBuilder.AppendLine($"<h2>Report for Host at {monitorIP.Address} : Endpoint {monitorIP.EndPointType}{portStr} : Agent Location {_processorState.LocationFromID(monitorIP.AppID)} </h2>");
                 reportBuilder.AppendLine($"<p>Covering Dates: {startDate.ToShortDateString()} to {endDate.ToShortDateString()}.</p>");
 
                 var monitorPingInfos = monitorContext.MonitorPingInfos
                                           .Where(mpi => mpi.MonitorIPID == monitorIP.ID && mpi.DateStarted >= startDate && mpi.DateEnded <= endDate)
                                           .ToList();
+                var query= new DateRangeQuery();
+                var result=new TResultObj<HostResponseObj>();
+                query.MonitorIPID=monitorIP.ID;
+                query.StartDate=startDate;
+                query.EndDate=endDate;
+                var pingInfoHelper=new PingInfoHelper(monitorContext);
+                result=await pingInfoHelper.GetMonitorPingInfoDTOByFilter(result, query, monitorIP.UserID, _fileService, _userRepo);
+                var pingInfos=result.Data;
+
                 if (monitorIP.Enabled && monitorPingInfos != null && monitorPingInfos.Count > 0)
                 {
                     // Data aggregation and calculations

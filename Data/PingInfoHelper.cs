@@ -4,6 +4,8 @@ using System.Linq;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Data;
+using NetworkMonitor.Data.Repo;
+using NetworkMonitor.Data.Services;
 using NetworkMonitor.DTOs;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +16,7 @@ namespace NetworkMonitor.Utils.Helpers
         private Dictionary<ushort, string> _statusLookup;
         private Dictionary<string, ushort> _reverseStatusLookup; // Reverse dictionary
         private readonly MonitorContext _monitorContext;
+
         public PingInfoHelper(MonitorContext monitorContext)
         {
             _monitorContext = monitorContext;
@@ -229,5 +232,192 @@ namespace NetworkMonitor.Utils.Helpers
             await SetStatusList();
             return await UpdatePingInfosFromStatusList(pingInfos, logger, isLookStatusID);
         }
+
+        public async Task<TResultObj<HostResponseObj>> GetMonitorPingInfoDTOByFilter(TResultObj<HostResponseObj> result, DateRangeQuery query, string authUserId,  IDataFileService fileService, IUserRepo userRepo)
+        {
+
+            // CHeck User and MonitorPingInfoId are valid checking against MonitorIPs
+            if (!await ValidateUser.VerifyUserExists(userRepo, query.User!, true, authUserId))
+            {
+                result.Success = false;
+                result.Data = null;
+                result.Message += "Error : User " + query.User!.UserID + " is not in database call AddUserApi .";
+                return result;
+            }
+
+            MonitorPingInfo? monitorPingInfo = null;
+            IQueryable<MonitorPingInfo>? matchingMonitorPingInfosQuery = null;
+            if (query.MonitorPingInfoID.HasValue)
+            {
+                monitorPingInfo = await _monitorContext.MonitorPingInfos
+                    .FirstOrDefaultAsync(m => m.ID == query.MonitorPingInfoID.Value && m.UserID == query.User!.UserID!);
+                if (monitorPingInfo != null && (monitorPingInfo.DateStarted > query.EndDate || monitorPingInfo.DateEnded < query.StartDate))
+                {
+                    result.Success = false;
+                    result.Data = null;
+                    result.Message += $"Error : You have selected a date range that does not overlap the MonitorPingInfo with ID {monitorPingInfo.ID} date range ({monitorPingInfo.DateStarted} to {monitorPingInfo.DateEnded}). Either query using the address and date range instead or choose another MonitorPingInfo ID that has an overlapping date range .";
+                    return result;
+                }
+            }
+            else if (!string.IsNullOrEmpty(query.Address))
+            {
+                matchingMonitorPingInfosQuery = _monitorContext.MonitorPingInfos
+                     .Where(m =>
+                        EF.Functions.Like(m.Address, $"%{query.Address}%") && m.UserID == query.User!.UserID);
+
+
+            }
+            else if (query.MonitorIPID != null)
+            {
+                matchingMonitorPingInfosQuery = _monitorContext.MonitorPingInfos
+                     .Where(m =>
+                       m.MonitorIPID == query.MonitorIPID && m.UserID == query.User!.UserID);
+            }
+            if (matchingMonitorPingInfosQuery != null)
+            {
+                if (query.StartDate != null && query.EndDate != null)
+                {
+                    matchingMonitorPingInfosQuery = matchingMonitorPingInfosQuery.Where(m => m.DateStarted <= query.EndDate && m.DateEnded >= query.StartDate);
+                }
+                else if (query.StartDate != null)
+                {
+                    matchingMonitorPingInfosQuery = matchingMonitorPingInfosQuery.Where(m => m.DateEnded >= query.StartDate || m.DateStarted >= query.StartDate);
+                }
+                else if (query.EndDate != null)
+                {
+                    matchingMonitorPingInfosQuery = matchingMonitorPingInfosQuery.Where(m => m.DateStarted <= query.EndDate || m.DateEnded <= query.EndDate);
+                }
+
+                var matchingMonitorPingInfos = await matchingMonitorPingInfosQuery.ToListAsync();
+
+
+                if (matchingMonitorPingInfos.Count > 1)
+                {
+                    var idsAndAddresses = matchingMonitorPingInfos
+                        .Select(m => $"(MonitorPingInfoID: {m.ID}, Address: {m.Address}, DateStarted: {m.DateStarted}, End Point Type: {m.EndPointType})")
+                        .Aggregate((current, next) => current + ", " + next);
+
+                    result.Message += $"Warning: Multiple MonitorPingInfos found for the given address. Found: {idsAndAddresses}. Please call the API again using the corresponding MonitorPingInfoID.";
+                    return result;
+                }
+
+                else if (matchingMonitorPingInfos.Count == 1)
+                {
+                    monitorPingInfo = matchingMonitorPingInfos.First();
+                }
+
+            }
+
+            if (monitorPingInfo == null)
+            {
+                result.Success = false;
+                result.Message += " Warning : No response data found for the given criteria.";
+                return result;
+            }
+
+            //var pingInfoHelper = new PingInfoHelper(_monitorContext);
+            if (monitorPingInfo.IsArchived)
+            {
+                var pingInfo = await _monitorContext.PingInfos
+                    .FirstOrDefaultAsync(p => p.MonitorPingInfoID == monitorPingInfo.ID);
+                if (pingInfo != null)
+                {
+                    var aPingInfos = new List<PingInfo>();
+                    aPingInfos.Add(pingInfo);
+                    await SetStatusList();
+                    MapPingInfoStatuses(aPingInfos);
+                    result.Success = false;
+                    result.Message += $"Error : {aPingInfos[0].Status}";
+                    return result;
+                }
+
+            }
+
+            var pingInfos = await ProcessPingInfos(monitorPingInfo.ID, query.StartDate, query.EndDate);
+
+            var pingInfosDTO = MapPingInfosToDTO(pingInfos);
+            var hostResponseObj = MonitorPingInfoHelper.CreateNewMonitorPingInfoFromPingInfos(monitorPingInfo, pingInfosDTO);
+            hostResponseObj.PingInfosDTO = pingInfosDTO;
+
+            result.DataFileUrl = fileService.SaveDataToFile<HostResponseObj>(hostResponseObj, monitorPingInfo.ID);
+            var countOrigPI = pingInfos.Count();
+            pingInfos = PingInfoProcessor.ReducePingInfosToTarget(pingInfos);
+            var countReducedPI = pingInfos.Count();
+            pingInfos = MapPingInfoStatuses(pingInfos);
+            pingInfosDTO = MapPingInfosToDTO(pingInfos);
+            hostResponseObj.PingInfosDTO = pingInfosDTO;
+            result.Data = hostResponseObj;
+            result.Success = true;
+            if (countReducedPI < countOrigPI)
+                result.Message += $" Warning : Data has been compressed Displaying {countReducedPI} response times from {countOrigPI}. Reduce time range to less than 20 mins to get full detail. ";
+            result.Message += $"Success : Got Response data for Host {monitorPingInfo.Address} with MontiorPingInfoID {monitorPingInfo.ID} . You can download the full data from {result.DataFileUrl} . This link is only valid for one hour . ";
+            return result;
+
+        }
+
+
+        public async Task<TResultObj<HostResponseObj, SentUserData>> GetMonitorPingInfoDTO(TResultObj<HostResponseObj, SentUserData> result, SentUserData sentData, string? authUserId,  IDataFileService fileService, IUserRepo userRepo)
+        {
+            UserInfo user = sentData.User!;
+            result.SentData = sentData;
+            //int dataSetId = sentData.DataSetId;
+            int? monitorPingInfoID = sentData.MonitorPingInfoID;
+            if (monitorPingInfoID == null)
+            {
+                throw new ArgumentException("Invalid Parameter : monitorPingInfoID of type int is required.");
+            }
+            // CHeck User and MonitorPingInfoId are valid checking against MonitorIPs
+            if (!await ValidateUser.VerifyUserExists(userRepo, user, true, authUserId))
+            {
+                result.Success = false;
+                result.Data = null;
+                result.Message += "Error : User " + user.UserID + " is not in database call AddUserApi .";
+                return result;
+            }
+
+            MonitorPingInfo? monitorPingInfo;
+            monitorPingInfo = await _monitorContext.MonitorPingInfos.Where(m => m.ID == monitorPingInfoID && m.UserID == user.UserID!).FirstOrDefaultAsync();
+            if (monitorPingInfo == null)
+            {
+                result.Success = false;
+                result.Data = null;
+                if (authUserId == "default")
+                    result.Message += "Error : Incorrect MonitorPingInfoID used. Call GetMonitorPingInfosByHostAddressDefault Api endpoint to get correct MonitorPingInfoID. ";
+                else result.Message += "Error : Incorrect MonitorPingInfoID used. Call GetMonitorPingInfosByHostAddressAuth Api endpoint to get correct MonitorPingInfoID. ";
+                return result;
+            }
+            //var pingInfoHelper = new PingInfoHelper(_monitorContext);
+            var pingInfos = await ProcessPingInfos(monitorPingInfo.ID);
+            if (pingInfos.Count() > 0)
+            {
+                if (pingInfos[0].Status?.Contains("your subscription") == true)
+                {
+                    result.Success = false;
+                    result.Message += $"Error : {pingInfos[0].Status}";
+                    return result;
+                }
+            }
+            var pingInfosDTO = MapPingInfosToDTO(pingInfos);
+            var hostResponseObj = MonitorPingInfoHelper.CopyAllFieldsFromMonitorPingInfo(monitorPingInfo);
+            hostResponseObj.PingInfosDTO = pingInfosDTO;
+            result.DataFileUrl = fileService.SaveDataToFile<HostResponseObj>(hostResponseObj, monitorPingInfo.ID);
+            var countOrigPI = pingInfos.Count;
+            pingInfos = PingInfoProcessor.ReducePingInfosToTarget(pingInfos);
+            pingInfos = MapPingInfoStatuses(pingInfos);
+            var countReducedPI = pingInfos.Count;
+            pingInfosDTO = MapPingInfosToDTO(pingInfos);
+            hostResponseObj.PingInfosDTO = pingInfosDTO;
+
+            result.Data = hostResponseObj;
+            result.Success = true;
+            if (countReducedPI < countOrigPI)
+                result.Message += $" Warning : Data has been compressed Displaying {countReducedPI} response times from {countOrigPI} . Reduce time range to less than 20 mins to get full detail.";
+
+            result.Message += $"Success : Got Response data for Host {monitorPingInfo.Address} with MontiorPingInfoID {monitorPingInfo.ID} . You can download the full data from {result.DataFileUrl} . This link is only valid for one hour . ";
+            return result;
+        }
+
+
+
     }
 }
