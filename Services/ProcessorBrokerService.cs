@@ -155,6 +155,7 @@ namespace NetworkMonitor.Data.Services
             initObj.AppID = processor.AppID;
             initObj.PingParams = _pingParams;
             initObj.MonitorIPs = new List<MonitorIP>();
+                     
             if (processor.RabbitHost.IsNullOrEmpty()) processor.RabbitHost = "rabbitmq";
 
 
@@ -202,7 +203,7 @@ namespace NetworkMonitor.Data.Services
                         await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Update message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
-
+                        initObj.AuthKey=processor.AuthKey;
                     }
                     await monitorContext.SaveChangesAsync();
 
@@ -287,6 +288,7 @@ namespace NetworkMonitor.Data.Services
                         await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
                     }
+                    initObj.AuthKey=processor.AuthKey;
                     await DataPublishRepo.ProcessorAuthKey(_logger, _rabbitRepos, processor, initObj);
                     result.Message += $" Success : Processor AuthKey sent to AppID {processor.AppID} .";
 
@@ -309,6 +311,7 @@ namespace NetworkMonitor.Data.Services
                 {
                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
+                    initObj.AuthKey=processor.AuthKey;
                     if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
                     await DataPublishRepo.ProcessorInit(_logger, _rabbitRepos, processor, initObj);
                     result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";

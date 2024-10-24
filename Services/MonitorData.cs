@@ -153,6 +153,7 @@ namespace NetworkMonitor.Data.Services
                 foreach (var processorObj in _processorState.ProcessorList)
                 {
                     initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
+                    initObj.AuthKey=processorObj.AuthKey;
                     await _rabbitRepo.PublishAsync<ProcessorInitObj>("processorInit" + processorObj.AppID, initObj);
                     message += " Sent ProcessorInit event to appID " + processorObj.AppID + " . ";
                 }
