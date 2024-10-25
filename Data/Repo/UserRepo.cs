@@ -502,10 +502,11 @@ public class UserRepo : IUserRepo
                 {
                     if (user.UserID != null && _processorState.HasUserGotProcessor(user.UserID))
                     {
-                        foreach (var processor in _processorState.UserProcessorListAll(user.UserID))
+                        foreach (var processor in _processorState.UserProcessorListAll(user.UserID,true))
                         {
                             var processorUserEventObj = new ProcessorUserEventObj();
                             processorUserEventObj.IsLoggedInWebsite = true;
+                            processorUserEventObj.AuthKey=processor.AuthKey;
                             await _rabbitRepo.PublishAsync<ProcessorUserEventObj>("processorUserEvent" + processor.AppID, processorUserEventObj);
                             result.Message += $" Info : Published processorUserEvent message for procesor AppID {processor.AppID}";
 

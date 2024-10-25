@@ -150,7 +150,7 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 var message = "";
-                foreach (var processorObj in _processorState.ProcessorList)
+                foreach (var processorObj in _processorState.EnabledProcessorList(true))
                 {
                     initObj.MonitorIPs = _processorState.MonitorIPs.Where(w => w.AppID == processorObj.AppID).ToList();
                     initObj.AuthKey=processorObj.AuthKey;

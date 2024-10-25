@@ -198,7 +198,7 @@ namespace NetworkMonitor.Data.Services
                         result.Success = false;
                         return result;
                     }
-                    var processorObj = _processorState.ProcessorList.Where(w => w.AppID == appId).FirstOrDefault();
+                    var processorObj = _processorState.GetProcessorFromID(appId, true);
                     if (processorObj == null)
                     {
                         result.Message += " Error : Processor with AppID not found. ";

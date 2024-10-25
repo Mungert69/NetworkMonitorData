@@ -82,7 +82,7 @@ namespace NetworkMonitor.Data.Services
             }
             try
             {
-                await DataPublishRepo.FullProcessorList(_logger, _rabbitRepos, _processorState.ProcessorList);
+                await DataPublishRepo.FullProcessorList(_logger, _rabbitRepos, _processorState.GetProcessorListAll(true));
                 result.Message += " Published full list of processors. ";
             }
 
