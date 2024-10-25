@@ -187,10 +187,20 @@ namespace NetworkMonitor.Data.Services
                     var uptimePercentage = 100 - packetsLostPercentage;
                     var incidentCount = monitorPingInfos.Count(mpi => mpi.PacketsLost > 0);
 
+                    // Additional performance metrics
+                    var maxResponseTime = monitorPingInfos.Max(mpi => mpi.RoundTripTimeMaximum);
+                    var minResponseTime = monitorPingInfos.Min(mpi => mpi.RoundTripTimeMinimum);
+                    var stdDevResponseTime = Math.Sqrt(monitorPingInfos.Average(mpi => Math.Pow(mpi.RoundTripTimeAverage - averageResponseTime, 2)));
+                    var successfulPings = monitorPingInfos.Sum(mpi => mpi.PacketsRecieved);
+                    var failedPings = monitorPingInfos.Sum(mpi => mpi.PacketsLost);
+                   
                     reportBuilder.AppendLine($"<p>- Average Response Time: {(uptimePercentage == 0 ? "N/A" : averageResponseTime.ToString("F0"))} ms.</p>");
+                    reportBuilder.AppendLine($"<p>- Maximum Response Time: {maxResponseTime} ms.</p>");
+                    reportBuilder.AppendLine($"<p>- Minimum Response Time: {minResponseTime} ms.</p>");
+                    reportBuilder.AppendLine($"<p>- Standard Deviation of Response Times: {stdDevResponseTime:F2} ms.</p>");
                     reportBuilder.AppendLine($"<p>- Uptime: {uptimePercentage.ToString("F2")}%.</p>");
                     reportBuilder.AppendLine($"<p>- Number of Incidents: {incidentCount}</p>");
-
+                 
                     // User-friendly summaries and insights
                     reportBuilder.AppendLine($"<p>Some insights from the week:</p>");
                     reportBuilder.AppendLine($"<p>- Uptime: {GetRandomPhrase(DeterminePerformanceCategory(false, uptimePercentage, averageResponseTime, incidentCount))}</p>");

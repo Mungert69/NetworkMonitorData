@@ -2,6 +2,8 @@ using NetworkMonitor.Objects;
 using NetworkMonitor.DTOs;
 using System.Collections.Generic;
 using System.Linq;
+using System;
+
 namespace NetworkMonitor.Utils.Helpers
 {
 public class MonitorPingInfoHelper
@@ -47,9 +49,19 @@ public class MonitorPingInfoHelper
             hostResponseObj.RoundTripTimeMaximum = validPings.Max(p => p.ResponseTime);
             hostResponseObj.RoundTripTimeMinimum = validPings.Min(p => p.ResponseTime);
             hostResponseObj.RoundTripTimeTotal = validPings.Sum(p => p.ResponseTime);
+
+            // Calculate standard deviation of response times
+            double avgResponseTime = validPings.Average(p => p.ResponseTime);
+            double sumOfSquaresOfDifferences = validPings.Select(p => Math.Pow(p.ResponseTime - avgResponseTime, 2)).Sum();
+            hostResponseObj.RoundTripTimeStandardDeviation = (float)Math.Sqrt(sumOfSquaresOfDifferences / validPings.Count);
         }
 
         hostResponseObj.Status = pingInfosDTO.Last().Status;
+
+        // Calculate the number of successful pings and failed pings
+        hostResponseObj.SuccessfulPings = validPings.Count;
+        hostResponseObj.FailedPings = invalidPingsCount;
+
     }
 
         return hostResponseObj;
