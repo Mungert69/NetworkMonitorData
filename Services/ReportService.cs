@@ -172,7 +172,7 @@ namespace NetworkMonitor.Data.Services
                     User = userInfo
                 };
 
-                var pingInfoHelper = new PingInfoHelper(monitorContext,50);
+                var pingInfoHelper = new PingInfoHelper(monitorContext,100);
                 var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID, _fileService, _userRepo);
                 var hostResponseObj = result.Data;
                 var pingInfos = new List<PingInfoDTO>();
