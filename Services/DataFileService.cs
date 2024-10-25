@@ -88,7 +88,6 @@ namespace NetworkMonitor.Data.Services
                                File.WriteAllText(fullPath, htmlContent);
                 }
 
-
             _logger.LogInformation($"HTML file saved successfully: {fileUrl}");
             return fileUrl;
         }
