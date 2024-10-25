@@ -16,10 +16,12 @@ namespace NetworkMonitor.Utils.Helpers
         private Dictionary<ushort, string> _statusLookup;
         private Dictionary<string, ushort> _reverseStatusLookup; // Reverse dictionary
         private readonly MonitorContext _monitorContext;
+        private int _targetPingInfoCount;
 
-        public PingInfoHelper(MonitorContext monitorContext)
+        public PingInfoHelper(MonitorContext monitorContext, int targetPingInfoCount=20;)
         {
             _monitorContext = monitorContext;
+            _targetPingInfoCount=ttargetPingInfoCount;
             _statusLookup = new Dictionary<ushort, string>();
             _reverseStatusLookup = new Dictionary<string, ushort>();
         }
@@ -363,7 +365,7 @@ namespace NetworkMonitor.Utils.Helpers
 
             result.DataFileUrl = fileService.SaveDataToFile<HostResponseObj>(hostResponseObj, firstMonitorPingInfo.ID);
             var countOrigPI = pingInfos.Count();
-            pingInfos = PingInfoProcessor.ReducePingInfosToTarget(pingInfos);
+            pingInfos = PingInfoProcessor.ReducePingInfosToTarget(pingInfos, targetPingInfoCount);
             var countReducedPI = pingInfos.Count();
            pingInfos = MapPingInfoStatuses(pingInfos);
             pingInfosDTO = MapPingInfosToDTO(pingInfos);

@@ -157,7 +157,7 @@ namespace NetworkMonitor.Data.Services
                 var endDate = DateTime.UtcNow;
                 var startDate = endDate.AddDays(-7);
                 string portStr = monitorIP.Port != 0 ? $" : Port {monitorIP.Port}" : "";
-                reportBuilder.AppendLine($"<h2>Report for Host at {monitorIP.Address} : Endpoint {monitorIP.EndPointType}{portStr} : Agent Location {_processorState.LocationFromID(monitorIP.AppID)} </h2>");
+                reportBuilder.AppendLine($"<h3>Report for Host at {monitorIP.Address} : Endpoint {monitorIP.EndPointType}{portStr} : Agent Location {_processorState.LocationFromID(monitorIP.AppID)} </h3>");
                 reportBuilder.AppendLine($"<p>Covering Dates: {startDate.ToShortDateString()} to {endDate.ToShortDateString()}.</p>");
 
                 var monitorPingInfos = monitorContext.MonitorPingInfos
@@ -172,7 +172,7 @@ namespace NetworkMonitor.Data.Services
                     User = userInfo
                 };
 
-                var pingInfoHelper = new PingInfoHelper(monitorContext);
+                var pingInfoHelper = new PingInfoHelper(monitorContext,50);
                 var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID, _fileService, _userRepo);
                 var hostResponseObj = result.Data;
                 var pingInfos = new List<PingInfoDTO>();
@@ -224,6 +224,8 @@ namespace NetworkMonitor.Data.Services
         }
 private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos, string fileName)
 {
+
+    
     // Prepare data for graph (response times and dates)
     var responseTimes = pingInfos.Select(p => p.ResponseTime).ToList();
     var dates = pingInfos.Select(p => p.DateSent.ToString("MM/dd HH:mm")).ToList();
@@ -294,8 +296,8 @@ private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos, string fil
         // Draw response time data as a line chart
         var linePaint = new SKPaint
         {
-            Color = SKColors.Blue,
-            StrokeWidth = 3,
+            Color = new SKColor(0x60, 0x74, 0x66),// Use primary color for the line
+            StrokeWidth = 1,
             IsAntialias = true
         };
 
