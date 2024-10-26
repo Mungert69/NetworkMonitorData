@@ -116,12 +116,12 @@ namespace NetworkMonitor.Data.Services
                 FuncName = "changeProcessorAppID",
                 MessageTimeout = 2160000
             });
-            _rabbitMQObjs.Add(new RabbitMQObj()
+           /* _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "userUpdateProcessor",
                 FuncName = "userUpdateProcessor",
                 MessageTimeout = 2160000
-            });
+            });*/
             _rabbitMQObjs.Add(new RabbitMQObj()
             {
                 ExchangeName = "genAuthKey",
@@ -303,7 +303,7 @@ namespace NetworkMonitor.Data.Services
                             }
                         };
                             break;
-                        case "userUpdateProcessor":
+                       /* case "userUpdateProcessor":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
                         {
@@ -317,7 +317,7 @@ namespace NetworkMonitor.Data.Services
                                 _logger.LogError(" Error : RabbitListener.DeclareConsumers.userUpdateProcessor " + ex.Message);
                             }
                         };
-                            break;
+                            break;*/
                         case "genAuthKey":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
@@ -506,7 +506,7 @@ namespace NetworkMonitor.Data.Services
                     paymentTransaction.PingInfosComplete = false;
                 }
                 _logger.LogInformation(result.Message);
-                _monitorData.RabbitRepo.PublishAsync<PaymentTransaction>("pingInfosComplete", paymentTransaction);
+                await _monitorData.RabbitRepo.PublishAsync<PaymentTransaction>("pingInfosComplete", paymentTransaction);
             }
             catch (Exception e)
             {
@@ -759,7 +759,7 @@ namespace NetworkMonitor.Data.Services
         }
 
 
-        //TODO when users no longer user the version of Processor that requires this rabbitMessage . Delete this.
+      /*  //TODO when users no longer user the version of Processor that requires this rabbitMessage . Delete this.
         public async Task<ResultObj> UserUpdateProcessor(ProcessorObj? processorObj)
         {
             ResultObj result = new ResultObj();
@@ -807,7 +807,7 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogError(result.Message);
             }
             return result;
-        }
+        }*/
         public async Task<ResultObj> CreateHostSummaryReport()
         {
             ResultObj result = new ResultObj();

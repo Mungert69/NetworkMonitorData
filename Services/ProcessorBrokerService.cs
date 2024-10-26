@@ -18,7 +18,7 @@ namespace NetworkMonitor.Data.Services
     public interface IProcessorBrokerService
     {
         Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs);
-        Task<ResultObj> UserUpdateProcessor(ProcessorObj processor);
+        /*Task<ResultObj> UserUpdateProcessor(ProcessorObj processor);*/
         Task<ResultObj> GenAuthKey(ProcessorObj processor);
         Task<ResultObj> Init();
     }
@@ -196,6 +196,8 @@ namespace NetworkMonitor.Data.Services
                             stateProcessor.MaxLoad = processor.MaxLoad;
                             stateProcessor.RabbitHost = processor.RabbitHost;
                             stateProcessor.AuthKey = processor.AuthKey;
+                            if (!_processorState.SetProcessorObj(stateProcessor)) _logger.LogCritical($" Error : Data service  failed to set processor state of processor with AppID {processor.AppID} ");
+                       ;
                         }
                         else {
                             _logger.LogCritical($" Error : Data service is missing a processor with AppID {processor.AppID} that is not in state but is in the database. ");
@@ -250,7 +252,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<ResultObj> UserUpdateProcessor(ProcessorObj processor)
+       /* public async Task<ResultObj> UserUpdateProcessor(ProcessorObj processor)
         {
             var result = new ResultObj();
             result.Message = " Service : UserUpdateProcessor : ";
@@ -328,7 +330,7 @@ namespace NetworkMonitor.Data.Services
             }
 
             return result;
-        }
+        }*/
 
     }
 }
