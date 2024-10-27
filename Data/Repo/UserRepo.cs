@@ -784,7 +784,7 @@ public class UserRepo : IUserRepo
                 if (userInfo == null && monitorIPs == null)
                 {
                     result.Success = false;
-                    result.Message += "There are no longer any records of either your user or email. Login to https://freenetworkmonitor.click to create a user or use ChatGpt Network Monitor Plugin to add hosts.";
+                    result.Message += $"There are no longer any records of either your user or email. Login to {AppConstants.FrontendUrl} to create a user or use ChatGpt Network Monitor Plugin to add hosts.";
                 }
             }
             _logger.LogInformation(result.Message);

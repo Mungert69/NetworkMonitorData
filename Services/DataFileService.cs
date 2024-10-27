@@ -406,7 +406,7 @@ namespace NetworkMonitor.Data.Services
     </style>
 </head>
 <body>
-    <img src='https://freenetworkmonitor.click/img/logo.jpg' alt='Logo' class='logo'/>
+    <img src='{AppConstants.FrontendUrl}/img/logo.jpg' alt='Logo' class='logo'/>
     <div class='content'>
         <h1>Data File Ready for Download</h1>
         <p>Your requested data file has been generated and is ready for download:</p>
