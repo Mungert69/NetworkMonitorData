@@ -394,7 +394,7 @@ namespace NetworkMonitor.Data.Services
                             string duration = GetDurationString(user.AccountType!);
                             if (user.UserID == "default")
                             {
-                                lastPingInfo.Status = $"This version of Network Monitor is limited to viewing data no older than {duration} . Upgrade your {user.AccountType} plan to view this data. Either install the Auth Network Monitor Plugin, login and upgrade your subscription or visit {App.Constants.FrontendUrl}/subscription, login and upgrade your subscription. You will then be able to view this data. Make sure to login with the same email address you have used to add hosts in this plugin. ";
+                                lastPingInfo.Status = $"This version of Network Monitor is limited to viewing data no older than {duration} . Upgrade your {user.AccountType} plan to view this data. Either install the Auth Network Monitor Plugin, login and upgrade your subscription or visit {AppConstants.FrontendUrl}/subscription, login and upgrade your subscription. You will then be able to view this data. Make sure to login with the same email address you have used to add hosts in this plugin. ";
                             }
                             else
                             {
