@@ -315,7 +315,7 @@ public class UserRepo : IUserRepo
             alertMessage.UserInfo = user;
             alertMessage.SendTrustPilot = true;
             alertMessage.Subject = "Complimentary Plan Upgrade";
-            alertMessage.Message = "You have received a complimentary account upgrade in appreciation of your valuable feedback and participation in the beta phase of the Free Network Monitor Agent. This upgrade is our way of saying thank you for helping us improve the Free Network Monitor Agent app. Your insights are instrumental in ensuring the highest quality and performance of our network monitoring solutions. Please send all feedback to support@freenetworkmonitor.click.";
+            alertMessage.Message = $"You have received a complimentary account upgrade in appreciation of your valuable feedback and participation in the beta phase of the Free Network Monitor Agent. This upgrade is our way of saying thank you for helping us improve the Free Network Monitor Agent app. Your insights are instrumental in ensuring the highest quality and performance of our network monitoring solutions. Please send all feedback to support@{AppConstants.MailDomain}.";
             await _rabbitRepo.PublishAsync<AlertMessage>("alertMessage", alertMessage);
 
             return result;

@@ -485,7 +485,7 @@ namespace NetworkMonitor.Data.Services
                             var tempUserInfo = new UserInfo()
                             {
                                 UserID = disableProcessor.Owner,
-                                Email = "support@mahadeva.co.uk",
+                                Email = "support@{AppConstants.EmailDomain}",
                                 Email_verified = true,
                                 DisableEmail = false
                             };
