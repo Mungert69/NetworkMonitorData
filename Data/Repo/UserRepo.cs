@@ -557,7 +557,7 @@ public class UserRepo : IUserRepo
                 }
                 else
                 {
-                    result.Message += "Error : Error updateing user " + user.UserID;
+                    result.Message += "Error : Error updating user " + user.UserID;
                     result.Data = null;
                     result.Success = false;
                 }
@@ -577,6 +577,7 @@ public class UserRepo : IUserRepo
         var result = new TResultObj<string>();
         result.Message = "SERVICE : Update User Subscription : ";
         result.Success = false;
+        string userId="";
         try
         {
             using (var scope = _scopeFactory.CreateScope())
@@ -585,6 +586,7 @@ public class UserRepo : IUserRepo
                 var dbUser = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.CustomerId == user.CustomerId);
                 if (dbUser != null)
                 {
+                    userId=dbUser.UserID;
                     dbUser.AccountType = user.AccountType;
                     dbUser.HostLimit = user.HostLimit;
                     dbUser.CancelAt = user.CancelAt;
@@ -607,9 +609,9 @@ public class UserRepo : IUserRepo
         }
         catch (Exception e)
         {
-            result.Message += "Error :  Failed to  update user : Error was : " + e.Message + " ";
+            result.Message += $"Error :  Failed to  update user {userId} : Error was : " + e.Message + " ";
             result.Success = false;
-            _logger.LogError("Error :  Failed to update event : Error was : " + e.ToString());
+            _logger.LogError($"Error :  Failed to update user {userId}  : Error was : " + e.ToString());
             result.Data = null;
         }
         return result;
