@@ -362,7 +362,7 @@ namespace NetworkMonitor.Data.Services
                             }
                         };
                             break;
-                         case "systemLlmOuput":
+                         case "systemLlmOutput":
                             rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                             rabbitMQObj.Consumer.Received += async (model, ea) =>
                         {
