@@ -81,6 +81,7 @@ namespace NetworkMonitor.Data
                 });
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
+            services.AddSingleton<IDataLLMService, DataLLMService>();
             services.AddSingleton<IProcessorState, ProcessorState>();
             services.AddSingleton<IProcessorBrokerService, ProcessorBrokerService>();
             services.AddSingleton<IReportService, ReportService>();

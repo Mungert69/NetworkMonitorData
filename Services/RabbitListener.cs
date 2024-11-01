@@ -31,16 +31,18 @@ namespace NetworkMonitor.Data.Services
     public class RabbitListener : RabbitListenerBase, IRabbitListener
     {
         protected IMonitorData _monitorData;
+        protected IDataLLMService _dataLLMService;
         protected IDatabaseQueueService _databaseService;
         protected IProcessorBrokerService _processorBrokerService;
 
         protected IPingInfoService _pingInfoService;
         protected IReportService _reportService;
         protected IMonitorIPService _monitorIPService;
-        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService, IReportService reportService, ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper, IProcessorBrokerService processorBrokerService) : base(logger, DeriveSystemUrl(systemParamsHelper))
+        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService, IReportService reportService, ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper, IProcessorBrokerService processorBrokerService,IDataLLMService dataLLMService) : base(logger, DeriveSystemUrl(systemParamsHelper))
         {
 
             _monitorData = monitorData;
+            _dataLLMService=dataLLMService;
             _databaseService = databaseService;
             _pingInfoService = pingInfoService;
             _reportService = reportService;
@@ -134,7 +136,19 @@ namespace NetworkMonitor.Data.Services
                 FuncName = "saveMonitorIPs",
                 MessageTimeout = 2160000
             });
-
+            _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "systemLlmOutput",
+                FuncName = "systemLlmOutput",
+                MessageTimeout = 600000
+            });
+             _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "systemLlmStarted",
+                FuncName = "systemLlmStarted",
+                MessageTimeout = 600000
+            });
+            
 
 
         }
@@ -345,6 +359,36 @@ namespace NetworkMonitor.Data.Services
                             catch (Exception ex)
                             {
                                 _logger.LogError(" Error : RabbitListener.DeclareConsumers.saveMonitorIPs" + ex.Message);
+                            }
+                        };
+                            break;
+                         case "systemLlmOuput":
+                            rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                            rabbitMQObj.Consumer.Received += async (model, ea) =>
+                        {
+                            try
+                            {
+                                result = await SystemLlmOutput(ConvertToObject<LLMServiceObj>(model, ea));
+                                rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmOutput " + ex.Message);
+                            }
+                        };
+                            break;
+                         case "systemLlmStarted":
+                            rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                            rabbitMQObj.Consumer.Received += async (model, ea) =>
+                        {
+                            try
+                            {
+                                result = await SystemLlmStarted(ConvertToObject<LLMServiceObj>(model, ea));
+                                rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStarted " + ex.Message);
                             }
                         };
                             break;
@@ -828,5 +872,61 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
+  public async Task<ResultObj> SystemLlmStarted(LLMServiceObj? serviceObj)
+        {
+            var result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : SystemLlmStarted : ";
+
+            if (serviceObj == null)
+            {
+                result.Message += " Error : serviceObj is Null ";
+                return result;
+            }
+            try
+            {
+                var resultOutput = await _dataLLMService.LLMStarted(serviceObj);
+                result.Message += resultOutput.Message;
+                result.Success = resultOutput.Success;
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+            }
+            if (!result.Success) _logger.LogError(result.Message);
+            // else _logger.LogInformation(result.Message);
+            return result;
+        }
+
+         public async Task<ResultObj> SystemLlmOutput(LLMServiceObj? serviceObj)
+        {
+            var result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : SystemLlmOutput : ";
+
+            if (serviceObj == null)
+            {
+                result.Message += " Error : serviceObj is Null ";
+                return result;
+            }
+            try
+            {
+                var resultOutput = await _dataLLMService.LLMOutput(serviceObj);
+                result.Message += resultOutput.Message;
+                result.Success = resultOutput.Success;
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+            }
+            if (!result.Success) _logger.LogError(result.Message);
+            // else _logger.LogInformation(result.Message);
+            return result;
+        }
+       
     }
 }
