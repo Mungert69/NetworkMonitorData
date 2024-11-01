@@ -126,7 +126,7 @@ public class DataLLMService : IDataLLMService
 
     public async Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj)
     {
-       var result = new ResultObj { Message = "DataLLMService : LLMOutput " };
+       var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMOutput " };
 
         if (_sessionOutputTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
         {
@@ -136,7 +136,7 @@ public class DataLLMService : IDataLLMService
         }
         else
         {
-            result.Message = $" Error: No matching session found for LLMOutput with SessionId: {serviceObj.RequestSessionId}"l
+            result.Message = $" Error: No matching session found for LLMOutput with SessionId: {serviceObj.RequestSessionId}";
             _logger.LogWarning(result.Message);
             result.Success = false;
         }
@@ -146,7 +146,7 @@ public class DataLLMService : IDataLLMService
 
     public async Task<TResultObj<LLMServiceObj>> LLMStarted(LLMServiceObj serviceObj)
     {
-        var result = new ResultObj { Message = "DataLLMService : LLMStarted " };
+        var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMStarted " };
 
         if (_sessionStartTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
         {

@@ -93,11 +93,11 @@ namespace NetworkMonitor.Data.Services
                             }
                             reportBuilder.AppendLine("<h3>That's it for this week! Stay tuned for more insights next time.</h3>");
                             reportBuilder.AppendLine("<p>Remember, monitoring is key to maintaining a robust online presence.</p>");
-                            reportBuilder.AppendLine($"<p>.. This reporting feature is in beta. Please provide feedback by replying to this email . Please quote you UserID {userInfo.UserID}...</p>");
+                            
+                            
                             var reportSoFar=reportBuilder.ToString();
                             var llmResult=await GetLLMReportForHost(reportSoFar,userInfo);
-                             reportBuilder.AppendLine($"<p> LLM Summary is :{llmResult}");
-                           
+                            reportBuilder.AppendLine($"<p> LLM Summary is :{llmResult}");                 
                             result.Success = true;
                             result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
 
@@ -161,7 +161,8 @@ namespace NetworkMonitor.Data.Services
                 RequestSessionId = Guid.NewGuid().ToString(),
                 UserInfo = userInfo,
                 SourceLlm = "data",
-                DestinationLlm = "data"
+                DestinationLlm = "data",
+                IsSystemLlm=true
             };
             var result = await _dataLLMService.SystemLlmStart(serviceObj);
             var resultInput=new ResultObj();
