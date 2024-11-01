@@ -1,4 +1,3 @@
-
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Entity;
@@ -17,50 +16,151 @@ using Microsoft.Extensions.DependencyInjection;
 using NetworkMonitor.Objects.Repository;
 using Microsoft.Extensions.Configuration;
 using NetworkMonitor.Utils.Helpers;
+
 namespace NetworkMonitor.Data.Services;
 
 public interface IDataLLMService
 {
-  
-    Task<ResultObj> LLMOutput(LLMServiceObj serviceObj);
-        Task<ResultObj> LLMStarted(LLMServiceObj serviceObj);
+    Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj);
+    Task<TResultObj<LLMServiceObj>> LLMStarted(LLMServiceObj serviceObj);
+    Task<ResultObj> SystemLlmStart(LLMServiceObj serviceObj);
+    Task<ResultObj> LLMInput(LLMServiceObj serviceObj);
 }
-
 
 public class DataLLMService : IDataLLMService
 {
     private readonly ILogger _logger;
     private readonly IRabbitRepo _rabbitRepo;
     private readonly IUserRepo _userRepo;
-    
+
+    // Dictionary to store tasks that wait for LLMStarted and LLMOutput responses.
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionStartTasks = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionOutputTasks = new();
+
+    private static readonly TimeSpan TimeoutDuration = TimeSpan.FromMinutes(10);
 
     public DataLLMService(IRabbitRepo rabbitRepo, ILogger<DataLLMService> logger, IUserRepo userRepo)
     {
         _rabbitRepo = rabbitRepo;
         _logger = logger;
         _userRepo = userRepo;
-     
     }
 
- 
-    public async Task<ResultObj> LLMOutput(LLMServiceObj serviceObj)
+    public async Task<ResultObj> SystemLlmStart(LLMServiceObj serviceObj)
     {
-        var result = new ResultObj();
-        var resultUpdate = new ResultObj();
-        result.Message = " DataLLMService : LLMOutput : ";
+        var result = new ResultObj { Message = "DataLLMService : LLMOutput : " };
 
+        try
+        {
+            var tcs = new TaskCompletionSource<TResultObj<LLMServiceObj>>();
+            _sessionStartTasks[serviceObj.RequestSessionId] = tcs;
+
+            await _rabbitRepo.PublishAsync("systemLlmStart", serviceObj);
+            result.Success = true;
+            result.Message += " Success : published system LLM start";
+
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
+            if (completedTask == tcs.Task)
+            {
+                var taskResult=await tcs.Task;
+                result.Message=taskResult.Data.LlmMessage;
+                result.Success=taskResult.Data.ResultSuccess;
+                return result;
+            }
+            else
+            {
+                _sessionStartTasks.TryRemove(serviceObj.RequestSessionId, out _);
+                result.Success = false;
+                result.Message += "Error: Timeout waiting for LLMStarted response.";
+                _logger.LogError(result.Message);
+                return result;
+            }
+        }
+        catch (Exception e)
+        {
+            result.Success = false;
+            result.Message += $" Error : Unable to send start message. The error was : {e.Message}";
+            _logger.LogError(result.Message);
+            return result;
+        }
+    }
+
+    public async Task<ResultObj> LLMInput(LLMServiceObj serviceObj)
+    {
+        var result = new ResultObj { Message = "DataLLMService : LLMInput : " };
+
+        try
+        {
+            var tcs = new TaskCompletionSource<TResultObj<LLMServiceObj>>();
+            _sessionOutputTasks[serviceObj.RequestSessionId] = tcs;
+
+            await _rabbitRepo.PublishAsync("systemLlmInput", serviceObj);
+            result.Success = true;
+            result.Message += " Success : published system LLM Input";
+
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
+            if (completedTask == tcs.Task)
+            {
+                var taskResult=await tcs.Task;
+                result.Message=taskResult.Data.LlmMessage;
+                result.Success=taskResult.Data.ResultSuccess;
+                return  result;
+            }
+            else
+            {
+                _sessionOutputTasks.TryRemove(serviceObj.RequestSessionId, out _);
+                result.Success = false;
+                result.Message += $" Error : Timeout waiting for LLMOutput response. SessionId: {serviceObj.RequestSessionId}";
+                _logger.LogError(result.Message);
+                return result;
+            }
+        }
+        catch (Exception e)
+        {
+            result.Success = false;
+            result.Message += $" Error : Unable to send Input message for LLMOutput response. SessionId: {serviceObj.RequestSessionId}. The error was : {e.Message}";
+            _logger.LogError(result.Message);
+            return result;
+        }
+    }
+
+    public async Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj)
+    {
+       var result = new ResultObj { Message = "DataLLMService : LLMOutput " };
+
+        if (_sessionOutputTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
+        {
+            result.Success=true;
+             result.Data=serviceObj;
+            tcs.SetResult(result);
+        }
+        else
+        {
+            result.Message = $" Error: No matching session found for LLMOutput with SessionId: {serviceObj.RequestSessionId}"l
+            _logger.LogWarning(result.Message);
+            result.Success = false;
+        }
 
         return result;
     }
 
-    public async Task<ResultObj> LLMStarted(LLMServiceObj serviceObj)
+    public async Task<TResultObj<LLMServiceObj>> LLMStarted(LLMServiceObj serviceObj)
     {
-        var result = new ResultObj();
-        var resultUpdate = new ResultObj();
-        result.Message = " DataLLMService : LLMStarted : ";
+        var result = new ResultObj { Message = "DataLLMService : LLMStarted " };
 
+        if (_sessionStartTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
+        {
+            result.Success=true;
+             result.Data=serviceObj;
+            tcs.SetResult(result);
+        }
+        else
+        {
+            result.Success = false;
+            result.Message += $"No matching session found for LLMStarted with SessionId: {serviceObj.RequestSessionId}";
+            _logger.LogError(result.Message);
+        }
 
         return result;
     }
-   
 }
