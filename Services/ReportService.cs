@@ -200,7 +200,7 @@ namespace NetworkMonitor.Data.Services
                 };
 
                 var pingInfoHelper = new PingInfoHelper(monitorContext, 100);
-                var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID, _fileService, _userRepo);
+                var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID!, _fileService, _userRepo);
                 var hostResponseObj = result.Data;
                 var pingInfos = new List<PingInfoDTO>();
                 if (hostResponseObj != null) pingInfos = hostResponseObj.PingInfosDTO;
@@ -244,6 +244,12 @@ namespace NetworkMonitor.Data.Services
                         reportBuilder.AppendLine("<h3>Response Time Graph</h3>");
                         reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' />");
                     }
+                    reportBuilder.AppendLine("<h3>Response Time Data</h3>");
+                     reportBuilder.AppendLine("<ul>");
+                    foreach (var pingInfo in pingInfos){
+                        reportBuilder.AppendLine($"<li>DateSent {pingInfo.DateSent} , Response Time {pingInfo.ResponseTime}, Status {pingInfo.Status}</li>");
+                    }
+                    reportBuilder.AppendLine("</ul>");
 
                 }
                 else
