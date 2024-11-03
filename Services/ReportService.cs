@@ -53,6 +53,7 @@ namespace NetworkMonitor.Data.Services
             var result = new ResultObj();
             result.Message = "SERVICE : ReportService.CreateHostSummaryReport : ";
             result.Success = false;
+
             try
             {
                 using (var scope = _scopeFactory.CreateScope())
@@ -79,6 +80,36 @@ namespace NetworkMonitor.Data.Services
                             result.Message += $" Error : Can't find user {userInfo.UserID} . ";
                             continue;
                         }
+                        bool llmStarted = false;
+                        var serviceObj = new LLMServiceObj()
+                        {
+                            RequestSessionId = Guid.NewGuid().ToString(),
+                            UserInfo = user,
+                            SourceLlm = "data",
+                            DestinationLlm = "data",
+                            IsSystemLlm = true
+                        };
+                        var resultStart = new TResultObj<LLMServiceObj>();
+                        try
+                        {
+
+                            resultStart = await _dataLLMService.SystemLlmStart(serviceObj);
+                            if (resultStart.Success)
+                            {
+                                serviceObj = resultStart.Data;
+                                _logger.LogInformation(result.Message);
+                            }
+                            else
+                            {
+                                _logger.LogError(result.Message);
+                            }
+                            llmStarted = resultStart.Success;
+                        }
+                        catch (Exception e)
+                        {
+                            _logger.LogError($" Error : could not start llm . Error was : {e.Message}");
+                        }
+
 
 
                         var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here").ToListAsync();
@@ -88,16 +119,11 @@ namespace NetworkMonitor.Data.Services
 
                             foreach (var monitorIP in monitorIPs)
                             {
-                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo));
+                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo, llmStarted, serviceObj));
 
                             }
                             reportBuilder.AppendLine("<h3>That's it for this week! Stay tuned for more insights next time.</h3>");
                             reportBuilder.AppendLine("<p>Remember, monitoring is key to maintaining a robust online presence.</p>");
-                            
-                            
-                            var reportSoFar=reportBuilder.ToString();
-                            var llmResult=await GetLLMReportForHost(reportSoFar,userInfo);
-                            reportBuilder.AppendLine($"<p> LLM Summary is :{llmResult}");                 
                             result.Success = true;
                             result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
 
@@ -139,6 +165,20 @@ namespace NetworkMonitor.Data.Services
                             }
 
                         }
+                        try
+                        {
+
+                            var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
+                            if (resultStop.Success) _logger.LogInformation(result.Message);
+                            else
+                            {
+                                _logger.LogError(result.Message);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            _logger.LogError($" Error : could not start llm . Error was : {e.Message}");
+                        }
                     }
                 }
             }
@@ -154,31 +194,23 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        private async Task<string> GetLLMReportForHost(string input, UserInfo userInfo)
+        private async Task<string> GetLLMReportForHost(string input, LLMServiceObj serviceObj)
         {
-            var serviceObj = new LLMServiceObj()
-            {
-                RequestSessionId = Guid.NewGuid().ToString(),
-                UserInfo = userInfo,
-                SourceLlm = "data",
-                DestinationLlm = "data",
-                IsSystemLlm=true
-            };
-            var result = await _dataLLMService.SystemLlmStart(serviceObj);
-            var resultInput=new ResultObj();
-            if (!result.Success){ 
-                return result.Message;
-                }
-            else {
-                serviceObj.UserInput=input;
-                resultInput = await _dataLLMService.LLMInput(serviceObj);
-            }
-            return resultInput.Message;
+
+            var result = new ResultObj();
+
+            serviceObj.UserInput = "Produce a Report from this report data, ONLY REPLY WITH THE REPORT : " + input;
+            result = await _dataLLMService.LLMInput(serviceObj);
+
+            return result.Message;
         }
 
-        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo)
+        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo, bool llmStarted, LLMServiceObj serviceObj)
         {
+            string llmResult = "<p>Oops! We ran into an issue while generating your report. The AI did not produce any output.</p>";
+            bool errorFlag = false;
             StringBuilder reportBuilder = new StringBuilder();
+            StringBuilder responseDataBuilder = new StringBuilder();
             try
             {
                 var endDate = DateTime.UtcNow;
@@ -213,7 +245,8 @@ namespace NetworkMonitor.Data.Services
                     var packetsLostPercentage = monitorPingInfos.Average(mpi => mpi.PacketsLostPercentage);
                     var uptimePercentage = 100 - packetsLostPercentage;
                     var incidentCount = monitorPingInfos.Count(mpi => mpi.PacketsLost > 0);
-
+                    bool serverDownWholeTime = false;
+                    if (packetsLostPercentage == 100) serverDownWholeTime = true;
                     // Additional performance metrics
                     var maxResponseTime = monitorPingInfos.Max(mpi => mpi.RoundTripTimeMaximum);
                     var minResponseTime = monitorPingInfos.Min(mpi => mpi.RoundTripTimeMinimum);
@@ -227,12 +260,16 @@ namespace NetworkMonitor.Data.Services
                     reportBuilder.AppendLine($"<p>- Standard Deviation of Response Times: {stdDevResponseTime:F2} ms.</p>");
                     reportBuilder.AppendLine($"<p>- Uptime: {uptimePercentage.ToString("F2")}%.</p>");
                     reportBuilder.AppendLine($"<p>- Number of Incidents: {incidentCount}</p>");
+                    string uptimeCategoryKey = DetermineUptimeCategory(uptimePercentage, serverDownWholeTime);
+                    string responseTimeCategoryKey = DetermineResponseTimeCategory(averageResponseTime);
+                    string stabilityCategoryKey = DetermineStabilityCategory(incidentCount);
+                    string overallPerformanceKey = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount);
 
-                    // User-friendly summaries and insights
-                    reportBuilder.AppendLine($"<p>Some insights from the week:</p>");
-                    reportBuilder.AppendLine($"<p>- Uptime: {GetRandomPhrase(DeterminePerformanceCategory(false, uptimePercentage, averageResponseTime, incidentCount))}</p>");
-                    reportBuilder.AppendLine($"<p>- Response Time: {GetRandomPhrase(averageResponseTime < 500 ? "GoodResponseTime" : "PoorResponseTime")}</p>");
-                    reportBuilder.AppendLine($"<p>- Stability: {GetRandomPhrase(incidentCount > 0 ? "Unstable" : "Stable")}</p>");
+                    reportBuilder.AppendLine("<p>Some insights from the week:</p>");
+                    reportBuilder.AppendLine($"<p>- Uptime: {GetRandomPhrase(uptimeCategoryKey)}</p>");
+                    reportBuilder.AppendLine($"<p>- Response Time: {GetRandomPhrase(responseTimeCategoryKey)}</p>");
+                    reportBuilder.AppendLine($"<p>- Stability: {GetRandomPhrase(stabilityCategoryKey)}</p>");
+                    reportBuilder.AppendLine($"<p>- Overall Performance: {GetRandomPhrase(overallPerformanceKey)}</p>");
 
                     // Generate response time graph and embed it in the report
                     // Add a timestamp to the file name to avoid caching issues
@@ -244,26 +281,52 @@ namespace NetworkMonitor.Data.Services
                         reportBuilder.AppendLine("<h3>Response Time Graph</h3>");
                         reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' />");
                     }
-                    reportBuilder.AppendLine("<h3>Response Time Data</h3>");
-                     reportBuilder.AppendLine("<ul>");
-                    foreach (var pingInfo in pingInfos){
-                        reportBuilder.AppendLine($"<li>DateSent {pingInfo.DateSent} , Response Time {pingInfo.ResponseTime}, Status {pingInfo.Status}</li>");
+                    responseDataBuilder.AppendLine("{");
+                    responseDataBuilder.AppendLine("\"intro\": \"Analyze the response time data for patterns such as spikes, high values, and timeouts.\",");
+                    responseDataBuilder.AppendLine("\"response_data\": [");
+
+                    for (int i = 0; i < pingInfos.Count; i++)
+                    {
+                        var pingInfo = pingInfos[i];
+                        responseDataBuilder.Append($"{{\"DateSent\": \"{pingInfo.DateSent}\", \"ResponseTime\": \"{pingInfo.ResponseTime}\"}}");
+
+                        // Add a comma after each item except the last one
+                        if (i < pingInfos.Count - 1)
+                        {
+                            responseDataBuilder.AppendLine(",");
+                        }
+                        else
+                        {
+                            responseDataBuilder.AppendLine(); // No comma for the last item
+                        }
                     }
-                    reportBuilder.AppendLine("</ul>");
+
+                    responseDataBuilder.AppendLine("]");
+                    responseDataBuilder.AppendLine("}");
+
+                    if (llmStarted)
+                    {
+
+                        var reportSoFar = reportBuilder.ToString() + responseDataBuilder.ToString();
+                        llmResult = await GetLLMReportForHost(reportSoFar, serviceObj);
+                        //reportBuilder.AppendLine($"<p> AI Report :{llmResult}");
+                    }
 
                 }
                 else
                 {
-                    reportBuilder.AppendLine("<p>No data for this host during this time period.</p>");
+                    reportBuilder.AppendLine($"<p>No data for this host during this time period. Login to {AppConstants.FrontendUrl}/dashboard to manage this host and enable if necessary. </p>");
                 }
             }
             catch (Exception ex)
             {
+                errorFlag = true;
                 _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
                 reportBuilder.AppendLine($"<p>Oops! We ran into an issue while generating your report: {ex.Message}</p>");
             }
-
-            return reportBuilder.ToString();
+            if (errorFlag || !llmStarted)
+                return reportBuilder.ToString();
+            else return llmResult;
         }
         private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos, string fileName)
         {
@@ -402,163 +465,62 @@ namespace NetworkMonitor.Data.Services
             }
         }
 
+        private string DetermineUptimeCategory(double uptimePercentage, bool serverDownWholeTime)
+        {
+            if (serverDownWholeTime) return "ZeroUptime";
+            if (uptimePercentage > 98) return "ExcellentUptime";
+            if (uptimePercentage > 95) return "GoodUptime";
+            if (uptimePercentage > 90) return "FairUptime";
+            if (uptimePercentage > 80) return "PoorUptime";
+            return "BadUptime";
+        }
 
+        private string DetermineResponseTimeCategory(double averageResponseTime)
+        {
+            if (averageResponseTime < 500) return "ExcellentResponseTime";
+            if (averageResponseTime < 1000) return "GoodResponseTime";
+            if (averageResponseTime < 2000) return "FairResponseTime";
+            return "PoorResponseTime";
+        }
+
+        private string DetermineStabilityCategory(int incidentCount)
+        {
+            if (incidentCount == 0) return "ExcellentStability";
+            if (incidentCount <= 2) return "GoodStability";
+            return "PoorStability";
+        }
 
         private string DeterminePerformanceCategory(bool serverDownWholeTime, double uptimePercentage, double averageResponseTime, int incidentCount)
         {
-            if (serverDownWholeTime) return "PoorPerformance";
-            // Define stricter thresholds and weights
-            const double strictUptimeThreshold = 98; // Higher threshold for good uptime
-            const double strictResponseTimeThreshold = 500; // Lower threshold for good response time
-            const int strictStabilityThreshold = 0; // Allowing for minimal incidents
+            if (serverDownWholeTime) return "DownWholeTime";
+            // Get individual category results
+            string uptimeCategory = DetermineUptimeCategory(uptimePercentage, serverDownWholeTime);
+            string responseTimeCategory = DetermineResponseTimeCategory(averageResponseTime);
+            string stabilityCategory = DetermineStabilityCategory(incidentCount);
 
             int score = 0;
 
-            // Uptime score
-            score += serverDownWholeTime ? 0 : (uptimePercentage > strictUptimeThreshold ? 3 : (uptimePercentage > 80 ? 2 : 1));
+            // Assign scores based on uptime category
+            score += uptimeCategory == "ExcellentUptime" ? 3 :
+                     uptimeCategory == "GoodUptime" ? 2 :
+                     uptimeCategory == "FairUptime" ? 1 :
+                     uptimeCategory == "PoorUptime" ? 0 : -1;
 
-            // Response time score
-            score += averageResponseTime < strictResponseTimeThreshold ? 2 : (averageResponseTime < 1000 ? 1 : 0);
+            // Assign scores based on response time category
+            score += responseTimeCategory == "ExcellentResponseTime" ? 2 :
+                     responseTimeCategory == "GoodResponseTime" ? 1 :
+                     responseTimeCategory == "FairResponseTime" ? 0 : -1;
 
+            // Assign scores based on stability category
+            score += stabilityCategory == "ExcellentStability" ? 2 :
+                     stabilityCategory == "GoodStability" ? 1 : 0;
 
-            // Stability score
-            score += incidentCount <= strictStabilityThreshold ? 2 : (incidentCount <= 10 ? 1 : 0);
-
-            // Determine overall performance category based on the total score
+            // Determine the overall performance category based on the total score
             if (score >= 7) return "ExcellentPerformance";
             if (score >= 4) return "GoodPerformance";
             if (score >= 2) return "FairPerformance";
             return "PoorPerformance";
         }
-
-        private Dictionary<string, List<string>> reportPhrases = new Dictionary<string, List<string>>
-{
-    // Uptime
-    {"GoodUptime", new List<string>
-        {
-            "Superb uptime! Your network's reliability is top-notch.",
-            "Excellent uptime! Your system's reliability and consistent performance are noteworthy.",
-            "Great job! Your network is consistently up and running.",
-            "Excellent uptime! Your system is performing reliably."
-        }
-    },
-    {"PoorUptime", new List<string>
-        {
-            "Uptime could be better. Time to check for potential issues.",
-            "Moderate uptime. There's some room for improvement.",
-            "Your uptime is okay, but strive for higher consistency.",
-            "Decent uptime, yet there's scope for better performance."
-        }
-    },
-     {"BadUptime", new List<string>
-        {
-            "Uptime is unsatisfactory, indicating potential system issues.",
-            "Poor uptime observed, which could impact user experience negatively.",
-            "Significant downtime detected, suggesting the need for system checks.",
-            "Unsatisfactory uptime - your network's reliability is compromised."
-        }
-    },
-    {"ZeroUptime", new List<string>
-        {
-            "The server was down all week. Immediate action is needed.",
-            "No uptime recorded. Check your system's health urgently.",
-            "Complete downtime. It's crucial to investigate the cause."
-        }
-    },
-
-    // Response Time
-    {"GoodResponseTime", new List<string>
-        {
-            "Excellent response times, ensuring a smooth user experience.",
-            "Quick response times! Your server is highly responsive.",
-            "Great response times, contributing to optimal performance.",
-            "Swift responses from your server, enhancing user satisfaction."
-        }
-    },
-    {"PoorResponseTime", new List<string>
-        {
-            "Longer response times detected. Consider optimizing your server.",
-            "Response times are slower than ideal, affecting user experience.",
-            "Response times could be improved for better performance.",
-            "Consider reviewing your server's load, as response times are high."
-        }
-    },
-
-    
-    // Stability
-    {"Stable", new List<string>
-        {
-            "Your network showed excellent stability this week.",
-            "Solid stability - your system remains reliably up and running.",
-            "Steady and stable - your network is performing well.",
-            "Your network stability is commendable this week."
-        }
-    },
-    {"Unstable", new List<string>
-        {
-            "Some fluctuations in network stability observed.",
-            "Network stability was somewhat inconsistent - worth a check.",
-            "Periodic instability detected - consider investigating further.",
-            "Occasional network hiccups noted - stability could be improved."
-        }
-    },
-    {"Down", new List<string>
-        {
-            "The network was consistently down - urgent review needed.",
-            "Consistent network downtime observed - critical attention required.",
-            "Your network faced serious stability issues - immediate action needed."
-        }
-    },
-
-    // Excellent Performance
-    {"ExcellentPerformance", new List<string>
-        {
-            "Peak performance achieved, with every aspect of the network functioning flawlessly.",
-            "Optimal efficiency, with the network operating at its best possible level.",
-            "Exceptional standards of reliability and speed, with no issues detected.",
-            "Network performance is at its zenith, showcasing perfect operational capacity.",
-            "Unparalleled network efficiency, exceeding all performance metrics.",
-            "Flawless operation with maximum reliability, setting a benchmark in network performance."
-        }
-    },
-    // Good Performance
-    {"GoodPerformance", new List<string>
-        {
-            "Solid performance, with efficient and reliable network operation.",
-            "Network performs well overall, though minor improvements could be made.",
-            "Reliable and robust performance, with occasional areas for enhancement.",
-            "Network efficiency is commendable, yet there's a small scope for optimization.",
-            "Consistently good operation with notable reliability and uptime.",
-            "Admirable performance, balancing efficiency and stability effectively."
-        }
-    },
-    // Fair Performance
-    {"FairPerformance", new List<string>
-        {
-            "Network is operational, but efficiency and reliability are just adequate.",
-            "Performance is stable, yet several aspects need attention and improvement.",
-            "Functional but not optimal, with clear areas for performance enhancements.",
-            "Network maintains basic functionality, but lacks in consistency and speed.",
-            "Operational performance meeting minimum standards, but improvements are necessary.",
-            "Satisfactory in basic functions, yet lagging in advanced performance aspects."
-        }
-    },
-    // Poor Performance
-    {"PoorPerformance", new List<string>
-        {
-            "Network is non-functional, with critical issues needing immediate resolution.",
-            "Severe performance degradation, rendering the network practically inoperable.",
-            "Network faces significant operational challenges, requiring urgent attention.",
-            "Complete breakdown in performance, with the network not working as intended.",
-            "Critical performance failure, with essential functions not operational.",
-            "Extremely poor performance, with the network failing to meet basic operational requirements."
-        }
-    }
-
-};
-
-
-
 
 
         private Random random = new Random();
@@ -573,6 +535,205 @@ namespace NetworkMonitor.Data.Services
             }
             return "";
         }
+        private Dictionary<string, List<string>> reportPhrases = new Dictionary<string, List<string>>
+{
+    // Uptime
+    // Excellent Uptime
+    {"ExcellentUptime", new List<string>
+        {
+            "Exceptional uptime! Your network is achieving near-perfect availability.",
+            "Outstanding performance! Uptime levels are consistently high, reflecting a reliable network.",
+            "Impressive uptime! The system is highly dependable with minimal interruptions.",
+            "Remarkable uptime! Your network is operating at peak reliability.",
+            "Top-notch reliability! The system remains available almost all the time, indicating excellent network health."
+        }
+    },
+
+    // Good Uptime
+    {"GoodUptime", new List<string>
+        {
+            "Great uptime! Your network remains consistently available with minor fluctuations.",
+            "Strong performance! Uptime is reliable, with only occasional, minor downtimes.",
+            "Good uptime achieved! The network operates smoothly with few interruptions.",
+            "Solid uptime! The system is performing well with high availability.",
+            "Reliable uptime! Minimal downtime observed, maintaining a high level of availability."
+        }
+    },
+
+    // Fair Uptime
+    {"FairUptime", new List<string>
+        {
+            "Decent uptime, though improvement is possible for higher consistency.",
+            "Acceptable uptime, but consider optimizing to reduce interruptions.",
+            "Average performance. Uptime is fair, though more consistency would enhance reliability.",
+            "Uptime is adequate, but a focus on reducing downtime would be beneficial.",
+            "Fair uptime noted. The network is stable but could achieve higher reliability with adjustments."
+        }
+    },
+
+    // Poor Uptime
+    {"PoorUptime", new List<string>
+        {
+            "Uptime is below expectations, indicating potential reliability issues.",
+            "Moderate uptime observed; improvements are needed to enhance consistency.",
+            "Noticeable downtimes impacting network availability. Review for possible optimizations.",
+            "Uptime is lacking consistency, suggesting issues that may need attention.",
+            "Fluctuating availability detected. Consider steps to increase network stability."
+        }
+    },
+
+    // Bad Uptime
+    {"BadUptime", new List<string>
+        {
+            "Significant downtime detected, severely affecting network reliability.",
+            "Frequent downtimes observed, suggesting serious system issues.",
+            "Low uptime! Persistent interruptions point to potential network health problems.",
+            "Reliability is compromised due to regular and prolonged downtime.",
+            "Poor network availability. Major improvements are necessary to restore stability."
+        }
+    },
+
+    // Zero Uptime
+    {"ZeroUptime", new List<string>
+        {
+            "No uptime recorded throughout the period. Immediate investigation is crucial.",
+            "The system was down for the entire monitored period; urgent attention is needed.",
+            "Complete downtime observed, indicating a critical network failure.",
+            "Continuous downtime detected. System health needs immediate action.",
+            "Zero uptime recorded; the network has been non-functional and requires urgent resolution."
+        }
+    },
+
+
+     // Excellent Response Time
+    {"ExcellentResponseTime", new List<string>
+        {
+            "Outstanding response times! Your server is operating at peak responsiveness.",
+            "Exceptional performance! Response times are lightning-fast, providing an optimal experience.",
+            "Near-instant responses! Users experience minimal delay, contributing to smooth interactions.",
+            "Impressive speed! Response times are consistently low, ensuring a high-quality user experience.",
+            "Ultra-fast response times, indicating a well-optimized and efficient server setup."
+        }
+    },
+
+    // Good Response Time
+    {"GoodResponseTime", new List<string>
+        {
+            "Good response times! The server is responsive, with only occasional delays.",
+            "Strong performance! Response times are fast, maintaining a positive user experience.",
+            "Quick and reliable response times, supporting smooth server operations.",
+            "The server is responsive with minor delays, generally providing a solid experience.",
+            "Consistently good response times, with only minimal impact on user interactions."
+        }
+    },
+
+    // Fair Response Time
+    {"FairResponseTime", new List<string>
+        {
+            "Moderate response times, though there is room for improvement.",
+            "Response times are acceptable but could be optimized for a smoother experience.",
+            "Average performance; response times could be quicker to enhance user experience.",
+            "Decent response times, but reducing latency would improve overall performance.",
+            "Fair response times observed, though improvements could contribute to a better experience."
+        }
+    },
+
+    // Poor Response Time
+    {"PoorResponseTime", new List<string>
+        {
+            "High response times detected, potentially impacting user experience negatively.",
+            "Slow response times observed. Optimization is recommended for better performance.",
+            "Significant delays in response times, affecting overall server efficiency.",
+            "High latency detected; consider adjustments to improve server responsiveness.",
+            "Response times are notably slow, suggesting the need for load or resource optimization."
+        }
+    },
+    
+       // Excellent Stability
+    {"ExcellentStability", new List<string>
+        {
+            "Your network demonstrated flawless stability throughout the week.",
+            "Outstanding stability! The network remained consistently operational without issues.",
+            "Exceptional stability observed, ensuring uninterrupted network performance.",
+            "Rock-solid stability! Your system ran smoothly with no notable fluctuations.",
+            "Impeccable stability, providing a seamless and reliable network experience."
+        }
+    },
+
+    // Good Stability
+    {"GoodStability", new List<string>
+        {
+            "Solid stability with only minor, infrequent disruptions.",
+            "The network showed reliable stability, with minimal interruptions.",
+            "Good stability achieved! The network is mostly consistent and reliable.",
+            "Network stability is strong, though occasional minor adjustments could enhance it.",
+            "Stable network performance observed, maintaining dependable uptime with minor fluctuations."
+        }
+    },
+
+    // Poor Stability
+    {"PoorStability", new List<string>
+        {
+            "Inconsistent stability detected, impacting network reliability.",
+            "Network stability was frequently compromised, warranting further investigation.",
+            "Noticeable instability observed; consider reviewing system health.",
+            "Periodic interruptions have affected stability, indicating potential issues.",
+            "Frequent stability issues detected, suggesting the need for corrective measures."
+        }
+    },
+    // Excellent Performance
+    {"ExcellentPerformance", new List<string>
+        {
+            "Peak performance achieved, with every aspect of the network functioning flawlessly.",
+            "Optimal efficiency! The network operates at maximum capacity, ensuring a seamless user experience.",
+            "Outstanding reliability and speed, with no performance issues detected.",
+            "Exceptional performance! The network is setting new standards in operational capacity.",
+            "Unmatched efficiency and stability, with all metrics exceeding expectations.",
+            "Flawless operation! The network is consistently reliable and exceptionally fast.",
+            "Unrivaled network performance, demonstrating the highest levels of reliability and responsiveness."
+        }
+    },
+
+    // Good Performance
+    {"GoodPerformance", new List<string>
+        {
+            "Solid performance with efficient and reliable operation.",
+            "Network is performing well, with only minor areas for potential improvement.",
+            "Reliable and stable performance, contributing to an overall positive user experience.",
+            "The network is operating efficiently, with minor room for optimization.",
+            "Good overall performance, showing dependable uptime and responsiveness.",
+            "Commendable performance! The network maintains stability and reliability effectively.",
+            "Generally strong performance, balancing efficiency with robust uptime."
+        }
+    },
+
+    // Fair Performance
+    {"FairPerformance", new List<string>
+        {
+            "Network is functional, but efficiency and consistency need attention.",
+            "Performance is acceptable, yet there are clear opportunities for improvement.",
+            "Basic functionality is met, but enhanced reliability and speed are needed.",
+            "Network operates at a basic level, with stability that could benefit from optimization.",
+            "Meets minimum standards, though performance enhancements would add value.",
+            "Satisfactory operation, though advanced optimizations are recommended.",
+            "Network is generally functional, but gaps in reliability and responsiveness are noticeable."
+        }
+    },
+
+    // Poor Performance
+    {"PoorPerformance", new List<string>
+        {
+            "Critical performance issues detected; immediate resolution required.",
+            "Severe degradation in network functionality, impacting overall usability.",
+            "Significant challenges in operation; the network struggles to meet basic needs.",
+            "Unreliable performance, with major stability and responsiveness concerns.",
+            "Network functionality is compromised, with essential services affected.",
+            "Persistent operational failures indicate the need for urgent intervention.",
+            "Performance falls short of basic requirements, affecting all aspects of usability."
+        }
+    }
+
+};
 
     }
 }
