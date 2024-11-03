@@ -23,7 +23,10 @@ public interface IDataLLMService
 {
     Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj);
     Task<TResultObj<LLMServiceObj>> LLMStarted(LLMServiceObj serviceObj);
-    Task<ResultObj> SystemLlmStart(LLMServiceObj serviceObj);
+    Task<TResultObj<LLMServiceObj>> LLMStopped(LLMServiceObj serviceObj);
+
+    Task<ResultObj> SystemLlmStop(LLMServiceObj serviceObj);
+    Task<TResultObj<LLMServiceObj>> SystemLlmStart(LLMServiceObj serviceObj);
     Task<ResultObj> LLMInput(LLMServiceObj serviceObj);
 }
 
@@ -36,6 +39,7 @@ public class DataLLMService : IDataLLMService
     // Dictionary to store tasks that wait for LLMStarted and LLMOutput responses.
     private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionStartTasks = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionOutputTasks = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionStopTasks = new();
 
     private static readonly TimeSpan TimeoutDuration = TimeSpan.FromMinutes(10);
 
@@ -46,9 +50,9 @@ public class DataLLMService : IDataLLMService
         _userRepo = userRepo;
     }
 
-    public async Task<ResultObj> SystemLlmStart(LLMServiceObj serviceObj)
+    public async Task<TResultObj<LLMServiceObj>> SystemLlmStart(LLMServiceObj serviceObj)
     {
-        var result = new ResultObj { Message = "DataLLMService : LLMOutput : " };
+        var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : SystemLlmStart : " };
 
         try
         {
@@ -62,9 +66,20 @@ public class DataLLMService : IDataLLMService
             var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
             if (completedTask == tcs.Task)
             {
-                var taskResult=await tcs.Task;
-                result.Message=taskResult.Data.LlmMessage;
-                result.Success=taskResult.Data.ResultSuccess;
+                var taskResult = await tcs.Task;
+                if (taskResult.Data != null)
+                {
+                    result.Message = taskResult.Data.LlmMessage;
+                    result.Success = taskResult.Data.ResultSuccess;
+                    result.Data = taskResult.Data;
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message = "Error : the result returned from SystemLlmStart did not return any data.";
+                    _logger.LogError(result.Message);
+                }
+
                 return result;
             }
             else
@@ -85,6 +100,46 @@ public class DataLLMService : IDataLLMService
         }
     }
 
+    public async Task<ResultObj> SystemLlmStop(LLMServiceObj serviceObj)
+    {
+        var result = new ResultObj { Message = "DataLLMService : SystemLlmStop : " };
+
+        try
+        {
+            var tcs = new TaskCompletionSource<TResultObj<LLMServiceObj>>();
+            _sessionStopTasks[serviceObj.RequestSessionId] = tcs;
+
+            await _rabbitRepo.PublishAsync("systemLlmStop", serviceObj);
+            result.Success = true;
+            result.Message += " Success : published system LLM stop";
+
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
+            if (completedTask == tcs.Task)
+            {
+                var taskResult = await tcs.Task;
+                result.Message = taskResult.Data.LlmMessage;
+                result.Success = taskResult.Data.ResultSuccess;
+                return result;
+            }
+            else
+            {
+                _sessionStopTasks.TryRemove(serviceObj.RequestSessionId, out _);
+                result.Success = false;
+                result.Message += "Error: Timeout waiting for LLMStopped response.";
+                _logger.LogError(result.Message);
+                return result;
+            }
+        }
+        catch (Exception e)
+        {
+            result.Success = false;
+            result.Message += $" Error : Unable to send stop message. The error was : {e.Message}";
+            _logger.LogError(result.Message);
+            return result;
+        }
+    }
+
+
     public async Task<ResultObj> LLMInput(LLMServiceObj serviceObj)
     {
         var result = new ResultObj { Message = "DataLLMService : LLMInput : " };
@@ -101,10 +156,10 @@ public class DataLLMService : IDataLLMService
             var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
             if (completedTask == tcs.Task)
             {
-                var taskResult=await tcs.Task;
-                result.Message=taskResult.Data.LlmMessage;
-                result.Success=taskResult.Data.ResultSuccess;
-                return  result;
+                var taskResult = await tcs.Task;
+                result.Message = taskResult.Data.LlmMessage;
+                result.Success = taskResult.Data.ResultSuccess;
+                return result;
             }
             else
             {
@@ -126,12 +181,12 @@ public class DataLLMService : IDataLLMService
 
     public async Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj)
     {
-       var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMOutput " };
+        var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMOutput " };
 
         if (_sessionOutputTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
         {
-            result.Success=true;
-             result.Data=serviceObj;
+            result.Success = true;
+            result.Data = serviceObj;
             tcs.SetResult(result);
         }
         else
@@ -150,14 +205,33 @@ public class DataLLMService : IDataLLMService
 
         if (_sessionStartTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
         {
-            result.Success=true;
-             result.Data=serviceObj;
+            result.Success = true;
+            result.Data = serviceObj;
             tcs.SetResult(result);
         }
         else
         {
             result.Success = false;
             result.Message += $"No matching session found for LLMStarted with SessionId: {serviceObj.RequestSessionId}";
+            _logger.LogError(result.Message);
+        }
+
+        return result;
+    }
+    public async Task<TResultObj<LLMServiceObj>> LLMStopped(LLMServiceObj serviceObj)
+    {
+        var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMStopped " };
+
+        if (_sessionStopTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
+        {
+            result.Success = true;
+            result.Data = serviceObj;
+            tcs.SetResult(result);
+        }
+        else
+        {
+            result.Success = false;
+            result.Message += $"No matching session found for LLMStopped with SessionId: {serviceObj.RequestSessionId}";
             _logger.LogError(result.Message);
         }
 

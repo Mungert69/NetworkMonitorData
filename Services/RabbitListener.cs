@@ -148,6 +148,12 @@ namespace NetworkMonitor.Data.Services
                 FuncName = "systemLlmStarted",
                 MessageTimeout = 600000
             });
+             _rabbitMQObjs.Add(new RabbitMQObj()
+            {
+                ExchangeName = "systemLlmStopped",
+                FuncName = "systemLlmStopped",
+                MessageTimeout = 600000
+            });
             
 
 
@@ -389,6 +395,21 @@ namespace NetworkMonitor.Data.Services
                             catch (Exception ex)
                             {
                                 _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStarted " + ex.Message);
+                            }
+                        };
+                            break;
+                             case "systemLlmStopped":
+                            rabbitMQObj.ConnectChannel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+                            rabbitMQObj.Consumer.Received += async (model, ea) =>
+                        {
+                            try
+                            {
+                                result = await SystemLlmStopped(ConvertToObject<LLMServiceObj>(model, ea));
+                                rabbitMQObj.ConnectChannel.BasicAck(ea.DeliveryTag, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStopped " + ex.Message);
                             }
                         };
                             break;
@@ -899,6 +920,35 @@ namespace NetworkMonitor.Data.Services
             // else _logger.LogInformation(result.Message);
             return result;
         }
+
+         public async Task<ResultObj> SystemLlmStopped(LLMServiceObj? serviceObj)
+        {
+            var result = new ResultObj();
+            result.Success = false;
+            result.Message = "MessageAPI : SystemLlmStopped : ";
+
+            if (serviceObj == null)
+            {
+                result.Message += " Error : serviceObj is Null ";
+                return result;
+            }
+            try
+            {
+                var resultOutput = await _dataLLMService.LLMStopped(serviceObj);
+                result.Message += resultOutput.Message;
+                result.Success = resultOutput.Success;
+            }
+            catch (Exception e)
+            {
+                result.Data = null;
+                result.Success = false;
+                result.Message += "Error : Failed to receive message : Error was : " + e.Message + " ";
+            }
+            if (!result.Success) _logger.LogError(result.Message);
+            // else _logger.LogInformation(result.Message);
+            return result;
+        }
+
 
          public async Task<ResultObj> SystemLlmOutput(LLMServiceObj? serviceObj)
         {
