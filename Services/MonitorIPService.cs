@@ -177,7 +177,7 @@ namespace NetworkMonitor.Data.Services
 
                     var data = await monitorContext.MonitorIPs.Include(e => e.UserInfo).Where(w => w.AppID == appId && w.Hidden == false).ToListAsync();
                     //ListUtils.RemoveNestedMonitorIPs(data);
-                    var userInfo = await _userRepo.GetUserFromID(userId);
+                    var userInfo = await monitorContext.UserInfos.Where(w => w.UserID==userId).FirstOrDefaultAsync();
                     if (userInfo == null)
                     {
                         result.Message += " Error : User in data does not exist. ";
