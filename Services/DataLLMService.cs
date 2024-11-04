@@ -41,7 +41,9 @@ public class DataLLMService : IDataLLMService
     private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionOutputTasks = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<TResultObj<LLMServiceObj>>> _sessionStopTasks = new();
 
-    private static readonly TimeSpan TimeoutDuration = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan TimeoutDuration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan StartTimeoutDuration = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan StopTimeoutDuration = TimeSpan.FromSeconds(30);
 
     public DataLLMService(IRabbitRepo rabbitRepo, ILogger<DataLLMService> logger, IUserRepo userRepo)
     {
@@ -63,7 +65,7 @@ public class DataLLMService : IDataLLMService
             result.Success = true;
             result.Message += " Success : published system LLM start";
 
-            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(StartTimeoutDuration));
             if (completedTask == tcs.Task)
             {
                 var taskResult = await tcs.Task;
@@ -113,7 +115,7 @@ public class DataLLMService : IDataLLMService
             result.Success = true;
             result.Message += " Success : published system LLM stop";
 
-            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeoutDuration));
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(StopTimeoutDuration));
             if (completedTask == tcs.Task)
             {
                 var taskResult = await tcs.Task;
@@ -157,8 +159,17 @@ public class DataLLMService : IDataLLMService
             if (completedTask == tcs.Task)
             {
                 var taskResult = await tcs.Task;
-                result.Message = taskResult.Data.LlmMessage;
-                result.Success = taskResult.Data.ResultSuccess;
+                if (result.Data != null)
+                {
+                    result.Message = taskResult.Data.LlmMessage;
+                    result.Success = taskResult.Data.ResultSuccess;
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message = " Error : no serviceObj returned from llm";
+                }
+
                 return result;
             }
             else
@@ -185,7 +196,8 @@ public class DataLLMService : IDataLLMService
 
         if (_sessionOutputTasks.TryRemove(serviceObj.RequestSessionId, out var tcs))
         {
-            result.Success = true;
+            result.Success = serviceObj.ResultSuccess;
+            result.Message = serviceObj.ResultMessage;
             result.Data = serviceObj;
             tcs.SetResult(result);
         }
