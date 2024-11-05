@@ -36,7 +36,7 @@ namespace NetworkMonitor.Data.Services
         private IDataFileService _fileService;
         private IUserRepo _userRepo;
         private IDataLLMService _dataLLMService;
-        private TimeSpan timeSpan = TimeSpan.FromHours(1);
+        private TimeSpan _timeSpan; 
 
 
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo, IDataLLMService dataLLMService)
@@ -49,6 +49,7 @@ namespace NetworkMonitor.Data.Services
             _fileService = fileService;
             _dataLLMService = dataLLMService;
             _userRepo = userRepo;
+            _timeSpan= TimeSpan.FromHours(_systemParams.SendReportsTimeSpan);
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -71,7 +72,7 @@ namespace NetworkMonitor.Data.Services
     .Select(u => u.MonitorIPs.Count(m => m.Enabled))      // Count enabled MonitorIPs per user
     .SumAsync();                                          // Sum counts across all users
 
-      TimeSpan waitTime = TimeSpan.FromTicks(timeSpan.Ticks / userHostCount);
+      TimeSpan waitTime = TimeSpan.FromTicks(_timeSpan.Ticks / userHostCount);
                       _logger.LogInformation($"Info: Processing {userHostCount} hosts.");
                                          
 
