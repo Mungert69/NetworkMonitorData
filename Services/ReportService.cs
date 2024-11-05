@@ -26,6 +26,8 @@ namespace NetworkMonitor.Data.Services
     {
         Task<ResultObj> CreateHostSummaryReport();
     }
+   
+
     public class ReportService : IReportService
     {
         private readonly IServiceScopeFactory _scopeFactory;
@@ -36,7 +38,10 @@ namespace NetworkMonitor.Data.Services
         private IDataFileService _fileService;
         private IUserRepo _userRepo;
         private IDataLLMService _dataLLMService;
-        private TimeSpan _timeSpan; 
+        private TimeSpan _timeSpan;
+       
+
+
 
 
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo, IDataLLMService dataLLMService)
@@ -49,7 +54,7 @@ namespace NetworkMonitor.Data.Services
             _fileService = fileService;
             _dataLLMService = dataLLMService;
             _userRepo = userRepo;
-            _timeSpan= TimeSpan.FromHours(_systemParams.SendReportsTimeSpan);
+            _timeSpan = TimeSpan.FromHours(_systemParams.SendReportsTimeSpan);
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -67,14 +72,14 @@ namespace NetworkMonitor.Data.Services
 
 
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
-                   var userHostCount = await monitorContext.UserInfos
-    .Where(u => u.UserID != "default" && !u.DisableEmail) // Filter users based on criteria
-    .Select(u => u.MonitorIPs.Count(m => m.Enabled))      // Count enabled MonitorIPs per user
-    .SumAsync();                                          // Sum counts across all users
+                    var userHostCount = await monitorContext.UserInfos
+     .Where(u => u.UserID != "default" && !u.DisableEmail) // Filter users based on criteria
+     .Select(u => u.MonitorIPs.Count(m => m.Enabled))      // Count enabled MonitorIPs per user
+     .SumAsync();                                          // Sum counts across all users
 
-      TimeSpan waitTime = TimeSpan.FromTicks(_timeSpan.Ticks / userHostCount);
-                      _logger.LogInformation($"Info: Processing {userHostCount} hosts.");
-                                         
+                    TimeSpan waitTime = TimeSpan.FromTicks(_timeSpan.Ticks / userHostCount);
+                    _logger.LogInformation($"Info: Processing {userHostCount} hosts.");
+
 
                     foreach (var userInfo in users)
                     {
@@ -133,10 +138,11 @@ namespace NetworkMonitor.Data.Services
 
                             foreach (var monitorIP in monitorIPs)
                             {
+                                _logger.LogInformation($"Warning: Waiting for {waitTime.TotalMinutes} minutes.");
+
                                 reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo, llmStarted, serviceObj));
-                                 _logger.LogInformation($"Warning: Waiting for {waitTime.TotalMinutes} minutes.");
                                 await Task.Delay(waitTime);
-                                }
+                            }
                             reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">That's it for this week! Stay tuned for more insights next time.</h3>");
                             reportBuilder.AppendLine("<p style=\"color: #607466;\">Remember, monitoring is key to maintaining a robust online presence.</p>");
                             result.Success = true;
@@ -284,9 +290,9 @@ namespace NetworkMonitor.Data.Services
                     var insightsColor = "#607466"; // Default to primary color
 
                     string uptimeCategoryKey = DetermineUptimeCategory(uptimePercentage, serverDownWholeTime);
-                    string responseTimeCategoryKey = DetermineResponseTimeCategory(averageResponseTime);
+                    string responseTimeCategoryKey = DetermineResponseTimeCategory(averageResponseTime, monitorIP.EndPointType!, monitorIP.Port);
                     string stabilityCategoryKey = DetermineStabilityCategory(incidentCount);
-                    string overallPerformanceKey = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount);
+                    string overallPerformanceKey = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount, monitorIP.EndPointType!, monitorIP.Port);
 
                     reportBuilder.AppendLine("<p style=\"color: #6239AB;\">Some insights from the week:</p>");
                     reportBuilder.AppendLine($"<p style=\"color: {insightsColor};\">- Uptime: {GetRandomPhrase(uptimeCategoryKey)}</p>");
@@ -497,14 +503,19 @@ namespace NetworkMonitor.Data.Services
             return "BadUptime";
         }
 
-        private string DetermineResponseTimeCategory(double averageResponseTime)
-        {
-            if (averageResponseTime < 500) return "ExcellentResponseTime";
-            if (averageResponseTime < 1000) return "GoodResponseTime";
-            if (averageResponseTime < 2000) return "FairResponseTime";
-            return "PoorResponseTime";
-        }
+      public string DetermineResponseTimeCategory(double averageResponseTime, string endpointType, int port = 0)
+    {
+        // Retrieve thresholds based on endpoint type and port
+        var thresholds = EndPointTypeFactory.ResponseTimeThresholds.ContainsKey(endpointType.ToLower())
+            ? EndPointTypeFactory.ResponseTimeThresholds[endpointType.ToLower()].GetThresholds(port)
+            : new ThresholdValues(500, 1000, 2000); // Default thresholds
 
+        // Determine category based on thresholds
+        if (averageResponseTime < thresholds.Excellent) return "ExcellentResponseTime";
+        if (averageResponseTime < thresholds.Good) return "GoodResponseTime";
+        if (averageResponseTime < thresholds.Fair) return "FairResponseTime";
+        return "PoorResponseTime";
+    }
         private string DetermineStabilityCategory(int incidentCount)
         {
             if (incidentCount == 0) return "ExcellentStability";
@@ -512,12 +523,12 @@ namespace NetworkMonitor.Data.Services
             return "PoorStability";
         }
 
-        private string DeterminePerformanceCategory(bool serverDownWholeTime, double uptimePercentage, double averageResponseTime, int incidentCount)
+        private string DeterminePerformanceCategory(bool serverDownWholeTime, double uptimePercentage, double averageResponseTime, int incidentCount, string endpointType, int port)
         {
             if (serverDownWholeTime) return "DownWholeTime";
             // Get individual category results
             string uptimeCategory = DetermineUptimeCategory(uptimePercentage, serverDownWholeTime);
-            string responseTimeCategory = DetermineResponseTimeCategory(averageResponseTime);
+            string responseTimeCategory = DetermineResponseTimeCategory(averageResponseTime, endpointType, port);
             string stabilityCategory = DetermineStabilityCategory(incidentCount);
 
             int score = 0;
