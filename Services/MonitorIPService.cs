@@ -218,6 +218,7 @@ namespace NetworkMonitor.Data.Services
                         bool isExist = data.Any(w => w.Address == monIP.Address && w.EndPointType == monIP.EndPointType && w.Port == monIP.Port);
                         if (!isExist)
                         {
+                            monIP.UserInfo=userInfo;
                             if (counter > userInfo.HostLimit) monIP.Enabled = false;
                             await monitorContext.MonitorIPs.AddAsync(monIP);
                             await monitorContext.SaveChangesAsync();
