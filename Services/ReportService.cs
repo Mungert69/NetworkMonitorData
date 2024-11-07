@@ -26,7 +26,7 @@ namespace NetworkMonitor.Data.Services
     {
         Task<ResultObj> CreateHostSummaryReport();
     }
-   
+
 
     public class ReportService : IReportService
     {
@@ -39,7 +39,7 @@ namespace NetworkMonitor.Data.Services
         private IUserRepo _userRepo;
         private IDataLLMService _dataLLMService;
         private TimeSpan _timeSpan;
-       
+
 
 
 
@@ -353,8 +353,13 @@ namespace NetworkMonitor.Data.Services
                 reportBuilder.AppendLine($"<p style=\"color: #eb5160;\">Oops! We ran into an issue while generating your report: {ex.Message}</p>");
             }
             if (errorFlag || !llmStarted || !llmResult.Success)
+            {
                 return reportBuilder.ToString();
-            else return llmResult.Message;
+            }
+            else
+            {
+                return llmResult.Message;
+            }
         }
         private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos, string fileName)
         {
@@ -503,19 +508,19 @@ namespace NetworkMonitor.Data.Services
             return "BadUptime";
         }
 
-      public string DetermineResponseTimeCategory(double averageResponseTime, string endpointType, int port = 0)
-    {
-        // Retrieve thresholds based on endpoint type and port
-        var thresholds = EndPointTypeFactory.ResponseTimeThresholds.ContainsKey(endpointType.ToLower())
-            ? EndPointTypeFactory.ResponseTimeThresholds[endpointType.ToLower()].GetThresholds(port)
-            : new ThresholdValues(500, 1000, 2000); // Default thresholds
+        public string DetermineResponseTimeCategory(double averageResponseTime, string endpointType, int port = 0)
+        {
+            // Retrieve thresholds based on endpoint type and port
+            var thresholds = EndPointTypeFactory.ResponseTimeThresholds.ContainsKey(endpointType.ToLower())
+                ? EndPointTypeFactory.ResponseTimeThresholds[endpointType.ToLower()].GetThresholds(port)
+                : new ThresholdValues(500, 1000, 2000); // Default thresholds
 
-        // Determine category based on thresholds
-        if (averageResponseTime < thresholds.Excellent) return "ExcellentResponseTime";
-        if (averageResponseTime < thresholds.Good) return "GoodResponseTime";
-        if (averageResponseTime < thresholds.Fair) return "FairResponseTime";
-        return "PoorResponseTime";
-    }
+            // Determine category based on thresholds
+            if (averageResponseTime < thresholds.Excellent) return "ExcellentResponseTime";
+            if (averageResponseTime < thresholds.Good) return "GoodResponseTime";
+            if (averageResponseTime < thresholds.Fair) return "FairResponseTime";
+            return "PoorResponseTime";
+        }
         private string DetermineStabilityCategory(int incidentCount)
         {
             if (incidentCount == 0) return "ExcellentStability";
