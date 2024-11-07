@@ -159,7 +159,7 @@ public class DataLLMService : IDataLLMService
             if (completedTask == tcs.Task)
             {
                 var taskResult = await tcs.Task;
-                if (result.Data != null)
+                if (taskResult.Data != null)
                 {
                     result.Message = taskResult.Data.LlmMessage;
                     result.Success = taskResult.Data.ResultSuccess;

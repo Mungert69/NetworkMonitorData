@@ -114,11 +114,11 @@ namespace NetworkMonitor.Data.Services
                             if (resultStart.Success)
                             {
                                 serviceObj = resultStart.Data;
-                                _logger.LogInformation(result.Message);
+                                _logger.LogInformation(resultStart.Message);
                             }
                             else
                             {
-                                _logger.LogError(result.Message);
+                                _logger.LogError(resultStart.Message);
                             }
                             llmStarted = resultStart.Success;
                         }
