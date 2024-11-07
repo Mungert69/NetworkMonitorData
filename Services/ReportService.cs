@@ -106,28 +106,6 @@ namespace NetworkMonitor.Data.Services
                             DestinationLlm = "data",
                             IsSystemLlm = true
                         };
-                        var resultStart = new TResultObj<LLMServiceObj>();
-                        try
-                        {
-
-                            resultStart = await _dataLLMService.SystemLlmStart(serviceObj);
-                            if (resultStart.Success)
-                            {
-                                serviceObj = resultStart.Data;
-                                _logger.LogInformation(resultStart.Message);
-                            }
-                            else
-                            {
-                                _logger.LogError(resultStart.Message);
-                            }
-                            llmStarted = resultStart.Success;
-                        }
-                        catch (Exception e)
-                        {
-                            _logger.LogError($" Error : could not start llm . Error was : {e.Message}");
-                        }
-
-
 
                         var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here").ToListAsync();
                         if (monitorIPs != null && monitorIPs.Count > 0)
@@ -191,20 +169,7 @@ namespace NetworkMonitor.Data.Services
                             }
 
                         }
-                        try
-                        {
 
-                            var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
-                            if (resultStop.Success) _logger.LogInformation(result.Message);
-                            else
-                            {
-                                _logger.LogError(result.Message);
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            _logger.LogError($" Error : could not start llm . Error was : {e.Message}");
-                        }
                     }
                 }
             }
@@ -224,14 +189,53 @@ namespace NetworkMonitor.Data.Services
         {
 
             var result = new ResultObj();
+            result.Success = false;
+            var resultStart = new TResultObj<LLMServiceObj>();
+            try
+            {
+
+                resultStart = await _dataLLMService.SystemLlmStart(serviceObj);
+                if (resultStart != null && resultStart.Success && resultStart.Data != null)
+                {
+                    serviceObj = resultStart.Data;
+                    _logger.LogInformation(resultStart.Message);
+                }
+                else
+                {
+                    result.Message = resultStart!.Message;
+                    _logger.LogError(resultStart.Message);
+                    return result;
+                }
+
+            }
+            catch (Exception e)
+            {
+                result.Message = $" Error : could not start llm . Error was : {e.Message}";
+                _logger.LogError(result.Message);
+                return result;
+
+            }
 
             serviceObj.UserInput = "Produce a Report from this report data, ONLY REPLY WITH THE REPORT : " + input;
             result = await _dataLLMService.LLMInput(serviceObj);
+            try
+            {
 
+                var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
+                if (resultStop.Success) _logger.LogInformation(result.Message);
+                else
+                {
+                    _logger.LogError(result.Message);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($" Error : could not stop llm . Error was : {e.Message}");
+            }
             return result;
         }
 
-        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo, bool llmStarted, LLMServiceObj serviceObj)
+        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo, LLMServiceObj serviceObj)
         {
             var llmResult = new ResultObj();
             bool errorFlag = false;
@@ -332,13 +336,10 @@ namespace NetworkMonitor.Data.Services
                     responseDataBuilder.AppendLine("]");
                     responseDataBuilder.AppendLine("}");
 
-                    if (llmStarted)
-                    {
-
                         var reportSoFar = reportBuilder.ToString() + responseDataBuilder.ToString();
                         llmResult = await GetLLMReportForHost(reportSoFar, serviceObj);
                         //reportBuilder.AppendLine($"<p> AI Report :{llmResult}");
-                    }
+                    
 
                 }
                 else
@@ -352,7 +353,7 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
                 reportBuilder.AppendLine($"<p style=\"color: #eb5160;\">Oops! We ran into an issue while generating your report: {ex.Message}</p>");
             }
-            if (errorFlag || !llmStarted || !llmResult.Success)
+            if (errorFlag || !llmResult.Success)
             {
                 return reportBuilder.ToString();
             }
