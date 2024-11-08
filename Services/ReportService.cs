@@ -261,7 +261,7 @@ namespace NetworkMonitor.Data.Services
                     User = userInfo
                 };
 
-                var pingInfoHelper = new PingInfoHelper(monitorContext, 100);
+                var pingInfoHelper = new PingInfoHelper(monitorContext, 84);
                 var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID!, _fileService, _userRepo);
                 var hostResponseObj = result.Data;
                 var pingInfos = new List<PingInfoDTO>();
@@ -298,7 +298,7 @@ namespace NetworkMonitor.Data.Services
                     string stabilityCategoryKey = DetermineStabilityCategory(incidentCount);
                     string overallPerformanceKey = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount, monitorIP.EndPointType!, monitorIP.Port);
 
-                    reportBuilder.AppendLine("<p style=\"color: #6239AB;\">Some insights from the week:</p>");
+                    reportBuilder.AppendLine("<p style=\"color: #6239AB;\">Weekly Insights</p>");
                     reportBuilder.AppendLine($"<p style=\"color: {insightsColor};\">- Uptime: {GetRandomPhrase(uptimeCategoryKey)}</p>");
                     reportBuilder.AppendLine($"<p style=\"color: {insightsColor};\">- Response Time: {GetRandomPhrase(responseTimeCategoryKey)}</p>");
                     reportBuilder.AppendLine($"<p style=\"color: {insightsColor};\">- Stability: {GetRandomPhrase(stabilityCategoryKey)}</p>");
