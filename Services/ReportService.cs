@@ -41,6 +41,7 @@ namespace NetworkMonitor.Data.Services
         private IDataLLMService _dataLLMService;
         private TimeSpan _timeSpan;
         private bool _llmReportProcess = false;
+        private string _llmRunnerType="TurboLLM";
 
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo, IDataLLMService dataLLMService)
         {
@@ -54,6 +55,7 @@ namespace NetworkMonitor.Data.Services
             _userRepo = userRepo;
             _timeSpan = TimeSpan.FromHours(_systemParams.SendReportsTimeSpan);
             _llmReportProcess = systemParamsHelper.GetMLParams().LlmReportProcess;
+            _llmRunnerType=systemParamsHelper.GetMLParams().LlmRunnerType;
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -97,9 +99,10 @@ namespace NetworkMonitor.Data.Services
                         {
                             RequestSessionId = Guid.NewGuid().ToString(),
                             UserInfo = user,
-                            SourceLlm = "data",
-                            DestinationLlm = "data",
-                            IsSystemLlm = true
+                            SourceLlm = "reportdata",
+                            DestinationLlm = "reportdata",
+                            IsSystemLlm = true,
+                            LLMRunnerType=_llmRunnerType
                         };
 
                         var monitorIPs = await monitorContext.MonitorIPs
