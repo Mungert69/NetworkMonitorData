@@ -95,15 +95,7 @@ namespace NetworkMonitor.Data.Services
                             continue;
                         }
 
-                        var serviceObj = new LLMServiceObj
-                        {
-                            RequestSessionId = Guid.NewGuid().ToString(),
-                            UserInfo = user,
-                            SourceLlm = "reportdata",
-                            DestinationLlm = "reportdata",
-                            IsSystemLlm = true,
-                            LLMRunnerType=_llmRunnerType
-                        };
+                       
 
                         var monitorIPs = await monitorContext.MonitorIPs
                             .Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here")
@@ -121,7 +113,7 @@ namespace NetworkMonitor.Data.Services
                             {
                                 _logger.LogInformation($"Warning: Waiting for {waitTime.TotalMinutes} minutes.");
 
-                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo, serviceObj));
+                                reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo));
                                 await Task.Delay(waitTime);
                             }
 
@@ -179,7 +171,7 @@ namespace NetworkMonitor.Data.Services
         }
 
 
-        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo, LLMServiceObj serviceObj)
+        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo)
         {
             var llmResult = new ResultObj();
             bool errorFlag = false;
@@ -313,7 +305,7 @@ namespace NetworkMonitor.Data.Services
                     responseDataBuilder.AppendLine("}");
 
                     var reportSoFar = responseDataBuilder.ToString();
-                    llmResult = await GetLLMReportForHost(reportSoFar, serviceObj, monitorIP);
+                    llmResult = await GetLLMReportForHost(reportSoFar, userInfo, monitorIP);
 
                     if (llmResult.Success)
                     {
@@ -360,11 +352,21 @@ namespace NetworkMonitor.Data.Services
             return reportBuilder.ToString();
         }
 
-        private async Task<ResultObj> GetLLMReportForHost(string input, LLMServiceObj serviceObj, MonitorIP monitorIP)
+        private async Task<ResultObj> GetLLMReportForHost(string input, UserInfo user, MonitorIP monitorIP)
         {
             var result = new ResultObj();
             result.Success = false;
             if (!_llmReportProcess) return result;
+             var serviceObj = new LLMServiceObj
+                        {
+                            RequestSessionId = Guid.NewGuid().ToString(),
+                            MessageID = Guid.NewGuid().ToString(),
+                            UserInfo = user,
+                            SourceLlm = "reportdata",
+                            DestinationLlm = "reportdata",
+                            IsSystemLlm = true,
+                            LLMRunnerType=_llmRunnerType
+                        };
 
             var resultStart = new TResultObj<LLMServiceObj>();
             try
@@ -406,7 +408,9 @@ namespace NetworkMonitor.Data.Services
             {
 
                 var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
-                if (resultStop.Success) _logger.LogInformation(result.Message);
+                if (resultStop.Success){
+                     _logger.LogInformation(result.Message);
+                     }
                 else
                 {
                     _logger.LogError(result.Message);
