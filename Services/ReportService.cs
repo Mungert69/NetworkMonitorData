@@ -260,8 +260,17 @@ namespace NetworkMonitor.Data.Services
 
             }
 
-            serviceObj.UserInput = "Produce a Report from this report data, ONLY REPLY WITH THE REPORT : " + input;
-            result = await _dataLLMService.LLMInput(serviceObj);
+            try
+            {
+                serviceObj.UserInput = "Produce a Report from this report data, ONLY REPLY WITH THE REPORT : " + input;
+                result = await _dataLLMService.LLMInput(serviceObj);
+
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($" Error : could produce report from llm output . Error was : {e.Message}");
+
+            }
             try
             {
 
