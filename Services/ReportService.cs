@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using SkiaSharp;
 using System.IO;
 using System.Collections.Generic;
@@ -39,6 +40,7 @@ namespace NetworkMonitor.Data.Services
         private IUserRepo _userRepo;
         private IDataLLMService _dataLLMService;
         private TimeSpan _timeSpan;
+        private bool _llmReportProcess = false;
 
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo, IDataLLMService dataLLMService)
         {
@@ -51,6 +53,7 @@ namespace NetworkMonitor.Data.Services
             _dataLLMService = dataLLMService;
             _userRepo = userRepo;
             _timeSpan = TimeSpan.FromHours(_systemParams.SendReportsTimeSpan);
+            _llmReportProcess = systemParamsHelper.GetMLParams().LlmReportProcess;
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -266,29 +269,77 @@ namespace NetworkMonitor.Data.Services
                     responseDataBuilder.AppendLine($"\"overall_average_response_time\": {averageResponseTime:F2},");
                     responseDataBuilder.AppendLine($"\"response_time_standard_deviation\": {stdDevResponseTime:F2},");
                     responseDataBuilder.AppendLine($"\"uptime_percentage\": {uptimePercentage:F2},");
-                    responseDataBuilder.AppendLine($"\"max_response_time\": {maxResponseTime:N0},");
-                    responseDataBuilder.AppendLine($"\"min_response_time\": {minResponseTime:N0},");
+                    responseDataBuilder.AppendLine($"\"max_response_time\": {maxResponseTime:F0},");
+                    responseDataBuilder.AppendLine($"\"min_response_time\": {minResponseTime:F0},");
                     responseDataBuilder.AppendLine($"\"incident_count\": {incidentCount},");
                     responseDataBuilder.AppendLine("\"response_times\": [");
 
+                    // Retrieve thresholds for categorizing response times
+                    // Retrieve thresholds for categorizing response times
+                    var thresholds = EndPointTypeFactory.ResponseTimeThresholds.ContainsKey(monitorIP.EndPointType.ToLower())
+                        ? EndPointTypeFactory.ResponseTimeThresholds[monitorIP.EndPointType.ToLower()].GetThresholds(monitorIP.Port)
+                        : new ThresholdValues(500, 1000, 2000); // Default thresholds
+
+                    // Append each ping info with calculated category
                     for (int i = 0; i < pingInfos.Count; i++)
                     {
-                        responseDataBuilder.Append($"{{\"timestamp\":\"{pingInfos[i].DateSent:yyyy-MM-ddTHH:mm}\",\"response_time\":{pingInfos[i].ResponseTime}}}");
+                        var responseTime = pingInfos[i].ResponseTime;
+                        string category;
+
+                        // Determine category based on thresholds
+                        if (responseTime == -1)
+                            category = "bad";
+                        else if (responseTime < thresholds.Excellent)
+                            category = "excellent";
+                        else if (responseTime < thresholds.Good)
+                            category = "good";
+                        else if (responseTime < thresholds.Fair)
+                            category = "fair";
+                        else
+                            category = "poor";
+
+                        // Add timestamp, response_time, and category to JSON
+                        responseDataBuilder.Append($"{{\"timestamp\":\"{pingInfos[i].DateSent:yyyy-MM-ddTHH:mm}\",\"response_time\":{responseTime},\"category\":\"{category}\"}}");
+
                         if (i < pingInfos.Count - 1) responseDataBuilder.AppendLine(",");
                     }
+
 
                     responseDataBuilder.AppendLine("]");
                     responseDataBuilder.AppendLine("}");
                     responseDataBuilder.AppendLine("}");
 
                     var reportSoFar = responseDataBuilder.ToString();
-                    llmResult = await GetLLMReportForHost(reportSoFar, serviceObj);
+                    llmResult = await GetLLMReportForHost(reportSoFar, serviceObj, monitorIP);
 
                     if (llmResult.Success)
                     {
-                        reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Performance Analysis</h3>");
-                        reportBuilder.AppendLine($"<p>{llmResult.Message}</p>");
+                        // Parse LLM result using the ExtractRecommendations method
+                        var (performanceAssessment, expertRecommendations) = ExtractRecommendations(llmResult.Message);
+
+                        reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Detailed Analysis</h3>");
+
+                        if (!string.IsNullOrEmpty(performanceAssessment))
+                        {
+                            reportBuilder.AppendLine("<h4 style=\"color: #607466;\">Performance Assessment</h4>");
+                            reportBuilder.AppendLine($"<p>{performanceAssessment}</p>");
+                        }
+                        else
+                        {
+                            reportBuilder.AppendLine("<p>No performance assessment data was provided.</p>");
+                        }
+
+                        if (!string.IsNullOrEmpty(expertRecommendations))
+                        {
+                            reportBuilder.AppendLine("<h4 style=\"color: #607466;\">Expert Recommendations</h4>");
+                            reportBuilder.AppendLine($"<p>{expertRecommendations}</p>");
+                        }
+                        else
+                        {
+                            reportBuilder.AppendLine("<p>No expert recommendations were provided.</p>");
+                        }
                     }
+
                 }
                 else
                 {
@@ -305,11 +356,12 @@ namespace NetworkMonitor.Data.Services
             return reportBuilder.ToString();
         }
 
-        private async Task<ResultObj> GetLLMReportForHost(string input, LLMServiceObj serviceObj)
+        private async Task<ResultObj> GetLLMReportForHost(string input, LLMServiceObj serviceObj, MonitorIP monitorIP)
         {
             var result = new ResultObj();
             result.Success = false;
-            return result;
+            if (!_llmReportProcess) return result;
+
             var resultStart = new TResultObj<LLMServiceObj>();
             try
             {
@@ -507,6 +559,22 @@ namespace NetworkMonitor.Data.Services
 
         }
 
+       public static (string performanceAssessment, string expertRecommendations) ExtractRecommendations(string llmOutput)
+{
+    // Updated regular expressions to capture values for 'performance_assessment' and 'expert_recommendations' in a more precise way
+    var performanceAssessmentPattern = new Regex(@"['""]performance_assessment['""]\s*:\s*[""](.*?)[""]\s*,", RegexOptions.Singleline);
+    var expertRecommendationsPattern = new Regex(@"['""]expert_recommendations['""]\s*:\s*[""](.*?)[""]\s*}", RegexOptions.Singleline);
+
+    // Extract the values
+    var performanceAssessmentMatch = performanceAssessmentPattern.Match(llmOutput);
+    var expertRecommendationsMatch = expertRecommendationsPattern.Match(llmOutput);
+
+    string performanceAssessment = performanceAssessmentMatch.Success ? performanceAssessmentMatch.Groups[1].Value : string.Empty;
+    string expertRecommendations = expertRecommendationsMatch.Success ? expertRecommendationsMatch.Groups[1].Value : string.Empty;
+
+    return (performanceAssessment, expertRecommendations);
+}
+
         private string DetermineUptimeCategory(double uptimePercentage, bool serverDownWholeTime)
         {
             if (serverDownWholeTime) return "ZeroUptime";
@@ -583,18 +651,18 @@ namespace NetworkMonitor.Data.Services
             return "";
         }
 
-       private string CreateCategoryHtml(string categoryKey, string label, string phrase)
-{
-    if (_styleMap.TryGetValue(categoryKey, out var style))
-    {
-        return $"<p><span style=\"color: {style.Color}; font-size: 0.9em; vertical-align: middle;\">{style.Symbol}</span> " +
-               $"<span style=\"color: {style.Color}; font-weight: bold;\">{label}:</span> {phrase}</p>";
-    }
-    return string.Empty;
-}
+        private string CreateCategoryHtml(string categoryKey, string label, string phrase)
+        {
+            if (_styleMap.TryGetValue(categoryKey, out var style))
+            {
+                return $"<p><span style=\"color: {style.Color}; font-size: 0.9em; vertical-align: middle;\">{style.Symbol}</span> " +
+                       $"<span style=\"color: {style.Color}; font-weight: bold;\">{label}:</span> {phrase}</p>";
+            }
+            return string.Empty;
+        }
 
 
-private readonly Dictionary<string, (string Symbol, string Color)> _styleMap = new Dictionary<string, (string, string)>
+        private readonly Dictionary<string, (string Symbol, string Color)> _styleMap = new Dictionary<string, (string, string)>
 {
     // Uptime Categories
     { "ExcellentUptime", ("&#9889;", "#27ae60") }, // ⚡ Green for exceptional uptime
