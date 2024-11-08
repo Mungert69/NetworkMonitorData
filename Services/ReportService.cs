@@ -40,10 +40,6 @@ namespace NetworkMonitor.Data.Services
         private IDataLLMService _dataLLMService;
         private TimeSpan _timeSpan;
 
-
-
-
-
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo, IDataLLMService dataLLMService)
         {
             _scopeFactory = scopeFactory;
@@ -69,17 +65,14 @@ namespace NetworkMonitor.Data.Services
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                     var uri = _systemParams.ThisSystemUrl.ExternalUrl;
 
-
-
                     var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && !u.DisableEmail).ToListAsync();
                     var userHostCount = await monitorContext.UserInfos
-     .Where(u => u.UserID != "default" && !u.DisableEmail) // Filter users based on criteria
-     .Select(u => u.MonitorIPs.Count(m => m.Enabled))      // Count enabled MonitorIPs per user
-     .SumAsync();                                          // Sum counts across all users
+                        .Where(u => u.UserID != "default" && !u.DisableEmail)
+                        .Select(u => u.MonitorIPs.Count(m => m.Enabled))
+                        .SumAsync();
 
                     TimeSpan waitTime = TimeSpan.FromTicks(_timeSpan.Ticks / userHostCount);
                     _logger.LogInformation($"Info: Processing {userHostCount} hosts.");
-
 
                     foreach (var userInfo in users)
                     {
@@ -87,7 +80,6 @@ namespace NetworkMonitor.Data.Services
                         UserInfo? user = new UserInfo();
                         StringBuilder reportBuilder = new StringBuilder();
                         var userList = new List<UserInfo>();
-
 
                         user = await monitorContext.UserInfos.Where(u => u.UserID == userInfo.UserID).FirstOrDefaultAsync();
 
@@ -97,8 +89,8 @@ namespace NetworkMonitor.Data.Services
                             result.Message += $" Error : Can't find user {userInfo.UserID} . ";
                             continue;
                         }
-                        bool llmStarted = false;
-                        var serviceObj = new LLMServiceObj()
+
+                        var serviceObj = new LLMServiceObj
                         {
                             RequestSessionId = Guid.NewGuid().ToString(),
                             UserInfo = user,
@@ -107,52 +99,15 @@ namespace NetworkMonitor.Data.Services
                             IsSystemLlm = true
                         };
 
-                        var monitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here").ToListAsync();
+                        var monitorIPs = await monitorContext.MonitorIPs
+                            .Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here")
+                            .ToListAsync();
+
                         if (monitorIPs != null && monitorIPs.Count > 0)
                         {
-                            // Start HTML document
-                            reportBuilder.AppendLine("<!DOCTYPE html>");
-                            reportBuilder.AppendLine("<html>");
-                            reportBuilder.AppendLine("<head>");
-                            reportBuilder.AppendLine("<style>");
-                            reportBuilder.AppendLine(@"
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-                line-height: 1.6;
-                color: #607466;
-            }
-            .metrics {
-                background-color: #f5f5f5;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-            }
-            .highlight {
-                color: #6239AB;
-                font-weight: bold;
-            }
-            .warning {
-                color: #d35400;
-            }
-            .success {
-                color: #27ae60;
-            }
-            img {
-                max-width: 100%;
-                height: auto;
-                border: 1px solid #ddd;
-                margin: 20px 0;
-            }
-        ");
-                            reportBuilder.AppendLine("</style>");
-                            reportBuilder.AppendLine("</head>");
-                            reportBuilder.AppendLine("<body>");
 
+                            reportBuilder.AppendLine("<div style=\"font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #607466; background-color: #ffffff;\">");
 
-                            reportBuilder.AppendLine("<div class=\"report-container\" style=\"font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 10px; color: #333;\">");
                             reportBuilder.AppendLine("<h3 style=\"text-align: center; color: #6239AB;\">Weekly Network Performance Report</h3>");
                             reportBuilder.AppendLine($"<p>Hi, {userInfo.Name}! Here's your network report for the past week:</p>");
 
@@ -163,11 +118,11 @@ namespace NetworkMonitor.Data.Services
                                 reportBuilder.Append(await GetReportForHost(monitorIP, monitorContext, userInfo, serviceObj));
                                 await Task.Delay(waitTime);
                             }
+
                             reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">That's it for this week! Stay tuned for more insights next time.</h3>");
                             reportBuilder.AppendLine("<p>Remember, monitoring is key to maintaining a robust online presence.</p>");
                             result.Success = true;
                             result.Message += $"Success : Got Reports for user {userInfo.UserID}  . ";
-
                         }
                         else
                         {
@@ -175,19 +130,13 @@ namespace NetworkMonitor.Data.Services
                             result.Message += $" Error : There are no hosts for the user {userInfo.UserID} . ";
                         }
 
-                        // End of HTML report
-                        reportBuilder.AppendLine("<footer style=\"margin-top: 20px; text-align: center;\">");
-                        reportBuilder.AppendLine("<p style=\"font-size: 12px; color: #888;\">Generated by Network Monitor</p>");
-                        reportBuilder.AppendLine("</footer>");
                         reportBuilder.AppendLine("</div>");
-                        reportBuilder.AppendLine("</body>");
-                        reportBuilder.AppendLine("</html>");
 
                         if (result.Success)
                         {
                             try
                             {
-                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj() { UserInfo = user!, Report = reportBuilder.ToString(), HeaderImageUri = uri, ID = emailInfo.ID });
+                                await _rabbitRepo.PublishAsync<HostReportObj>("sendHostReport", new HostReportObj { UserInfo = user!, Report = reportBuilder.ToString(), HeaderImageUri = uri, ID = emailInfo.ID });
                                 result.Message += " Success : published event sentHostReport";
                             }
                             catch (Exception e)
@@ -195,25 +144,20 @@ namespace NetworkMonitor.Data.Services
                                 result.Message += "Error : publish event sentHostReport : Error was : " + e.Message;
                                 result.Success = false;
                                 _logger.LogError("Error : publish event sentHostReport  : Error was : " + e.ToString());
-
                             }
                             try
                             {
                                 monitorContext.EmailInfos.Add(emailInfo);
                                 await monitorContext.SaveChangesAsync();
                                 result.Message += " Success : Added new EmailInfo to database .";
-
                             }
                             catch (Exception e)
                             {
                                 result.Message += "Error : failed to add new EmailInfo to database : Error was : " + e.Message;
                                 result.Success = false;
                                 _logger.LogError("Error :  failed to add new EmailInfo to database   : Error was : " + e.ToString());
-
                             }
-
                         }
-
                     }
                 }
             }
@@ -225,19 +169,150 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogError($"Error : Failed to Get Reports : Error was : " + e.ToString());
             }
 
-
             return result;
+        }
+
+
+        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo, LLMServiceObj serviceObj)
+        {
+            var llmResult = new ResultObj();
+            bool errorFlag = false;
+            StringBuilder reportBuilder = new StringBuilder();
+            StringBuilder responseDataBuilder = new StringBuilder();
+
+            try
+            {
+                var endDate = DateTime.UtcNow;
+                var startDate = endDate.AddDays(-7);
+                string portStr = monitorIP.Port != 0 ? $" : Port {monitorIP.Port}" : "";
+
+                // Report Overview Section
+                reportBuilder.AppendLine("<h3 style=\"color: #607466;\">Report Overview</h3>");
+                reportBuilder.AppendLine("<div style=\"background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;\">");
+                reportBuilder.AppendLine($"<p style=\"font-weight: bold;\">Host Information: {monitorIP.Address} ({monitorIP.EndPointType}{portStr}) - {monitorIP.AgentLocation}</p>");
+                reportBuilder.AppendLine($"<p style=\"font-weight: bold;\">Monitoring Period: {startDate:MMMM d, yyyy} - {endDate:MMMM d, yyyy}</p>");
+
+                var monitorPingInfos = monitorContext.MonitorPingInfos
+                    .Where(mpi => mpi.MonitorIPID == monitorIP.ID && mpi.DateStarted >= startDate && mpi.DateEnded <= endDate)
+                    .ToList();
+
+                var query = new DateRangeQuery
+                {
+                    MonitorIPID = monitorIP.ID,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    User = userInfo
+                };
+
+                var pingInfoHelper = new PingInfoHelper(monitorContext, 84);
+                var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID!, _fileService, _userRepo);
+                var hostResponseObj = result.Data;
+                var pingInfos = new List<PingInfoDTO>();
+                if (hostResponseObj != null) pingInfos = hostResponseObj.PingInfosDTO;
+
+                if (monitorIP.Enabled && monitorPingInfos != null && pingInfos != null && pingInfos.Count > 0)
+                {
+                    // Data aggregation and calculations
+                    var averageResponseTime = monitorPingInfos.Average(mpi => mpi.RoundTripTimeAverage);
+                    var packetsLostPercentage = monitorPingInfos.Average(mpi => mpi.PacketsLostPercentage);
+                    var uptimePercentage = 100 - packetsLostPercentage;
+                    var incidentCount = monitorPingInfos.Count(mpi => mpi.PacketsLost > 0);
+                    bool serverDownWholeTime = packetsLostPercentage == 100;
+                    var maxResponseTime = monitorPingInfos.Max(mpi => mpi.RoundTripTimeMaximum);
+                    var minResponseTime = monitorPingInfos.Min(mpi => mpi.RoundTripTimeMinimum);
+                    var stdDevResponseTime = Math.Sqrt(monitorPingInfos.Average(mpi => Math.Pow(mpi.RoundTripTimeAverage - averageResponseTime, 2)));
+
+                    // Key Metrics Section
+                    reportBuilder.AppendLine("<p style=\"font-weight: bold;\">Key Metrics:</p>");
+                    reportBuilder.AppendLine("<ul>");
+                    reportBuilder.AppendLine($"<li>Overall Average Response Time: {averageResponseTime:F0} ms</li>");
+                    reportBuilder.AppendLine($"<li>Maximum Response Time: {maxResponseTime:N0} ms</li>");
+                    reportBuilder.AppendLine($"<li>Minimum Response Time: {minResponseTime:N0} ms</li>");
+                    reportBuilder.AppendLine($"<li>Response Time Standard Deviation: {stdDevResponseTime:F2} ms</li>");
+                    reportBuilder.AppendLine($"<li>Uptime: {uptimePercentage:F2}%</li>");
+                    reportBuilder.AppendLine($"<li>Total Incidents: {incidentCount}</li>");
+                    reportBuilder.AppendLine("</ul>");
+                    reportBuilder.AppendLine("</div>");
+
+                    string uptimeCategoryKey = DetermineUptimeCategory(uptimePercentage, serverDownWholeTime);
+                    string responseTimeCategoryKey = DetermineResponseTimeCategory(averageResponseTime, monitorIP.EndPointType!, monitorIP.Port);
+                    string stabilityCategoryKey = DetermineStabilityCategory(incidentCount);
+                    string overallPerformanceKey = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount, monitorIP.EndPointType!, monitorIP.Port);
+
+                    reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Weekly Insights</h3>");
+                    reportBuilder.AppendLine("<div style=\"background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;\">");
+
+                    // Uptime Category Styling
+                    // Use the helper method to add HTML for each category
+                    reportBuilder.AppendLine(CreateCategoryHtml(uptimeCategoryKey, "Uptime", GetRandomPhrase(uptimeCategoryKey)));
+                    reportBuilder.AppendLine(CreateCategoryHtml(responseTimeCategoryKey, "Response Time", GetRandomPhrase(responseTimeCategoryKey)));
+                    reportBuilder.AppendLine(CreateCategoryHtml(stabilityCategoryKey, "Stability", GetRandomPhrase(stabilityCategoryKey)));
+                    reportBuilder.AppendLine(CreateCategoryHtml(overallPerformanceKey, "Overall Performance", GetRandomPhrase(overallPerformanceKey)));
+                    reportBuilder.AppendLine("</div>");
+
+                    // Generate response time graph and embed it in the report
+                    var fileName = $"{monitorIP.Address}_{monitorIP.EndPointType}_{monitorIP.Port}_{monitorIP.AppID}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
+                    string responseTimeGraphUrl = GenerateResponseTimeGraph(pingInfos, fileName);
+
+                    if (!string.IsNullOrEmpty(responseTimeGraphUrl))
+                    {
+                        reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Response Time Graph</h3>");
+                        reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' style=\"display: block; margin: auto; max-width: 100%; height: auto; border: 1px solid #ddd; margin-top: 20px; margin-bottom: 20px;\" />");
+                    }
+
+                    // Prepare data for LLM analysis
+                    responseDataBuilder.AppendLine("{");
+                    responseDataBuilder.AppendLine("\"performance_data\": {");
+                    responseDataBuilder.AppendLine($"\"overall_average_response_time\": {averageResponseTime:F2},");
+                    responseDataBuilder.AppendLine($"\"response_time_standard_deviation\": {stdDevResponseTime:F2},");
+                    responseDataBuilder.AppendLine($"\"uptime_percentage\": {uptimePercentage:F2},");
+                    responseDataBuilder.AppendLine($"\"max_response_time\": {maxResponseTime:N0},");
+                    responseDataBuilder.AppendLine($"\"min_response_time\": {minResponseTime:N0},");
+                    responseDataBuilder.AppendLine($"\"incident_count\": {incidentCount},");
+                    responseDataBuilder.AppendLine("\"response_times\": [");
+
+                    for (int i = 0; i < pingInfos.Count; i++)
+                    {
+                        responseDataBuilder.Append($"{{\"timestamp\":\"{pingInfos[i].DateSent:yyyy-MM-ddTHH:mm}\",\"response_time\":{pingInfos[i].ResponseTime}}}");
+                        if (i < pingInfos.Count - 1) responseDataBuilder.AppendLine(",");
+                    }
+
+                    responseDataBuilder.AppendLine("]");
+                    responseDataBuilder.AppendLine("}");
+                    responseDataBuilder.AppendLine("}");
+
+                    var reportSoFar = responseDataBuilder.ToString();
+                    llmResult = await GetLLMReportForHost(reportSoFar, serviceObj);
+
+                    if (llmResult.Success)
+                    {
+                        reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Performance Analysis</h3>");
+                        reportBuilder.AppendLine($"<p>{llmResult.Message}</p>");
+                    }
+                }
+                else
+                {
+                    reportBuilder.AppendLine($"<p style=\"color: #d4a10d;\">No data for this host during this time period. Login to {AppConstants.FrontendUrl}/dashboard to manage this host and enable if necessary.</p>");
+                }
+            }
+            catch (Exception ex)
+            {
+                errorFlag = true;
+                _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
+                reportBuilder.AppendLine($"<p style=\"color: #eb5160;\">Oops! We ran into an issue while generating your report: {ex.Message}</p>");
+            }
+
+            return reportBuilder.ToString();
         }
 
         private async Task<ResultObj> GetLLMReportForHost(string input, LLMServiceObj serviceObj)
         {
-
             var result = new ResultObj();
             result.Success = false;
+            return result;
             var resultStart = new TResultObj<LLMServiceObj>();
             try
             {
-
                 resultStart = await _dataLLMService.SystemLlmStart(serviceObj);
                 if (resultStart != null && resultStart.Success && resultStart.Data != null)
                 {
@@ -288,151 +363,6 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo, LLMServiceObj serviceObj)
-        {
-            var llmResult = new ResultObj();
-            bool errorFlag = false;
-            StringBuilder reportBuilder = new StringBuilder();
-            StringBuilder responseDataBuilder = new StringBuilder();
-            try
-            {
-                var endDate = DateTime.UtcNow;
-                var startDate = endDate.AddDays(-7);
-                string portStr = monitorIP.Port != 0 ? $" : Port {monitorIP.Port}" : "";
-                // Report Overview Section
-                reportBuilder.AppendLine("<h2>Report Overview</h2>");
-                reportBuilder.AppendLine("<div class=\"metrics\">");
-                reportBuilder.AppendLine($"<p><strong>Host Information:</strong> {monitorIP.Address} ({monitorIP.EndPointType}{portStr}) - {monitorIP.AgentLocation}</p>");
-                reportBuilder.AppendLine($"<p><strong>Monitoring Period:</strong> {startDate.ToString("MMMM d, yyyy")} - {endDate.ToString("MMMM d, yyyy")}</p>");
-                var monitorPingInfos = monitorContext.MonitorPingInfos
-                                        .Where(mpi => mpi.MonitorIPID == monitorIP.ID && mpi.DateStarted >= startDate && mpi.DateEnded <= endDate)
-                                        .ToList();
-
-                var query = new DateRangeQuery
-                {
-                    MonitorIPID = monitorIP.ID,
-                    StartDate = startDate,
-                    EndDate = endDate,
-                    User = userInfo
-                };
-
-                var pingInfoHelper = new PingInfoHelper(monitorContext, 84);
-                var result = await pingInfoHelper.GetMonitorPingInfoDTOByFilter(new TResultObj<HostResponseObj>(), query, monitorIP.UserID!, _fileService, _userRepo);
-                var hostResponseObj = result.Data;
-                var pingInfos = new List<PingInfoDTO>();
-                if (hostResponseObj != null) pingInfos = hostResponseObj.PingInfosDTO;
-
-
-                if (monitorIP.Enabled && monitorPingInfos != null && pingInfos != null && pingInfos.Count > 0)
-                {
-                    // Data aggregation and calculations
-                    var averageResponseTime = monitorPingInfos.Average(mpi => mpi.RoundTripTimeAverage);
-                    var packetsLostPercentage = monitorPingInfos.Average(mpi => mpi.PacketsLostPercentage);
-                    var uptimePercentage = 100 - packetsLostPercentage;
-                    var incidentCount = monitorPingInfos.Count(mpi => mpi.PacketsLost > 0);
-                    bool serverDownWholeTime = false;
-                    if (packetsLostPercentage == 100) serverDownWholeTime = true;
-                    // Additional performance metrics
-                    var maxResponseTime = monitorPingInfos.Max(mpi => mpi.RoundTripTimeMaximum);
-                    var minResponseTime = monitorPingInfos.Min(mpi => mpi.RoundTripTimeMinimum);
-                    var stdDevResponseTime = Math.Sqrt(monitorPingInfos.Average(mpi => Math.Pow(mpi.RoundTripTimeAverage - averageResponseTime, 2)));
-                    var successfulPings = monitorPingInfos.Sum(mpi => mpi.PacketsRecieved);
-                    var failedPings = monitorPingInfos.Sum(mpi => mpi.PacketsLost);
-
-                    // Key Metrics Section
-                    reportBuilder.AppendLine("<p><strong>Key Metrics:</strong></p>");
-                    reportBuilder.AppendLine("<ul>");
-                    reportBuilder.AppendLine($"<li>Overall Average Response Time: {averageResponseTime:F0} ms</li>");
-                    reportBuilder.AppendLine($"<li>Maximum Response Time: {maxResponseTime:N0} ms</li>");
-                    reportBuilder.AppendLine($"<li>Minimum Response Time: {minResponseTime:N0} ms</li>");
-                    reportBuilder.AppendLine($"<li>Response Time Standard Deviation: {stdDevResponseTime:F2} ms</li>");
-                    reportBuilder.AppendLine($"<li>Uptime: {uptimePercentage:F2}%</li>");
-                    reportBuilder.AppendLine($"<li>Total Incidents: {incidentCount}</li>");
-                    reportBuilder.AppendLine("</ul>");
-                    reportBuilder.AppendLine("</div>");    // Insight and performance categories
-                    var insightsColor = "#607466"; // Default to primary color
-
-                    string uptimeCategoryKey = DetermineUptimeCategory(uptimePercentage, serverDownWholeTime);
-                    string responseTimeCategoryKey = DetermineResponseTimeCategory(averageResponseTime, monitorIP.EndPointType!, monitorIP.Port);
-                    string stabilityCategoryKey = DetermineStabilityCategory(incidentCount);
-                    string overallPerformanceKey = DeterminePerformanceCategory(serverDownWholeTime, uptimePercentage, averageResponseTime, incidentCount, monitorIP.EndPointType!, monitorIP.Port);
-
-                    reportBuilder.AppendLine("<p style=\"color: #6239AB;\">Weekly Insights</p>");
-
-                    reportBuilder.AppendLine("<div class=\"metrics\">");
-                    // Uptime Category Styling
-                    reportBuilder.AppendLine($"<p><span class=\"{(uptimeCategoryKey == "ExcellentUptime" ? "success" : uptimeCategoryKey == "GoodUptime" ? "highlight" : "warning")}\">Uptime: {(uptimeCategoryKey == "ExcellentUptime" ? "⚡" : uptimeCategoryKey == "GoodUptime" ? "✓" : uptimeCategoryKey == "FairUptime" ? "~" : "✗")}</span> {GetRandomPhrase(uptimeCategoryKey)}</p>");
-
-                    // Response Time Category Styling
-                    reportBuilder.AppendLine($"<p><span class=\"{(responseTimeCategoryKey == "ExcellentResponseTime" ? "success" : responseTimeCategoryKey == "GoodResponseTime" ? "highlight" : "warning")}\">Response Time: {(responseTimeCategoryKey == "ExcellentResponseTime" ? "⚡" : responseTimeCategoryKey == "GoodResponseTime" ? "✓" : responseTimeCategoryKey == "FairResponseTime" ? "~" : "✗")}</span> {GetRandomPhrase(responseTimeCategoryKey)}</p>");
-
-                    // Stability Category Styling
-                    reportBuilder.AppendLine($"<p><span class=\"{(stabilityCategoryKey == "ExcellentStability" ? "success" : stabilityCategoryKey == "GoodStability" ? "highlight" : "warning")}\">Stability: {(stabilityCategoryKey == "ExcellentStability" ? "⚡" : stabilityCategoryKey == "GoodStability" ? "✓" : stabilityCategoryKey == "FairStability" ? "~" : "✗")}</span> {GetRandomPhrase(stabilityCategoryKey)}</p>");
-
-                    // Overall Performance Category Styling
-                    reportBuilder.AppendLine($"<p><span class=\"{(overallPerformanceKey == "ExcellentPerformance" ? "success" : overallPerformanceKey == "GoodPerformance" ? "highlight" : "warning")}\">Overall Performance: {(overallPerformanceKey == "ExcellentPerformance" ? "⚡" : overallPerformanceKey == "GoodPerformance" ? "✓" : overallPerformanceKey == "FairPerformance" ? "~" : "✗")}</span> {GetRandomPhrase(overallPerformanceKey)}</p>");
-
-                    reportBuilder.AppendLine("</div>"); // Generate response time graph and embed it in the report
-                    // Add a timestamp to the file name to avoid caching issues
-                    var fileName = $"{monitorIP.Address}_{monitorIP.EndPointType}_{monitorIP.Port}_{monitorIP.AppID}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
-
-                    string responseTimeGraphUrl = GenerateResponseTimeGraph(pingInfos, fileName);
-                    if (!string.IsNullOrEmpty(responseTimeGraphUrl))
-                    {
-                        reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Response Time Graph</h3>");
-                        reportBuilder.AppendLine($"<img src='{responseTimeGraphUrl}' alt='Response Time Graph' style=\"border: 1px solid #607466; max-width: 100%;\"/>");
-                    }
-                    responseDataBuilder.AppendLine("{");
-                    responseDataBuilder.AppendLine("\"intro\": \"Analyze the response time data for patterns such as spikes, high values, and timeouts.\",");
-                    responseDataBuilder.AppendLine("\"response_data\": [");
-
-                    for (int i = 0; i < pingInfos.Count; i++)
-                    {
-                        var pingInfo = pingInfos[i];
-                        responseDataBuilder.Append($"{{\"center_timestamp\":\"{pingInfo.DateSent.ToString("yyyy-MM-ddTHH:mm")}\", \"avg_response_time\":{pingInfo.ResponseTime}}}");
-
-                        // Add a comma after each item except the last one
-                        if (i < pingInfos.Count - 1)
-                        {
-                            responseDataBuilder.AppendLine(",");
-                        }
-                        else
-                        {
-                            responseDataBuilder.AppendLine(); // No comma for the last item
-                        }
-                    }
-
-                    responseDataBuilder.AppendLine("]");
-                    responseDataBuilder.AppendLine("}");
-                    // Close HTML document
-
-
-                    var reportSoFar = reportBuilder.ToString() + responseDataBuilder.ToString();
-                    llmResult = await GetLLMReportForHost(reportSoFar, serviceObj);
-                    //reportBuilder.AppendLine($"<p> AI Report :{llmResult}");
-
-
-                }
-                else
-                {
-                    reportBuilder.AppendLine($"<p style=\"color: #d4a10d;\">No data for this host during this time period. Login to {AppConstants.FrontendUrl}/dashboard to manage this host and enable if necessary.</p>");
-                }
-            }
-            catch (Exception ex)
-            {
-                errorFlag = true;
-                _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
-                reportBuilder.AppendLine($"<p style=\"color: #eb5160;\">Oops! We ran into an issue while generating your report: {ex.Message}</p>");
-            }
-            if (errorFlag || !llmResult.Success)
-            {
-                return reportBuilder.ToString();
-            }
-            else
-            {
-                return llmResult.Message;
-            }
-        }
         private string GenerateResponseTimeGraph(List<PingInfoDTO> pingInfos, string fileName)
         {
 
@@ -644,15 +574,56 @@ namespace NetworkMonitor.Data.Services
 
         private string GetRandomPhrase(string category)
         {
-            if (reportPhrases.ContainsKey(category))
+            if (_reportPhrases.ContainsKey(category))
             {
-                var phrases = reportPhrases[category];
+                var phrases = _reportPhrases[category];
                 int index = random.Next(phrases.Count);
                 return phrases[index];
             }
             return "";
         }
-        private Dictionary<string, List<string>> reportPhrases = new Dictionary<string, List<string>>
+
+       private string CreateCategoryHtml(string categoryKey, string label, string phrase)
+{
+    if (_styleMap.TryGetValue(categoryKey, out var style))
+    {
+        return $"<p><span style=\"color: {style.Color}; font-size: 0.9em; vertical-align: middle;\">{style.Symbol}</span> " +
+               $"<span style=\"color: {style.Color}; font-weight: bold;\">{label}:</span> {phrase}</p>";
+    }
+    return string.Empty;
+}
+
+
+private readonly Dictionary<string, (string Symbol, string Color)> _styleMap = new Dictionary<string, (string, string)>
+{
+    // Uptime Categories
+    { "ExcellentUptime", ("&#9889;", "#27ae60") }, // ⚡ Green for exceptional uptime
+    { "GoodUptime", ("&#9675;", "#6239AB") }, // ⭕ Purple for strong, reliable uptime
+    { "FairUptime", ("&#9888;", "#d4a10d") }, // ⚠️ Yellow for acceptable uptime needing improvement
+    { "PoorUptime", ("&#10060;", "#eb5160") }, // ❌ Red for poor uptime with significant issues
+    { "BadUptime", ("&#10060;", "#eb5160") }, // ❌ Red for very poor uptime requiring urgent attention
+    { "ZeroUptime", ("&#10060;", "#eb5160") }, // ❌ Red for complete downtime
+
+    // Response Time Categories
+    { "ExcellentResponseTime", ("&#9889;", "#27ae60") }, // ⚡ Green for very fast response times
+    { "GoodResponseTime", ("&#9675;", "#6239AB") }, // ⭕ Purple for good response times
+    { "FairResponseTime", ("&#9888;", "#d4a10d") }, // ⚠️ Yellow for moderate response times
+    { "PoorResponseTime", ("&#10060;", "#eb5160") }, // ❌ Red for high/slow response times
+
+    // Stability Categories
+    { "ExcellentStability", ("&#9889;", "#27ae60") }, // ⚡ Green for flawless stability
+    { "GoodStability", ("&#9675;", "#6239AB") }, // ⭕ Purple for good stability
+    { "PoorStability", ("&#9888;", "#d4a10d") }, // ⚠️ Yellow for inconsistent stability needing attention
+
+    // Performance Categories
+    { "ExcellentPerformance", ("&#9889;", "#27ae60") }, // ⚡ Green for peak performance
+    { "GoodPerformance", ("&#9675;", "#6239AB") }, // ⭕ Purple for solid, reliable performance
+    { "FairPerformance", ("&#9888;", "#d4a10d") }, // ⚠️ Yellow for performance meeting minimum standards
+    { "PoorPerformance", ("&#10060;", "#eb5160") }  // ❌ Red for performance below expectations with major issues
+};
+
+
+        private Dictionary<string, List<string>> _reportPhrases = new Dictionary<string, List<string>>
 {
     // Uptime
     // Excellent Uptime
