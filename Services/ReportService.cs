@@ -344,6 +344,7 @@ namespace NetworkMonitor.Data.Services
                 else
                 {
                     reportBuilder.AppendLine($"<p style=\"color: #d4a10d;\">No data for this host during this time period. Login to {AppConstants.FrontendUrl}/dashboard to manage this host and enable if necessary.</p>");
+                    reportBuilder.AppendLine("</div>");
                 }
             }
             catch (Exception ex)
