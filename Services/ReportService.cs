@@ -187,12 +187,12 @@ namespace NetworkMonitor.Data.Services
             {
                 var endDate = DateTime.UtcNow;
                 var startDate = endDate.AddDays(-7);
-                string portStr = monitorIP.Port != 0 ? $" : Port {monitorIP.Port}" : "";
+                string portStr = monitorIP.Port != 0 ? $" : {monitorIP.Port}" : "";
 
                 // Report Overview Section
                 reportBuilder.AppendLine("<h3 style=\"color: #607466;\">Report Overview</h3>");
                 reportBuilder.AppendLine("<div style=\"background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;\">");
-                reportBuilder.AppendLine($"<p style=\"font-weight: bold;\">Host Information: {monitorIP.Address} ({monitorIP.EndPointType}{portStr}) - {monitorIP.AgentLocation}</p>");
+                reportBuilder.AppendLine($"<p style=\"font-weight: bold;\">Host Information: {monitorIP.Address}{portStr} ({monitorIP.EndPointType}) : {_processorState.LocationFromID(monitorIP.AppID)}</p>");
                 reportBuilder.AppendLine($"<p style=\"font-weight: bold;\">Monitoring Period: {startDate:MMMM d, yyyy} - {endDate:MMMM d, yyyy}</p>");
 
                 var monitorPingInfos = monitorContext.MonitorPingInfos
