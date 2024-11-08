@@ -320,7 +320,7 @@ namespace NetworkMonitor.Data.Services
                     for (int i = 0; i < pingInfos.Count; i++)
                     {
                         var pingInfo = pingInfos[i];
-                        responseDataBuilder.Append($"{{\"DateSent\": \"{pingInfo.DateSent}\", \"ResponseTime\": \"{pingInfo.ResponseTime}\"}}");
+                        responseDataBuilder.Append($"{{\"DateSent\":\"{pingInfo.DateSent}\", \"ResponseTime\":{pingInfo.ResponseTime}}}");
 
                         // Add a comma after each item except the last one
                         if (i < pingInfos.Count - 1)
