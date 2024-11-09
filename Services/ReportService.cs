@@ -41,7 +41,7 @@ namespace NetworkMonitor.Data.Services
         private IDataLLMService _dataLLMService;
         private TimeSpan _timeSpan;
         private bool _llmReportProcess = false;
-        private string _llmRunnerType="TurboLLM";
+        private string _llmRunnerType = "TurboLLM";
 
         public ReportService(IServiceScopeFactory scopeFactory, ILogger<ReportService> logger, IRabbitRepo rabbitRepo, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IDataFileService fileService, IUserRepo userRepo, IDataLLMService dataLLMService)
         {
@@ -55,7 +55,7 @@ namespace NetworkMonitor.Data.Services
             _userRepo = userRepo;
             _timeSpan = TimeSpan.FromHours(_systemParams.SendReportsTimeSpan);
             _llmReportProcess = systemParamsHelper.GetMLParams().LlmReportProcess;
-            _llmRunnerType=systemParamsHelper.GetMLParams().LlmRunnerType;
+            _llmRunnerType = systemParamsHelper.GetMLParams().LlmRunnerType;
         }
         public async Task<ResultObj> CreateHostSummaryReport()
         {
@@ -95,7 +95,7 @@ namespace NetworkMonitor.Data.Services
                             continue;
                         }
 
-                       
+
 
                         var monitorIPs = await monitorContext.MonitorIPs
                             .Where(w => w.UserID == user.UserID && !w.Hidden && w.Address != "https://your-website-address.here")
@@ -105,7 +105,6 @@ namespace NetworkMonitor.Data.Services
                         {
 
                             reportBuilder.AppendLine("<div style=\"font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #607466; background-color: #ffffff;\">");
-
                             reportBuilder.AppendLine("<h3 style=\"text-align: center; color: #6239AB;\">Weekly Network Performance Report</h3>");
                             reportBuilder.AppendLine($"<p>Hi, {userInfo.Name}! Here's your network report for the past week:</p>");
 
@@ -357,16 +356,16 @@ namespace NetworkMonitor.Data.Services
             var result = new ResultObj();
             result.Success = false;
             if (!_llmReportProcess) return result;
-             var serviceObj = new LLMServiceObj
-                        {
-                            RequestSessionId = Guid.NewGuid().ToString(),
-                            MessageID = Guid.NewGuid().ToString(),
-                            UserInfo = user,
-                            SourceLlm = "reportdata",
-                            DestinationLlm = "reportdata",
-                            IsSystemLlm = true,
-                            LLMRunnerType=_llmRunnerType
-                        };
+            var serviceObj = new LLMServiceObj
+            {
+                RequestSessionId = Guid.NewGuid().ToString(),
+                MessageID = Guid.NewGuid().ToString(),
+                UserInfo = user,
+                SourceLlm = "reportdata",
+                DestinationLlm = "reportdata",
+                IsSystemLlm = true,
+                LLMRunnerType = _llmRunnerType
+            };
 
             var resultStart = new TResultObj<LLMServiceObj>();
             try
@@ -408,9 +407,10 @@ namespace NetworkMonitor.Data.Services
             {
 
                 var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
-                if (resultStop.Success){
-                     _logger.LogInformation(result.Message);
-                     }
+                if (resultStop.Success)
+                {
+                    _logger.LogInformation(result.Message);
+                }
                 else
                 {
                     _logger.LogError(result.Message);
@@ -567,21 +567,21 @@ namespace NetworkMonitor.Data.Services
 
         }
 
-       public static (string performanceAssessment, string expertRecommendations) ExtractRecommendations(string llmOutput)
-{
-    // Updated regular expressions to capture values for 'performance_assessment' and 'expert_recommendations' in a more precise way
-    var performanceAssessmentPattern = new Regex(@"['""]performance_assessment['""]\s*:\s*[""](.*?)[""]\s*,", RegexOptions.Singleline);
-    var expertRecommendationsPattern = new Regex(@"['""]expert_recommendations['""]\s*:\s*[""](.*?)[""]\s*}", RegexOptions.Singleline);
+        public static (string performanceAssessment, string expertRecommendations) ExtractRecommendations(string llmOutput)
+        {
+            // Updated regular expressions to capture values for 'performance_assessment' and 'expert_recommendations' in a more precise way
+            var performanceAssessmentPattern = new Regex(@"['""]performance_assessment['""]\s*:\s*[""](.*?)[""]\s*,", RegexOptions.Singleline);
+            var expertRecommendationsPattern = new Regex(@"['""]expert_recommendations['""]\s*:\s*[""](.*?)[""]\s*}", RegexOptions.Singleline);
 
-    // Extract the values
-    var performanceAssessmentMatch = performanceAssessmentPattern.Match(llmOutput);
-    var expertRecommendationsMatch = expertRecommendationsPattern.Match(llmOutput);
+            // Extract the values
+            var performanceAssessmentMatch = performanceAssessmentPattern.Match(llmOutput);
+            var expertRecommendationsMatch = expertRecommendationsPattern.Match(llmOutput);
 
-    string performanceAssessment = performanceAssessmentMatch.Success ? performanceAssessmentMatch.Groups[1].Value : string.Empty;
-    string expertRecommendations = expertRecommendationsMatch.Success ? expertRecommendationsMatch.Groups[1].Value : string.Empty;
+            string performanceAssessment = performanceAssessmentMatch.Success ? performanceAssessmentMatch.Groups[1].Value : string.Empty;
+            string expertRecommendations = expertRecommendationsMatch.Success ? expertRecommendationsMatch.Groups[1].Value : string.Empty;
 
-    return (performanceAssessment, expertRecommendations);
-}
+            return (performanceAssessment, expertRecommendations);
+        }
 
         private string DetermineUptimeCategory(double uptimePercentage, bool serverDownWholeTime)
         {
@@ -663,11 +663,13 @@ namespace NetworkMonitor.Data.Services
         {
             if (_styleMap.TryGetValue(categoryKey, out var style))
             {
-                return $"<p><span style=\"color: {style.Color}; font-size: 0.9em; vertical-align: middle;\">{style.Symbol}</span> " +
-                       $"<span style=\"color: {style.Color}; font-weight: bold;\">{label}:</span> {phrase}</p>";
+                return $"<p><span style=\"color: {style.Color}; font-weight: bold;\">{label}</span> " +
+                       $"<span style=\"color: {style.Color}; font-size: 0.9em; vertical-align: middle;\">{style.Symbol}</span> " +
+                       $"{phrase}</p>";
             }
             return string.Empty;
         }
+
 
 
         private readonly Dictionary<string, (string Symbol, string Color)> _styleMap = new Dictionary<string, (string, string)>
