@@ -439,10 +439,10 @@ public class UserRepo : IUserRepo
                         }
                         if (user.Email_verified) saveUser.Email_verified = true;
                         // Only update if fields are empty , this prevents old token cookie data from overwritting fields call updateUserApi to update these.
-                        if (saveUser.Picture.IsNullOrEmpty() && !user.Picture.IsNullOrEmpty()) saveUser.Picture = user.Picture;
-                        if (saveUser.Name.IsNullOrEmpty() && !user.Name.IsNullOrEmpty()) saveUser.Name = user.Name;
-                        if (saveUser.Given_name.IsNullOrEmpty() && !user.Given_name.IsNullOrEmpty()) saveUser.Given_name = user.Given_name;
-                        if (saveUser.Family_name.IsNullOrEmpty() && !user.Family_name.IsNullOrEmpty()) saveUser.Family_name = user.Family_name;
+                        if (string.IsNullOrEmpty(saveUser.Picture) && !string.IsNullOrEmpty(user.Picture)) saveUser.Picture = user.Picture;
+                        if (string.IsNullOrEmpty(saveUser.Name) && !string.IsNullOrEmpty(user.Name)) saveUser.Name = user.Name;
+                        if (string.IsNullOrEmpty(saveUser.Given_name) && !string.IsNullOrEmpty(user.Given_name)) saveUser.Given_name = user.Given_name;
+                        if (string.IsNullOrEmpty(saveUser.Family_name) && !string.IsNullOrEmpty(user.Family_name)) saveUser.Family_name = user.Family_name;
                         saveUser.LastLoginDate = DateTime.UtcNow;
                         saveUser.MonitorIPs = new List<MonitorIP>();
                         await monitorContext.SaveChangesAsync();

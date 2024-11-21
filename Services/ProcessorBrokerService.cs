@@ -156,7 +156,7 @@ namespace NetworkMonitor.Data.Services
             initObj.PingParams = _pingParams;
             initObj.MonitorIPs = new List<MonitorIP>();
                      
-            if (processor.RabbitHost.IsNullOrEmpty()) processor.RabbitHost = "rabbitmq";
+            if (string.IsNullOrEmpty(processor.RabbitHost)) processor.RabbitHost = "rabbitmq";
 
 
             try
