@@ -79,6 +79,7 @@ namespace NetworkMonitor.Data
                         useAlternateBehavior
                     );
                 });
+            services.AddSingleton<IOpenAIService, OpenAIService>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
             services.AddSingleton<IDataLLMService, DataLLMService>();
