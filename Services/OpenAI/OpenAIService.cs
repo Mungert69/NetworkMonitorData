@@ -31,7 +31,7 @@ namespace NetworkMonitor.Data.Services
 
         Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt);
         void OnStopping();
-        Task<ResultObj> PutAnswerIntoBlogs(BlogList blogList, string systemPrompt,bool useDataLLMService);
+        Task<ResultObj> PutAnswerIntoBlogs(BlogList blogList, string systemPrompt, bool useDataLLMService);
         Task<ResultObj> ProcessBlogList(string blogFile);
         Task<ResultObj> ProcessBlogListAll(string blogFile);
 
@@ -110,7 +110,7 @@ namespace NetworkMonitor.Data.Services
             }
         }
 
-        private async Task<ResultObj> GetLLMReportForHost(string input)
+        private async Task<ResultObj> GetLLMReportForHost(string title, string focus)
         {
             var result = new ResultObj();
             result.Success = false;
@@ -118,7 +118,7 @@ namespace NetworkMonitor.Data.Services
             {
                 UserID = "default"
             };
-        
+
             var serviceObj = new LLMServiceObj
             {
                 RequestSessionId = Guid.NewGuid().ToString(),
@@ -145,30 +145,30 @@ namespace NetworkMonitor.Data.Services
                     _logger.LogError(resultStart.Message);
                     return result;
                 }
-
             }
             catch (Exception e)
             {
-                result.Message = $" Error : could not start llm . Error was : {e.Message}";
+                result.Message = $" Error : could not start llm. Error was : {e.Message}";
                 _logger.LogError(result.Message);
                 return result;
-
             }
+
+
 
             try
             {
-                serviceObj.UserInput = $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to acheive this \"{input}\", ONLY REPLY WITH THE Blog. DO NOT inlucde the title in the blog post.";
-                result = await _dataLLMService.LLMInput(serviceObj);
+                // Construct the user input with the extracted title and focus
+                serviceObj.UserInput = $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to achieve this: \"{title}\". Use the focus: \"{focus}\" to ensure the blog is specific and aligned with the topic. ONLY REPLY WITH THE Blog. DO NOT include the title in the blog post.";
 
+                result = await _dataLLMService.LLMInput(serviceObj);
             }
             catch (Exception e)
             {
-                _logger.LogError($" Error : could produce report from llm output . Error was : {e.Message}");
-
+                _logger.LogError($"Error: Could not produce report from LLM output. Error was: {e.Message}");
             }
+
             try
             {
-
                 var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
                 if (resultStop.Success)
                 {
@@ -181,10 +181,48 @@ namespace NetworkMonitor.Data.Services
             }
             catch (Exception e)
             {
-                _logger.LogError($" Error : could not stop llm . Error was : {e.Message}");
+                _logger.LogError($"Error: Could not stop LLM. Error was: {e.Message}");
             }
+
             return result;
         }
+
+        private (string title, string focus) ExtractTitleAndFocus(string input)
+        {
+            string title = string.Empty;
+            string focus = string.Empty;
+
+            try
+            {
+                // Use regex to extract the title and focus
+                var titleMatch = System.Text.RegularExpressions.Regex.Match(input, @"Title:\s*(.+?)(?=\s*Focus:|$)");
+                var focusMatch = System.Text.RegularExpressions.Regex.Match(input, @"Focus:\s*(.+)");
+
+                if (titleMatch.Success)
+                {
+                    title = titleMatch.Groups[1].Value.Trim();
+                }
+
+                if (focusMatch.Success)
+                {
+                    focus = focusMatch.Groups[1].Value.Trim();
+                }
+
+                // Validate extracted values
+                if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(focus))
+                {
+                    throw new ArgumentException("Title or Focus could not be extracted from the input.");
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Error: Failed to parse Title and Focus from input. Error was: {e.Message}");
+                throw; // Re-throw the exception to handle it in the caller
+            }
+
+            return (title, focus);
+        }
+
 
         public async Task<ResultObj> ProcessBlogList()
         {
@@ -230,8 +268,8 @@ namespace NetworkMonitor.Data.Services
                     return result;
                 }
                 string systemPrompt = _systemPrompt;
-                bool useDataLLMService=false;
-                if (blogFile == "BlogListGuides.json") useDataLLMService=true;
+                bool useDataLLMService = false;
+                if (blogFile == "BlogListGuides.json") useDataLLMService = true;
                 // Loop through the list and process each item
                 foreach (var item in _blogList)
                 {
@@ -299,8 +337,8 @@ namespace NetworkMonitor.Data.Services
                     return result;
                 }
                 string systemPrompt = _systemPrompt;
-                bool useDataLLMService=false;
-                if (blogFile == "BlogListGuides.json") useDataLLMService=true;
+                bool useDataLLMService = false;
+                if (blogFile == "BlogListGuides.json") useDataLLMService = true;
                 //var blogQuestion = "Write a blog post, that sound like a human wrote it, using this title for content : '" + question + "'. Style this article using Markdown. Put the blog post content inside a json object for example {\"postContent\" : \"\"}.";
                 result = await PutAnswerIntoBlogs(blogList, systemPrompt, useDataLLMService);
                 if (result.Success == false)
@@ -446,13 +484,30 @@ namespace NetworkMonitor.Data.Services
                     result.Message += " Error : No question found in BlogList";
                     return result;
                 }
-                var chatResult=new TResultObj<string?>();
+                var chatResult = new TResultObj<string?>();
                 if (useDataLLMService)
                 {
-                    var resultLlm =await GetLLMReportForHost(question);
-                    if (resultLlm.Success) chatResult.Data=(string?)resultLlm.Message;
-                    chatResult.Message=resultLlm.Message;
-                    chatResult.Success=resultLlm.Success;
+                    string title;
+                    string focus;
+
+                    try
+                    {
+                        // Call the new method to extract title and focus
+                        (title, focus) = ExtractTitleAndFocus(question);
+                    }
+                    catch (Exception e)
+                    {
+                        result.Message = $"Error: {e.Message}";
+                        return result;
+                    }
+                    var resultLlm = await GetLLMReportForHost(title, focus);
+                    if (resultLlm.Success)
+                    {
+                        chatResult.Data = (string?)resultLlm.Message;
+                        question=title;
+                    }
+                    chatResult.Message = resultLlm.Message;
+                    chatResult.Success = resultLlm.Success;
                 }
                 else
                 {
