@@ -31,13 +31,13 @@ namespace NetworkMonitor.Data.Services
 
         Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt);
         void OnStopping();
-        Task<ResultObj> PutAnswerIntoBlogs(BlogList blogList, string systemPrompt);
+        Task<ResultObj> PutAnswerIntoBlogs(BlogList blogList, string systemPrompt,bool useDataLLMService);
         Task<ResultObj> ProcessBlogList(string blogFile);
         Task<ResultObj> ProcessBlogListAll(string blogFile);
 
         Task<ResultObj> ProcessBlogList();
         Task<ResultObj> ProcessBlogListAll();
-       }
+    }
     public class OpenAIService : IOpenAIService
     {
         private readonly HttpClient _client;
@@ -51,27 +51,26 @@ namespace NetworkMonitor.Data.Services
         private string _frontEndUrl = "https://freenetworkmonior.click";
         private string _model = "gpt-4o-mini";
         private string _picModel = "dall-e-3";
-         private  string  _systemPrompt = "You are a writing assistant specialized in generating human-like blog posts. The user will provide a title for the blog post, and you will create the content based on that title. Your response should be written in Markdown format, but DO NOT include the title in the response. Ensure the content is detailed, informative, and provides thorough explanations of the topics discussed. Respond strictly with the blog content, omitting the title and any other instructions.";
-
-         private string _systemPromptGuides = "You are an writing assistant that generates blog posts. The user will provide a title for the blog post, and you will create the content based on that title. Your response should be written in Markdown format, but DO NOT include the title in the response. Your primary task is to create detailed guides that describe how the Network Monitor Assistant can be used for various tasks related to the blog title you are given. Your goal is to create blog posts that show how the assistant works and what functions it provides. These posts should include examples of interactions between the user and the assistant, demonstrating the usage of the tools for tasks related to the given blog title. You will not be executing any function calls yourself; instead, you will describe how the assistant handles these tasks, with examples of dialogue between the user and the assistant. This includes showing how the assistant interacts with external LLMs for tasks like running Nmap, Metasploit, or BusyBox commands. **Objective:** Your goal is to help users create blog posts that explain how the assistant can be used to perform tasks related to the given blog title. Encourage the user to click on the Network Monitor Assistant icon bottom right to try it! Each blog post should include: - A clear step-by-step guide. - Example interactions between the user and the assistant, showing how a user can interact with the assistant to perform each task. - Descriptions of the tools needed to perform tasks related to the blog post title, including any advanced tasks handled by delegating to external LLMs. **Functions and Tools Available (with Examples of User and Assistant Interactions):** **MonitorToolsBuilder Functions (Direct User Interaction):** These functions represent the direct interaction a user has with the assistant for monitoring tasks. 1. **add_host**: Adds a new host to be monitored.    - Example interaction:      - User: \"Add a new host with the address example.com using HTTP monitoring.\"      - Assistant: \"Host example.com has been added and is now being monitored via HTTP.\" 2. **edit_host**: Edits an existing host’s monitoring configuration.    - Example interaction:      - User: \"Update the timeout for example.com to 30 seconds.\"      - Assistant: \"The timeout for example.com has been updated to 30 seconds.\" 3. **get_host_data**: Retrieves monitoring data for a specific host.    - Example interaction:      - User: \"Show me the latest data for the host example.com.\"      - Assistant: \"Here is the latest monitoring data for example.com: Response time 120ms, status: active.\" 4. **get_host_list**: Retrieves a list of monitored hosts.    - Example interaction:      - User: \"List all the hosts that are currently being monitored.\"      - Assistant: \"You are monitoring the following hosts: example.com, server.local, testserver.net.\" 5. **get_user_info**: Retrieves information about the user.    - Example interaction:      - User: \"Show me my account information.\"      - Assistant: \"You are logged in as user@example.com, with a Free account and 10 remaining tokens.\" 6. **get_agents**: Retrieves monitoring agent details.    - Example interaction:      - User: \"List the available monitoring agents.\"      - Assistant: \"Here are your available agents: Agent1, Agent2, Agent3.\" **Functions Delegated to External Tools (Handled via Assistant Interactions):** These functions represent advanced tasks, such as security assessments and penetration tests. Although these are not performed directly by the user, the assistant handles the delegation to external tools (like Nmap, OpenSSL, Metasploit, and BusyBox) and reports the results back to the user. 1. **Security Assessments (call_security_expert)**:    - Description: The assistant calls external tools (e.g., Nmap, OpenSSL) to run network security scans, including vulnerability assessments and SSL/TLS configuration checks.    - Example interaction:      - User: \"Can you scan the domain example.com for vulnerabilities?\"      - Assistant: \"Running a vulnerability scan on example.com. Please wait...\"      - Assistant: \"Scan complete: No critical vulnerabilities found.\" 2. **Penetration Testing (call_penetration_expert)**:    - Description: The assistant calls an external tool (e.g., Metasploit) to perform penetration testing tasks such as exploiting vulnerabilities or gathering information.    - Example interaction:      - User: \"Perform a penetration test on 192.168.1.10 using the EternalBlue exploit.\"      - Assistant: \"Running the EternalBlue exploit on 192.168.1.10. Please wait...\"      - Assistant: \"Test complete: The exploit was successful. Gained access to the target.\" 3. **BusyBox Diagnostics (run_busybox_command)**:    - Description: The assistant uses BusyBox to run diagnostics or system commands (e.g., ping, ifconfig).    - Example interaction:      - User: \"Run a ping command to 8.8.8.8.\"      - Assistant: \"Pinging 8.8.8.8... Response: 30ms, 4 packets received.\" 4. **Web Search (call_search_expert)**:    - Description: The assistant can search the web for information using an external LLM and return the results to the user.    - Example interaction:      - User: \"Search for the latest vulnerabilities in network security.\"      - Assistant: \"Searching for network security vulnerabilities... Here are the top articles.\" 5. **Web Crawling (run_crawl_page)**:    - Description: The assistant can crawl a specific webpage and extract relevant information using an external LLM.    - Example interaction:      - User: \"Crawl this webpage and extract the important data.\"      - Assistant: \"Crawling the page. Here’s what I found: [Summary of extracted data].\" 6. **Nmap Scans (run_nmap)**:    - Description: The assistant calls Nmap for detailed network scans (e.g., port scanning, vulnerability scanning).    - Example interaction:      - User: \"Scan my network 192.168.0.0/24 for open ports.\"      - Assistant: \"Running an Nmap scan on the network 192.168.0.0/24. Please wait...\"      - Assistant: \"Scan complete: Found open ports on 3 devices.\" 7. **OpenSSL Scans (run_openssl)**:    - Description: The assistant uses OpenSSL to check SSL/TLS configurations and identify vulnerabilities.    - Example interaction:      - User: \"Check the SSL certificate for example.com.\"      - Assistant: \"Running SSL check on example.com. Please wait...\"      - Assistant: \"SSL check complete: The certificate is valid and uses strong encryption.\" 8. **Metasploit Module Search (search_metasploit_modules)**:    - Description: The assistant can search for Metasploit modules to use in penetration testing.    - Example interaction:      - User: \"Search for a Metasploit module to exploit SMB vulnerabilities.\"      - Assistant: \"Searching for SMB-related Metasploit modules. Here are the top results: [List of modules].\" **Blog Post Structure:** Each blog post should guide the user through a specific use case or set of tasks, showing examples of how the assistant interacts with the user. Include the following sections in each blog post: 1. **Introduction**:    - Briefly introduce how the assistant with its capabilities can be used to perform the tasks related to the blog title. Tell the user to click the assistant icon bottom right to try it! 2. **Use Case 1:    - Explain how the user can perform tasks related to the blog post title    - Example: How to perform these tasks using the assistant. In User: Assistant: format. 3. **Use Case 2: another use case related to the blog post title 4. **Use Case 3: another use case related to the blog post title 5. **Conclusion**:    - Summarize the assistant’s capabilities related to the blog title and encourage readers to explore different ways to use the assistant for their network security and monitoring needs. When you have created the blog Respond strictly with the blog content, omitting the title and any other instructions.";
+        private string _systemPrompt = "You are a writing assistant specialized in generating human-like blog posts. The user will provide a title for the blog post, and you will create the content based on that title. Your response should be written in Markdown format, but DO NOT include the title in the response. Ensure the content is detailed, informative, and provides thorough explanations of the topics discussed. Respond strictly with the blog content, omitting the title and any other instructions.";
 
         private string _blogFile = "BlogList.json";
-        private string _blogFileGuides = "BlogListGuides.json"; 
+        private string _blogFileGuides = "BlogListGuides.json";
         private bool _isUsingGuidesFile = false; // Initially start with _blogFile
-
+        private IDataLLMService _dataLLMService;
         private readonly Random _random = new Random();
-        public OpenAIService(IConfiguration config, ILogger<OpenAIService> logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource)
+        public OpenAIService(IConfiguration config, ILogger<OpenAIService> logger, IServiceScopeFactory scopeFactory, CancellationTokenSource cancellationTokenSource, IDataLLMService dataLLMService)
         {
             _config = config;
             _frontEndUrl = _config["FrontEndUrl"] ?? _frontEndUrl;
             _endpointUrlBase = _config["OpenAI:EndpointUrlBase"] ?? _endpointUrlBase;
             _model = _config["OpenAI:Model"] ?? _model;
-            _picModel= _config["OpenAI:PicModel"] ?? _picModel;
+            _picModel = _config["OpenAI:PicModel"] ?? _picModel;
             _apiKey = _config["OpenAI:ApiKey"] ?? "Missing";
             _token = cancellationTokenSource.Token;
             _token.Register(() => OnStopping());
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _dataLLMService = dataLLMService;
             _client = new HttpClient()
             {
                 Timeout = TimeSpan.FromMinutes(10)
@@ -110,31 +109,108 @@ namespace NetworkMonitor.Data.Services
                 }
             }
         }
-public async Task<ResultObj> ProcessBlogList()
-{
-    string blogFile = _isUsingGuidesFile ? _blogFileGuides : _blogFile;
-    
-    // Call the existing method with the selected file
-    var result = await ProcessBlogList(blogFile);
 
-    // Toggle the flag for the next call
-    _isUsingGuidesFile = !_isUsingGuidesFile;
+        private async Task<ResultObj> GetLLMReportForHost(string input)
+        {
+            var result = new ResultObj();
+            result.Success = false;
+            var user = new UserInfo()
+            {
+                UserID = "default"
+            };
+        
+            var serviceObj = new LLMServiceObj
+            {
+                RequestSessionId = Guid.NewGuid().ToString(),
+                MessageID = Guid.NewGuid().ToString(),
+                UserInfo = user,
+                SourceLlm = "blogmonitor",
+                DestinationLlm = "blogmonitor",
+                IsSystemLlm = true,
+                LLMRunnerType = "TurboLLM"
+            };
 
-    return result;
-}
+            var resultStart = new TResultObj<LLMServiceObj>();
+            try
+            {
+                resultStart = await _dataLLMService.SystemLlmStart(serviceObj);
+                if (resultStart != null && resultStart.Success && resultStart.Data != null)
+                {
+                    serviceObj = resultStart.Data;
+                    _logger.LogInformation(resultStart.Message);
+                }
+                else
+                {
+                    result.Message = resultStart!.Message;
+                    _logger.LogError(resultStart.Message);
+                    return result;
+                }
 
-public async Task<ResultObj> ProcessBlogListAll()
-{
-    string blogFile = _isUsingGuidesFile ? _blogFileGuides : _blogFile;
-    
-    // Call the existing method with the selected file
-    var result = await ProcessBlogListAll(blogFile);
+            }
+            catch (Exception e)
+            {
+                result.Message = $" Error : could not start llm . Error was : {e.Message}";
+                _logger.LogError(result.Message);
+                return result;
 
-    // Toggle the flag for the next call
-    _isUsingGuidesFile = !_isUsingGuidesFile;
+            }
 
-    return result;
-}
+            try
+            {
+                serviceObj.UserInput = $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to acheive this \"{input}\", ONLY REPLY WITH THE Blog";
+                result = await _dataLLMService.LLMInput(serviceObj);
+
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($" Error : could produce report from llm output . Error was : {e.Message}");
+
+            }
+            try
+            {
+
+                var resultStop = await _dataLLMService.SystemLlmStop(serviceObj);
+                if (resultStop.Success)
+                {
+                    _logger.LogInformation(result.Message);
+                }
+                else
+                {
+                    _logger.LogError(result.Message);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($" Error : could not stop llm . Error was : {e.Message}");
+            }
+            return result;
+        }
+
+        public async Task<ResultObj> ProcessBlogList()
+        {
+            string blogFile = _isUsingGuidesFile ? _blogFileGuides : _blogFile;
+
+            // Call the existing method with the selected file
+            var result = await ProcessBlogList(blogFile);
+
+            // Toggle the flag for the next call
+            _isUsingGuidesFile = !_isUsingGuidesFile;
+
+            return result;
+        }
+
+        public async Task<ResultObj> ProcessBlogListAll()
+        {
+            string blogFile = _isUsingGuidesFile ? _blogFileGuides : _blogFile;
+
+            // Call the existing method with the selected file
+            var result = await ProcessBlogListAll(blogFile);
+
+            // Toggle the flag for the next call
+            _isUsingGuidesFile = !_isUsingGuidesFile;
+
+            return result;
+        }
 
         // A method to Process all The Blogs in the BlogList
         public async Task<ResultObj> ProcessBlogListAll(string blogFile)
@@ -154,11 +230,12 @@ public async Task<ResultObj> ProcessBlogListAll()
                     return result;
                 }
                 string systemPrompt = _systemPrompt;
-                if (blogFile == "BlogListGuides.json") systemPrompt = _systemPromptGuides;
+                bool useDataLLMService=false;
+                if (blogFile == "BlogListGuides.json") useDataLLMService=true;
                 // Loop through the list and process each item
                 foreach (var item in _blogList)
                 {
-                    var currentResult = await PutAnswerIntoBlogs(item,systemPrompt);
+                    var currentResult = await PutAnswerIntoBlogs(item, systemPrompt, useDataLLMService);
                     // pause for 30 seconds
                     await Task.Delay(1000);
                     results.Add(currentResult);
@@ -221,10 +298,11 @@ public async Task<ResultObj> ProcessBlogListAll()
                     _logger.LogError(result.Message);
                     return result;
                 }
-                 string systemPrompt = _systemPrompt;
-                if (blogFile == "BlogListGuides.json") systemPrompt = _systemPromptGuides;
-              //var blogQuestion = "Write a blog post, that sound like a human wrote it, using this title for content : '" + question + "'. Style this article using Markdown. Put the blog post content inside a json object for example {\"postContent\" : \"\"}.";
-                result = await PutAnswerIntoBlogs(blogList, systemPrompt);
+                string systemPrompt = _systemPrompt;
+                bool useDataLLMService=false;
+                if (blogFile == "BlogListGuides.json") useDataLLMService=true;
+                //var blogQuestion = "Write a blog post, that sound like a human wrote it, using this title for content : '" + question + "'. Style this article using Markdown. Put the blog post content inside a json object for example {\"postContent\" : \"\"}.";
+                result = await PutAnswerIntoBlogs(blogList, systemPrompt, useDataLLMService);
                 if (result.Success == false)
                 {
                     result.Message += " SERVICE : ProcessBlogListAll : Error : " + result.Message;
@@ -278,14 +356,14 @@ public async Task<ResultObj> ProcessBlogListAll()
             var result = new TResultObj<string?>();
             result.Message = " SERVICE : AskQuestion :";
             // a new ContentObject.logit_bias object with words  However, Moreover, Therefore, Concluson and Finally.
-           /* var logitBias = new Dictionary<int, int>
-            {
-                     { 4864, -90 }, // However
-                     { 24606, -90 }, // Moreover
-                     { 26583, -90 }, // Therefore
-                     { 21481, -100 }, // Concluson
-                     { 11158, -90 }, //Finally
-            };*/
+            /* var logitBias = new Dictionary<int, int>
+             {
+                      { 4864, -90 }, // However
+                      { 24606, -90 }, // Moreover
+                      { 26583, -90 }, // Therefore
+                      { 21481, -100 }, // Concluson
+                      { 11158, -90 }, //Finally
+             };*/
             var messageSystem = new Message() { role = "system", content = systemPrompt };
             var messages = new List<Message>();
             var message = new Message() { role = "user", content = question };
@@ -338,7 +416,7 @@ public async Task<ResultObj> ProcessBlogListAll()
             }
             return result;
         }
-        public async Task<ResultObj> PutAnswerIntoBlogs(BlogList blogList, string systemPrompt)
+        public async Task<ResultObj> PutAnswerIntoBlogs(BlogList blogList, string systemPrompt, bool useDataLLMService)
         {
             var result = new ResultObj();
             result.Message = " API : PutAnswerIntoBlogs :";
@@ -368,8 +446,19 @@ public async Task<ResultObj> ProcessBlogListAll()
                     result.Message += " Error : No question found in BlogList";
                     return result;
                 }
-             
-                var chatResult = await AskQuestion(question, systemPrompt);
+                var chatResult=new TResultObj<string?>();
+                if (useDataLLMService)
+                {
+                    var resultLlm =await GetLLMReportForHost(question);
+                    if (result.Success) chatResult.Data=resultLlm.Message;
+                    chatResult.Message=resultLlm.Message;
+                    chatResult.Success=resultLlm.Success;
+                }
+                else
+                {
+                    chatResult = await AskQuestion(question, systemPrompt);
+                }
+
                 result.Message += chatResult.Message;
                 if (chatResult.Success == false)
                 {
@@ -457,9 +546,9 @@ public async Task<ResultObj> ProcessBlogListAll()
                         {
                             var imageData = imageResponse.data[0];
                             var imageProcessor = new ImageProcessor(_client);
-                             var origImageFilePath = Path.ChangeExtension(imageFilePath, null) + "-orig" + Path.GetExtension(imageFilePath);
-                            
-                           if (!string.IsNullOrEmpty(imageData.b64_json))
+                            var origImageFilePath = Path.ChangeExtension(imageFilePath, null) + "-orig" + Path.GetExtension(imageFilePath);
+
+                            if (!string.IsNullOrEmpty(imageData.b64_json))
                             {
                                 // Decode and save the base64 image as JPEG
                                 imageFilePath = await imageProcessor.DecodeBase64ImageAsync(imageData.b64_json, imageFilePath);
@@ -538,9 +627,9 @@ public async Task<ResultObj> ProcessBlogListAll()
             var result = new TResultObj<ImageResponse>();
             result.Message = " SERVICE : GenerateImage :";
             string endpointUrl = "/v1/images/generations"; // Adjust the endpoint based on the actual API
-       string systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be clean, minimalistic, and professional, avoiding excessive detail, small icons, or clutter. It should be simple but visually appealing, suitable for a network monitoring service website. Respond exclusively with the image generation prompt.";
-    string question = $"Generate a prompt for an image creation model (dall-e-3) that best represents this blog post: \"{answer}\". Only respond with the image generation prompt.";
-          var chatResult = await AskQuestion(question, systemPrompt);
+            string systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be clean, minimalistic, and professional, avoiding excessive detail, small icons, or clutter. It should be simple but visually appealing, suitable for a network monitoring service website. Respond exclusively with the image generation prompt.";
+            string question = $"Generate a prompt for an image creation model (dall-e-3) that best represents this blog post: \"{answer}\". Only respond with the image generation prompt.";
+            var chatResult = await AskQuestion(question, systemPrompt);
             result.Message += chatResult.Message;
             if (chatResult.Success == true && chatResult.Data != null)
             {
@@ -549,8 +638,8 @@ public async Task<ResultObj> ProcessBlogListAll()
                     model = "dall-e-3",
                     prompt = chatResult.Data,
                     n = 1, // number of images to generate
-                   size = "1024x1024",
-                    quality = "standard" 
+                    size = "1024x1024",
+                    quality = "standard"
                 };
 
                 var stringContent = new StringContent(JsonUtils.WriteJsonObjectToString(imageRequest), Encoding.UTF8, "application/json");
