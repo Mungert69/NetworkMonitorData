@@ -66,6 +66,8 @@ namespace NetworkMonitor.Data.Services
             _frontEndUrl = _config["FrontEndUrl"] ?? _frontEndUrl;
             _endpointUrlBase = _config["OpenAI:EndpointUrlBase"] ?? _endpointUrlBase;
             _model = _config["OpenAI:Model"] ?? _model;
+            _picModel= _config["OpenAI:PicModel"] ?? _picModel;
+            _apiKey = _config["OpenAI:ApiKey"] ?? "Missing";
             _token = cancellationTokenSource.Token;
             _token.Register(() => OnStopping());
             _scopeFactory = scopeFactory;
@@ -75,7 +77,7 @@ namespace NetworkMonitor.Data.Services
                 Timeout = TimeSpan.FromMinutes(10)
             };
             _client.BaseAddress = new Uri(_endpointUrlBase);
-            _apiKey = _config["OpenAIApiKey"] ?? "Missing";
+
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
             _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             // check if Blogs table has any data if not then add data from FirstData.getData().
