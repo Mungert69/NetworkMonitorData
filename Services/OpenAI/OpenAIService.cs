@@ -127,7 +127,7 @@ namespace NetworkMonitor.Data.Services
                 SourceLlm = "blogmonitor",
                 DestinationLlm = "blogmonitor",
                 IsSystemLlm = true,
-                LLMRunnerType = "FreeLLM"
+                LLMRunnerType = "TurboLLM"
             };
 
             var resultStart = new TResultObj<LLMServiceObj>();
