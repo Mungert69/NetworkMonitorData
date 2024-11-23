@@ -127,7 +127,7 @@ namespace NetworkMonitor.Data.Services
                 SourceLlm = "blogmonitor",
                 DestinationLlm = "blogmonitor",
                 IsSystemLlm = true,
-                LLMRunnerType = "TurboLLM"
+                LLMRunnerType = "FreeLLM"
             };
 
             var resultStart = new TResultObj<LLMServiceObj>();
@@ -157,7 +157,7 @@ namespace NetworkMonitor.Data.Services
 
             try
             {
-                serviceObj.UserInput = $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to acheive this \"{input}\", ONLY REPLY WITH THE Blog";
+                serviceObj.UserInput = $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to acheive this \"{input}\", ONLY REPLY WITH THE Blog. DO NOT inlucde the title in the blog post.";
                 result = await _dataLLMService.LLMInput(serviceObj);
 
             }
@@ -450,7 +450,7 @@ namespace NetworkMonitor.Data.Services
                 if (useDataLLMService)
                 {
                     var resultLlm =await GetLLMReportForHost(question);
-                    if (result.Success) chatResult.Data=resultLlm.Message;
+                    if (resultLlm.Success) chatResult.Data=(string?)resultLlm.Message;
                     chatResult.Message=resultLlm.Message;
                     chatResult.Success=resultLlm.Success;
                 }
