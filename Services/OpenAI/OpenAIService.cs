@@ -51,6 +51,7 @@ namespace NetworkMonitor.Data.Services
         private string _frontEndUrl = "https://freenetworkmonior.click";
         private string _model = "gpt-4o-mini";
         private string _picModel = "dall-e-3";
+        private string _llmRunnerType="TurboLLM";
         private string _systemPrompt = "You are a writing assistant specialized in generating human-like blog posts. The user will provide a title for the blog post, and you will create the content based on that title. Your response should be written in Markdown format, but DO NOT include the title in the response. Ensure the content is detailed, informative, and provides thorough explanations of the topics discussed. Respond strictly with the blog content, omitting the title and any other instructions.";
 
         private string _blogFile = "BlogList.json";
@@ -66,6 +67,7 @@ namespace NetworkMonitor.Data.Services
             _model = _config["OpenAI:Model"] ?? _model;
             _picModel = _config["OpenAI:PicModel"] ?? _picModel;
             _apiKey = _config["OpenAI:ApiKey"] ?? "Missing";
+             _llmRunnerType=_config["LlmRunnerType"] ?? _llmRunnerType;
             _token = cancellationTokenSource.Token;
             _token.Register(() => OnStopping());
             _scopeFactory = scopeFactory;
@@ -127,7 +129,7 @@ namespace NetworkMonitor.Data.Services
                 SourceLlm = "blogmonitor",
                 DestinationLlm = "blogmonitor",
                 IsSystemLlm = true,
-                LLMRunnerType = "TurboLLM"
+                LLMRunnerType = _llmRunnerType
             };
 
             var resultStart = new TResultObj<LLMServiceObj>();
