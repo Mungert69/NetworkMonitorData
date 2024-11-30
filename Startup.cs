@@ -90,6 +90,10 @@ namespace NetworkMonitor.Data
             services.AddSingleton(_cancellationTokenSource);
             services.Configure<HostOptions>(s => s.ShutdownTimeout = TimeSpan.FromMinutes(5));
             services.AddAsyncServiceInitialization()
+            .AddInitAction<IRabbitRepo>(async (rabbitRepo) =>
+                    {
+                        await rabbitRepo.ConnectAndSetUp();
+                    })
             .AddInitAction<IProcessorBrokerService>(async (processorBrokerService) =>
                     {
                         await processorBrokerService.Init();
@@ -98,9 +102,9 @@ namespace NetworkMonitor.Data
                     {
                         await monitorData.Init();
                     })
-                 .AddInitAction<IRabbitListener>((rabbitListener) =>
+                 .AddInitAction<IRabbitListener>(async (rabbitListener) =>
                     {
-                        return Task.CompletedTask;
+                        await rabbitListener.Setup();
                     });
 
         }

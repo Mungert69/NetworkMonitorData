@@ -38,7 +38,6 @@ namespace NetworkMonitor.Data.Services
         {
             _logger = logger;
             _loggerFactory = loggerFactory;
-            //_rabbitRepo = rabbitRepo;
             _processorState = processorState;
             _scopeFactory = scopeFactory;
             _systemParams = systemParamsHelper.GetSystemParams();
@@ -63,36 +62,51 @@ namespace NetworkMonitor.Data.Services
             {
                 result.Message = $" Error : Failed to get Processor List from Database . Error was : {e.Message}";
                 result.Success = false;
+                _logger.LogError(result.Message);
+
+                return result;
+            }
+            if (_systemParams.SystemUrls==null || _systemParams.SystemUrls.Count==0){
+                 result.Message += " Error : There are no System Urls in the config. ";
+                result.Success = false;
+
+                _logger.LogError(result.Message);
                 return result;
             }
             try
             {
-                _systemParams.SystemUrls.ForEach(f =>
+                foreach (var systemUrl in _systemParams.SystemUrls)         
                 {
-                    ISystemParamsHelper localSystemParamsHelper = new LocalSystemParamsHelper(f);
-                    _logger.LogInformation(" Adding RabbitRepo for : " + f.ExternalUrl + " . ");
-                    _rabbitRepos.Add(new RabbitRepo(_loggerFactory.CreateLogger<RabbitRepo>(), localSystemParamsHelper));
-                });
+                    ISystemParamsHelper localSystemParamsHelper = new LocalSystemParamsHelper(systemUrl);
+                    var rabbitRepo=new RabbitRepo(_loggerFactory.CreateLogger<RabbitRepo>(), localSystemParamsHelper);
+                    await rabbitRepo.ConnectAndSetUp();
+                    _rabbitRepos.Add(rabbitRepo);
+                    result.Message += " Success : Added RabbitRepo for : " + systemUrl.ExternalUrl + " . ";
+
+                }
             }
             catch (Exception e)
             {
                 result.Message += " Error : Could not setup RabbitRepos. Error was : " + e.ToString() + " . ";
-                 result.Success = false;
+                result.Success = false;
+
+                _logger.LogError(result.Message);
                 return result;
             }
             try
             {
                 await DataPublishRepo.FullProcessorList(_logger, _rabbitRepos, _processorState.GetProcessorListAll(true));
                 result.Message += " Published full list of processors. ";
+                result.Success = true;
+                _logger.LogInformation(result.Message);
             }
 
             catch (Exception e)
             {
                 result.Message += $" Error : Failed to Publish FullProcessorList . Error was : {e.Message}";
                 result.Success = false;
-                return result;
+                _logger.LogError(result.Message);
             }
-            result.Success = true;
 
             return result;
 
@@ -155,7 +169,7 @@ namespace NetworkMonitor.Data.Services
             initObj.AppID = processor.AppID;
             initObj.PingParams = _pingParams;
             initObj.MonitorIPs = new List<MonitorIP>();
-                     
+
             if (string.IsNullOrEmpty(processor.RabbitHost)) processor.RabbitHost = "rabbitmq";
 
 
@@ -197,15 +211,16 @@ namespace NetworkMonitor.Data.Services
                             stateProcessor.RabbitHost = processor.RabbitHost;
                             stateProcessor.AuthKey = processor.AuthKey;
                             if (!_processorState.SetProcessorObj(stateProcessor)) _logger.LogCritical($" Error : Data service  failed to set processor state of processor with AppID {processor.AppID} ");
-                       ;
+                            ;
                         }
-                        else {
+                        else
+                        {
                             _logger.LogCritical($" Error : Data service is missing a processor with AppID {processor.AppID} that is not in state but is in the database. ");
                         }
                         await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
                         result.Message += $" Success : Update message sent to RabbitHost {processor.RabbitHost} for Processor with AppID {processor.AppID} ";
                         initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
-                        initObj.AuthKey=processor.AuthKey;
+                        initObj.AuthKey = processor.AuthKey;
                     }
                     await monitorContext.SaveChangesAsync();
 
@@ -252,85 +267,85 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-       /* public async Task<ResultObj> UserUpdateProcessor(ProcessorObj processor)
-        {
-            var result = new ResultObj();
-            result.Message = " Service : UserUpdateProcessor : ";
-            ProcessorInitObj initObj = new ProcessorInitObj();
-            initObj.TotalReset = false;
-            initObj.Reset = true;
+        /* public async Task<ResultObj> UserUpdateProcessor(ProcessorObj processor)
+         {
+             var result = new ResultObj();
+             result.Message = " Service : UserUpdateProcessor : ";
+             ProcessorInitObj initObj = new ProcessorInitObj();
+             initObj.TotalReset = false;
+             initObj.Reset = true;
 
-            initObj.PingParams = _pingParams;
+             initObj.PingParams = _pingParams;
 
 
-            try
-            {
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
-                    processor.AuthKey = AesOperation.EncryptString(_systemParams.EmailEncryptKey, processor.AppID);
-                    if (existingProcessor == null)
-                    {
-                        // New Processor
-                        processor.DateCreated = DateTime.UtcNow;
-                        processor.LastAccessDate = DateTime.UtcNow;
-                        monitorContext.ProcessorObjs.Add(processor);
-                        await DataPublishRepo.AddProcessor(_logger, _rabbitRepos, processor);
-                        result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
-                    }
-                    else
-                    {
-                        // Update Processor
-                        existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
-                         existingProcessor.DisabledCommands = processor.DisabledCommands;
-                        existingProcessor.IsEnabled = processor.IsEnabled;
-                        existingProcessor.Location = processor.Location;
-                        existingProcessor.MaxLoad = processor.MaxLoad;
-                        await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
-                        result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
-                    }
-                    initObj.AuthKey=processor.AuthKey;
-                    await DataPublishRepo.ProcessorAuthKey(_logger, _rabbitRepos, processor, initObj);
-                    result.Message += $" Success : Processor AuthKey sent to AppID {processor.AppID} .";
+             try
+             {
+                 using (var scope = _scopeFactory.CreateScope())
+                 {
+                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                     var existingProcessor = await monitorContext.ProcessorObjs.FirstOrDefaultAsync(p => p.AppID == processor.AppID);
+                     processor.AuthKey = AesOperation.EncryptString(_systemParams.EmailEncryptKey, processor.AppID);
+                     if (existingProcessor == null)
+                     {
+                         // New Processor
+                         processor.DateCreated = DateTime.UtcNow;
+                         processor.LastAccessDate = DateTime.UtcNow;
+                         monitorContext.ProcessorObjs.Add(processor);
+                         await DataPublishRepo.AddProcessor(_logger, _rabbitRepos, processor);
+                         result.Message += $" Success : New processor with AppID {processor.AppID} added and notified.";
+                     }
+                     else
+                     {
+                         // Update Processor
+                         existingProcessor.DisabledEndPointTypes = processor.DisabledEndPointTypes;
+                          existingProcessor.DisabledCommands = processor.DisabledCommands;
+                         existingProcessor.IsEnabled = processor.IsEnabled;
+                         existingProcessor.Location = processor.Location;
+                         existingProcessor.MaxLoad = processor.MaxLoad;
+                         await DataPublishRepo.UpdateProcessor(_logger, _rabbitRepos, processor);
+                         result.Message += $" Success : Processor with AppID {processor.AppID} updated and notified.";
+                     }
+                     initObj.AuthKey=processor.AuthKey;
+                     await DataPublishRepo.ProcessorAuthKey(_logger, _rabbitRepos, processor, initObj);
+                     result.Message += $" Success : Processor AuthKey sent to AppID {processor.AppID} .";
 
-                    await monitorContext.SaveChangesAsync();
-                }
+                     await monitorContext.SaveChangesAsync();
+                 }
 
-                result.Success = true;
-                _logger.LogInformation(result.Message);
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.Message = $" Error : updating processor with AppID {processor.AppID}. Error was : {ex.Message}";
-                _logger.LogError(result.Message);
-                return result;
-            }
-            try
-            {
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
-                    initObj.AuthKey=processor.AuthKey;
-                    if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
-                    await DataPublishRepo.ProcessorInit(_logger, _rabbitRepos, processor, initObj);
-                    result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
-                    result.Success = true;
-                }
-            }
+                 result.Success = true;
+                 _logger.LogInformation(result.Message);
+             }
+             catch (Exception ex)
+             {
+                 result.Success = false;
+                 result.Message = $" Error : updating processor with AppID {processor.AppID}. Error was : {ex.Message}";
+                 _logger.LogError(result.Message);
+                 return result;
+             }
+             try
+             {
+                 using (var scope = _scopeFactory.CreateScope())
+                 {
+                     var monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
+                     initObj.MonitorIPs = await monitorContext.MonitorIPs.Where(w => w.AppID == processor.AppID && !w.Hidden).ToListAsync();
+                     initObj.AuthKey=processor.AuthKey;
+                     if (initObj.MonitorIPs == null) initObj.MonitorIPs = new List<MonitorIP>();
+                     await DataPublishRepo.ProcessorInit(_logger, _rabbitRepos, processor, initObj);
+                     result.Message += " Success : Sent ProcessorInit event to appID " + processor.AppID + " . ";
+                     result.Success = true;
+                 }
+             }
 
-            catch (Exception e)
-            {
-                result.Message += $" Error : Could not send ProcessorInit event to appID {processor.AppID} . Error was : {e.Message} . ";
-                result.Success = false;
-                _logger.LogError(result.Message);
+             catch (Exception e)
+             {
+                 result.Message += $" Error : Could not send ProcessorInit event to appID {processor.AppID} . Error was : {e.Message} . ";
+                 result.Success = false;
+                 _logger.LogError(result.Message);
 
-            }
+             }
 
-            return result;
-        }*/
+             return result;
+         }*/
 
     }
 }
