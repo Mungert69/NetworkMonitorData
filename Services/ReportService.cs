@@ -311,7 +311,7 @@ namespace NetworkMonitor.Data.Services
                         // Parse LLM result using the ExtractRecommendations method
                         var (performanceAssessment, expertRecommendations) = ExtractRecommendations(llmResult.Message);
 
-                        reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Detailed Analysis</h3>");
+                        if (!string.IsNullOrEmpty(performanceAssessment) || !string.IsNullOrEmpty(expertRecommendations)) reportBuilder.AppendLine("<h3 style=\"color: #6239AB;\">Detailed Analysis</h3>");
 
                         if (!string.IsNullOrEmpty(performanceAssessment))
                         {
@@ -320,7 +320,7 @@ namespace NetworkMonitor.Data.Services
                         }
                         else
                         {
-                            reportBuilder.AppendLine("<p>No performance assessment data was provided.</p>");
+                            //reportBuilder.AppendLine("<p>No performance assessment data was provided.</p>");
                         }
 
                         if (!string.IsNullOrEmpty(expertRecommendations))
@@ -330,7 +330,7 @@ namespace NetworkMonitor.Data.Services
                         }
                         else
                         {
-                            reportBuilder.AppendLine("<p>No expert recommendations were provided.</p>");
+                            //reportBuilder.AppendLine("<p>No expert recommendations were provided.</p>");
                         }
                     }
 
