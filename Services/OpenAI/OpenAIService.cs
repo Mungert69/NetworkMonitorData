@@ -124,7 +124,7 @@ namespace NetworkMonitor.Data.Services
             var serviceObj = new LLMServiceObj
             {
                 RequestSessionId = Guid.NewGuid().ToString(),
-                MessageID = StringUtils.GetNanoid();
+                MessageID = StringUtils.GetNanoid(),
                 UserInfo = user,
                 SourceLlm = "blogmonitor",
                 DestinationLlm = "blogmonitor",
