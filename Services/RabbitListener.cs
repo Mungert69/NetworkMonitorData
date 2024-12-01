@@ -51,7 +51,6 @@ namespace NetworkMonitor.Data.Services
             _monitorIPService = monitorIPService;
             _processorBrokerService = processorBrokerService;
             _openAIService = openAIService;
-            Setup();
         }
 
         private static SystemUrl DeriveSystemUrl(ISystemParamsHelper systemParamsHelper)
