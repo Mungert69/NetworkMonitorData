@@ -35,6 +35,7 @@ namespace NetworkMonitor.Data
         public DbSet<LLMSessionLog> LLMSessionLogs { get; set; }
         public DbSet<LLMSessionOutput> LLMSessionOutputs { get; set; }
 
+public DbSet<ExceptionLog> ExceptionLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -58,6 +59,7 @@ namespace NetworkMonitor.Data
             modelBuilder.Entity<PredictStatus>().OwnsOne(p => p.SpikeDetectionResult).WithOwner();
             modelBuilder.Entity<LLMSessionLog>().ToTable("LLMSessionLogs");
             modelBuilder.Entity<LLMSessionOutput>().ToTable("LLMSessionOutputs");
+            modelBuilder.Entity<ExceptionLog>().ToTable("ExceptionLogs");
 
         }
     }
