@@ -58,6 +58,7 @@ namespace NetworkMonitor.Data
                          errorNumbersToAdd: null);
                          mySqlOptions.CommandTimeout(1200);  // Set to 20m
                      }
+                     
             ));
 
             services.AddSingleton<IMonitorData, MonitorData>();

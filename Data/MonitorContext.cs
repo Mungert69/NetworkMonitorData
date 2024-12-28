@@ -14,6 +14,7 @@ namespace NetworkMonitor.Data
             Database.EnsureCreated();
         }
 
+
         public DbSet<MonitorPingInfo> MonitorPingInfos { get; set; }
         public DbSet<PingInfo> PingInfos { get; set; }
         public DbSet<MonitorIP> MonitorIPs { get; set; }
