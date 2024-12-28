@@ -169,6 +169,7 @@ namespace NetworkMonitor.Data.Services
             initObj.AppID = processor.AppID;
             initObj.PingParams = _pingParams;
             initObj.MonitorIPs = new List<MonitorIP>();
+            processor.RabbitPort=_systemParams.GivenAgentPort;
 
             if (string.IsNullOrEmpty(processor.RabbitHost)) processor.RabbitHost = "rabbitmq";
 
