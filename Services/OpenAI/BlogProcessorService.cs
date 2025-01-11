@@ -156,7 +156,7 @@ namespace NetworkMonitor.Data.Services
                 }
 
                 // If the file is "BlogListGuides.json", we treat it differently
-                bool useDataLLMService = (blogFile == "BlogListGuides.json");
+                bool useDataLLMService = blogFile == "BlogListGuides.json";
                 var answerResult = await PutAnswerIntoBlogs(item, useDataLLMService);
 
                 result.Success = answerResult.Success;
@@ -189,26 +189,29 @@ namespace NetworkMonitor.Data.Services
 
                 // 2. Generate or retrieve content
                 string question = blogList.Content ?? "";
+                var chatResult = new TResultObj<string?>();
+
                 if (useDataLLMService)
                 {
                     // Extract Title and Focus
                     var (title, focus) = TitleFocusExtractor.ExtractTitleAndFocus(question, _logger);
 
                     // specialized LLM call
-                    var specializedResult = await _openAIService.GetLLMReportForHost(title, focus);
-                    if (!specializedResult.Success)
+                    var resultLlm = await _openAIService.GetLLMReportForHost(title, focus);
+                    if (resultLlm.Success)
                     {
-                        return new ResultObj() { Success = false, Message = specializedResult.Message };
+                        chatResult.Data = (string?)resultLlm.Message;
+                        question = title;
                     }
-
-                    // The LLM "message" itself might contain the generated text
-                    question = title; // Reuse the extracted title as the 'title' for the blog
-                    // Typically you'd store specializedResult.Message as the blog content
+                    chatResult.Message = resultLlm.Message;
+                    chatResult.Success = resultLlm.Success;
+                }
+                else
+                {
+                    var systemPrompt = "You are a writing assistant specialized in generating human-like blog posts. The user will provide a title for the blog post, and you will create the content based on that title. Your response should be written in Markdown format, but DO NOT include the title in the response. Ensure the content is detailed, informative, and provides thorough explanations of the topics discussed. Respond strictly with the blog content, omitting the title and any other instructions.";
+                    chatResult = await _openAIService.AskQuestion(question, systemPrompt);
                 }
 
-                // Otherwise just do normal chat ask
-                var systemPrompt = "You are a writing assistant specialized in generating human-like blog posts ...";
-                var chatResult = await _openAIService.AskQuestion(question, systemPrompt);
 
                 if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
                 {
@@ -224,26 +227,28 @@ namespace NetworkMonitor.Data.Services
                 var hash = TitleFocusExtractor.GenerateHash(cleanedTitle);
 
                 // 4. Possibly generate an image
-                var imageResponse = await _openAIService.GenerateImage(answer);
-                bool isImage = imageResponse.Success && imageResponse.Data?.data?.Any() == true;
+                var imageResult = await _openAIService.GenerateImage(answer);
+                bool isImage = imageResult.Success && imageResult.Data?.data?.Any() == true;
 
                 // For simplicity, skip the detailed logic of saving the image
                 // Create a BlogPicture object if we want
-                BlogPicture picture = null;
+                BlogPicture? picture = null;
                 if (isImage)
                 {
                     var randomString = TitleFocusExtractor.GenerateRandomString(10);
                     var picName = $"{hash}-{randomString}.png";
                     var imageFilePath = System.IO.Path.Combine("apipicgen", picName);
-
+                    var blogCat = blogList.Categories?.FirstOrDefault() ?? "";
                     picture = new BlogPicture
                     {
                         Name = picName,
                         Path = imageFilePath,
                         IsUsed = true,
-                        Category = blogList.Categories?.FirstOrDefault(),
+                        Category = blogCat,
                         DateCreated = DateTime.UtcNow
                     };
+                    // Process and save the image to file.
+                   await _openAIService.ProcessorImage(imageResult.Data,imageFilePath);
                 }
 
                 // 5. Build categories
@@ -259,7 +264,7 @@ namespace NetworkMonitor.Data.Services
                     Markdown = answer,
                     DateCreated = date,
                     IsImage = isImage,
-                    ImageUrl = isImage ? "/blogpics/" + (picture?.Path ?? "") : null,
+                    ImageUrl = isImage ? "/blogpics/" + (picture?.Path ?? "") : "",
                     BlogCategories = blogCategories,
                     IsFeatured = false,
                     IsMainFeatured = false,

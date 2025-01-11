@@ -77,7 +77,7 @@ namespace NetworkMonitor.Data.Services
             return await context.Blogs.AnyAsync(b => b.Hash == hash);
         }
 
-        public async Task SaveNewBlogAsync(Blog blog, BlogPicture picture)
+        public async Task SaveNewBlogAsync(Blog blog, BlogPicture? picture)
         {
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<MonitorContext>();

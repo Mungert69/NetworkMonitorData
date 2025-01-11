@@ -9,6 +9,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Globalization;
@@ -26,7 +27,7 @@ namespace NetworkMonitor.Data.Services
         /// Basic question (chat) call to OpenAI.
         /// </summary>
         Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt);
-        
+
         /// <summary>
         /// Given a block of text, generate an image representing that text.
         /// </summary>
@@ -36,6 +37,8 @@ namespace NetworkMonitor.Data.Services
         /// Attempts to produce a specialized "host report" using an external LLM service or sub-service.
         /// </summary>
         Task<ResultObj> GetLLMReportForHost(string title, string focus);
+
+        Task ProcessorImage(ImageResponse? imageResponse, string imageFilePath);
     }
     public class OpenAIService : IOpenAIService
     {
@@ -45,6 +48,7 @@ namespace NetworkMonitor.Data.Services
         private readonly string _model;
         private readonly string _picModel;
         private readonly string _llmRunnerType;
+        private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
 
@@ -61,6 +65,7 @@ namespace NetworkMonitor.Data.Services
             _picModel = config["OpenAI:PicModel"] ?? "dall-e-3";
             _apiKey = config["OpenAI:ApiKey"] ?? "Missing";
             _llmRunnerType = config["LlmRunnerType"] ?? "TurboLLM";
+            _createImages = bool.TryParse(config["OpenAI:CreateImages"], out bool createImages) ? createImages : true;
 
             _client = new HttpClient()
             {
@@ -139,19 +144,75 @@ namespace NetworkMonitor.Data.Services
         }
 
         /// <summary>
+        /// Saves the image (from <see cref="ImageResponse"/>) to disk, handling either base64 or direct URL downloads.
+        /// This matches the logic you placed in the TODO comment.
+        /// </summary>
+        public async Task ProcessorImage(ImageResponse? imageResponse, string imageFilePath)
+        {
+            if (imageResponse?.data == null || imageResponse.data.Count == 0)
+            {
+                _logger.LogWarning("No image data found to process.");
+                return;
+            }
+
+            var imageData = imageResponse.data[0];
+            // If you already have an ImageProcessor wrapper class, use it here. 
+            var imageProcessor = new ImageProcessor(_client); 
+            var origImageFilePath = Path.ChangeExtension(imageFilePath, null) 
+                                    + "-orig" 
+                                    + Path.GetExtension(imageFilePath);
+
+            try
+            {
+                // If the image data is in base64, decode and save
+                if (!string.IsNullOrEmpty(imageData.b64_json))
+                {
+                    // Decode and save the base64 image 
+                    await imageProcessor.DecodeBase64ImageAsync(imageData.b64_json, imageFilePath);
+
+                    // Optionally save the "original" image without compression or re-encoding
+                    await imageProcessor.DecodeBase64OrigImageAsync(imageData.b64_json, origImageFilePath);
+                }
+                // If the image data is a URL, download directly
+                else if (!string.IsNullOrEmpty(imageData.url))
+                {
+                    // Download and save
+                    await imageProcessor.DownloadImageAsync(imageData.url, imageFilePath);
+
+                    // Download an uncompressed/original version if desired
+                    await imageProcessor.DownloadOrigImageAsync(imageData.url, origImageFilePath);
+                }
+                else
+                {
+                    _logger.LogWarning("Image data is missing b64_json and url fields.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error while processing or saving the image: " + ex.Message);
+            }
+        }
+        /// <summary>
         /// Generates an image using the pic model (e.g., DALL-E).
         /// </summary>
         public async Task<TResultObj<ImageResponse>> GenerateImage(string answer)
         {
+
             var result = new TResultObj<ImageResponse>()
             {
                 Message = " SERVICE : GenerateImage :"
             };
+            if (!_createImages)
+            {
+                result.Success = false;
+                result.Message += " No image generate _createImages is false";
+                return result;
+            }
 
             // We first ask GPT to produce a prompt for DALL-E
-            var systemPrompt = "You are an assistant specialized in generating minimalistic, professional image prompts...";
+            var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be clean, minimalistic, and professional, avoiding excessive detail, small icons, or clutter. It should be simple but visually appealing, suitable for a network monitoring service website. Respond exclusively with the image generation prompt.";
             var question = $"Generate a prompt for an image creation model ({_picModel}) that best represents this blog post: \"{answer}\". " +
-                           "Only respond with the image generation prompt.";
+                            "Only respond with the image generation prompt.";
 
             var chatResult = await AskQuestion(question, systemPrompt);
             result.Message += chatResult.Message;
@@ -241,10 +302,8 @@ namespace NetworkMonitor.Data.Services
             // 2. Generate content
             try
             {
-                serviceObj.UserInput =
-                    $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant: \"{title}\". " +
-                    $"Focus: \"{focus}\". ONLY REPLY WITH THE Blog. DO NOT include the title.";
                 
+                serviceObj.UserInput =$"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to achieve this: \"{title}\". Use the focus: \"{focus}\" to ensure the blog is specific and aligned with the topic. ONLY REPLY WITH THE Blog. DO NOT include the title in the blog post.";
                 result = await _dataLLMService.LLMInput(serviceObj);
             }
             catch (Exception e)
