@@ -236,7 +236,7 @@ namespace NetworkMonitor.Data.Services
                 if (isImage)
                 {
                     var randomString = TitleFocusExtractor.GenerateRandomString(10);
-                    var picName = $"{hash}-{randomString}.png";
+                    var picName = $"{hash}-{randomString}.jpg";
                     var imageFilePath = System.IO.Path.Combine("apipicgen", picName);
                     var blogCat = blogList.Categories?.FirstOrDefault() ?? "";
                     picture = new BlogPicture
@@ -245,7 +245,7 @@ namespace NetworkMonitor.Data.Services
                         Path = imageFilePath,
                         IsUsed = true,
                         Category = blogCat,
-                        DateCreated = DateTime.UtcNow
+                        DateCreated = date
                     };
                     // Process and save the image to file.
                    await _openAIService.ProcessorImage(imageResult.Data,imageFilePath);
