@@ -218,9 +218,6 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-
-
-
         public async Task<ResultObj> DataCheck(MonitorDataInitObj checkObj)
         {
             var result = new ResultObj();

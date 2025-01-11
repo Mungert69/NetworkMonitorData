@@ -81,6 +81,9 @@ namespace NetworkMonitor.Data
                     );
                 });
             services.AddSingleton<IOpenAIService, OpenAIService>();
+            services.AddScoped<IBlogFileRepo, BlogFileRepo>();
+services.AddScoped<IBlogDatabaseRepo, BlogDatabaseRepo>();
+services.AddScoped<IBlogProcessorService, BlogProcessorService>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
             services.AddSingleton<IDataLLMService, DataLLMService>();
@@ -106,6 +109,10 @@ namespace NetworkMonitor.Data
                  .AddInitAction<IRabbitListener>(async (rabbitListener) =>
                     {
                         await rabbitListener.Setup();
+                    })
+                     .AddInitAction<IBlogDatabaseRepo>(async (blogDatabaseRepo) =>
+                    {
+                        await blogDatabaseRepo.CheckInitData();
                     });
 
         }

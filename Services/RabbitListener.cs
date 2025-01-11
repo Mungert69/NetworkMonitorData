@@ -39,8 +39,8 @@ namespace NetworkMonitor.Data.Services
         protected IPingInfoService _pingInfoService;
         protected IReportService _reportService;
         protected IMonitorIPService _monitorIPService;
-        protected IOpenAIService _openAIService;
-        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService, IReportService reportService, ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper, IProcessorBrokerService processorBrokerService, IDataLLMService dataLLMService, IOpenAIService openAIService) : base(logger, DeriveSystemUrl(systemParamsHelper))
+        protected IBlogProcessorService _blogProcessorService;
+        public RabbitListener(IMonitorData monitorData, IDatabaseQueueService databaseService, IPingInfoService pingInfoService, IMonitorIPService monitorIPService, IReportService reportService, ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper, IProcessorBrokerService processorBrokerService, IDataLLMService dataLLMService, IBlogProcessorService openAIService) : base(logger, DeriveSystemUrl(systemParamsHelper))
         {
 
             _monitorData = monitorData;
@@ -50,7 +50,7 @@ namespace NetworkMonitor.Data.Services
             _reportService = reportService;
             _monitorIPService = monitorIPService;
             _processorBrokerService = processorBrokerService;
-            _openAIService = openAIService;
+            _blogProcessorService = openAIService;
         }
 
         private static SystemUrl DeriveSystemUrl(ISystemParamsHelper systemParamsHelper)
@@ -1010,7 +1010,7 @@ namespace NetworkMonitor.Data.Services
             {
                 Stopwatch timerInner = new Stopwatch();
                 timerInner.Start();
-                result = await _openAIService.ProcessBlogList();
+                result = await _blogProcessorService.ProcessBlogList();
                 TimeSpan timeTakenInner = timerInner.Elapsed;
                 // If time taken is greater than the time to wait, then we need to adjust the time to wait.
                 int timeTakenInnerInt = (int)timeTakenInner.TotalSeconds;
