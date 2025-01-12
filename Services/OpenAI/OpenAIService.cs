@@ -274,7 +274,6 @@ namespace NetworkMonitor.Data.Services
                 UserInfo = user,
                 SourceLlm = "blogmonitor",
                 DestinationLlm = "blogmonitor",
-                LlmSessionStartName ="blogmonitor",
                 IsSystemLlm = true,
                 LLMRunnerType = _llmRunnerType
             };
