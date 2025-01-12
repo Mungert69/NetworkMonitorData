@@ -197,7 +197,7 @@ namespace NetworkMonitor.Data.Services
                     var (title, focus) = TitleFocusExtractor.ExtractTitleAndFocus(question, _logger);
 
                     // specialized LLM call
-                    var resultLlm = await _openAIService.GetLLMReportForHost(title, focus);
+                    var resultLlm = await _openAIService.GetSystemLLMResponse(title, focus);
                     if (resultLlm.Success)
                     {
                         chatResult.Data = (string?)resultLlm.Message;

@@ -36,7 +36,7 @@ namespace NetworkMonitor.Data.Services
         /// <summary>
         /// Attempts to produce a specialized "host report" using an external LLM service or sub-service.
         /// </summary>
-        Task<ResultObj> GetLLMReportForHost(string title, string focus);
+        Task<ResultObj> GetSystemLLMResponse(string title, string focus);
 
         Task ProcessorImage(ImageResponse? imageResponse, string imageFilePath);
     }
@@ -262,7 +262,7 @@ namespace NetworkMonitor.Data.Services
         /// <summary>
         /// Retrieves a specialized LLM-based blog report (title + focus).
         /// </summary>
-        public async Task<ResultObj> GetLLMReportForHost(string title, string focus)
+        public async Task<ResultObj> GetSystemLLMResponse(string title, string focus)
         {
             var result = new ResultObj();
             var user = new UserInfo() { UserID = "default" };
