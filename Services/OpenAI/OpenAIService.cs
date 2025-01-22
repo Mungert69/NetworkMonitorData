@@ -28,7 +28,7 @@ namespace NetworkMonitor.Data.Services
         /// <summary>
         /// Basic question (chat) call to OpenAI.
         /// </summary>
-        Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt, string modelType = "OpenAI");
+        Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt);
 
         /// <summary>
         /// Given a block of text, generate an image representing that text.
@@ -52,6 +52,8 @@ namespace NetworkMonitor.Data.Services
         private readonly string _openAiModel;
         private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
+        private string _questionModel="OpenAI";
+        private string _imageModel="HuggingFace";
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
@@ -85,9 +87,9 @@ namespace NetworkMonitor.Data.Services
             _client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         }
 
-        public async Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt, string modelType = "OpenAI")
+        public async Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt)
         {
-            if (modelType.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase))
+            if (_questionModel.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase))
             {
                 return await AskQuestionUsingHuggingFace(question);
             }
@@ -216,7 +218,7 @@ namespace NetworkMonitor.Data.Services
         /// <summary>
         /// Generates an image using the specified model type.
         /// </summary>
-        public async Task<TResultObj<ImageResponse>> GenerateImage(string prompt, string modelType = "OpenAI")
+        public async Task<TResultObj<ImageResponse>> GenerateImage(string prompt)
         {
             if (!_createImages)
             {
@@ -226,8 +228,8 @@ namespace NetworkMonitor.Data.Services
                     Message = "Image generation is disabled in the configuration."
                 };
             }
-
-            return modelType.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase)
+            _logger.LogInformation($" Generating an image with prompt {prompt}");
+            return _imageModel.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase)
                 ? await GenerateImageUsingHuggingFace(prompt)
                 : await GenerateImageUsingOpenAI(prompt);
         }
@@ -348,7 +350,7 @@ namespace NetworkMonitor.Data.Services
         /// <summary>
         /// Generates an image prompt and then creates the image using the configured model type.
         /// </summary>
-        public async Task<TResultObj<ImageResponse>> GenerateImageFromAnswer(string answer, string modelType = "OpenAI")
+        public async Task<TResultObj<ImageResponse>> GenerateImageFromAnswer(string answer)
         {
             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageFromAnswer:" };
 
@@ -374,7 +376,7 @@ namespace NetworkMonitor.Data.Services
                     return result;
                 }
 
-                var imageResult = await GenerateImage(chatResult.Data, modelType);
+                var imageResult = await GenerateImage(chatResult.Data);
                 result.Success = imageResult.Success;
                 result.Data = imageResult.Data;
                 result.Message += imageResult.Message;
@@ -389,52 +391,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-        public async Task<TResultObj<ImageResponse>> GenerateImageFromAnswer(string answer)
-        {
-            var result = new TResultObj<ImageResponse>()
-            {
-                Message = " SERVICE : GenerateImageFromAnswer :"
-            };
-            try
-            {
-
-                if (!_createImages)
-                {
-                    result.Success = false;
-                    result.Message += " No image generate _createImages is false";
-                    return result;
-                }
-
-                // We first ask GPT to produce a prompt for DALL-E
-                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be clean, minimalistic, and professional, avoiding excessive detail, small icons, or clutter. It should be simple but visually appealing, suitable for a network monitoring service website. Respond exclusively with the image generation prompt.";
-                var question = $"Generate a prompt for an image creation model ({_openAiPicModel}) that best represents this blog post: \"{answer}\". " +
-                                "Only respond with the image generation prompt.";
-
-                var chatResult = await AskQuestion(question, systemPrompt);
-                result.Message += chatResult.Message;
-
-                if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
-                {
-                    result.Success = false;
-                    result.Message += " Cannot produce an image prompt for the blog.";
-                    return result;
-                }
-
-                var imageResult = await GenerateImage(chatResult.Message, "HuggingFace");
-                result.Success = true;
-                result.Data = imageResult.Data;
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.Message += " Error generating image: " + ex.Message;
-                _logger.LogError(result.Message);
-            }
-
-            return result;
-        }
-
-
+       
         /// <summary>
         /// Saves the image (from <see cref="ImageResponse"/>) to disk, handling either base64 or direct URL downloads.
         /// This matches the logic you placed in the TODO comment.
