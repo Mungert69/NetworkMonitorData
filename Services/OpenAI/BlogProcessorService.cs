@@ -227,7 +227,7 @@ namespace NetworkMonitor.Data.Services
                 var hash = TitleFocusExtractor.GenerateHash(cleanedTitle);
 
                 // 4. Possibly generate an image
-                var imageResult = await _openAIService.GenerateImage(answer);
+                var imageResult = await _openAIService.GenerateImageFromAnswer(answer);
                 bool isImage = imageResult.Success && imageResult.Data?.data?.Any() == true;
 
                 // For simplicity, skip the detailed logic of saving the image

@@ -21,17 +21,19 @@ using SixLabors.ImageSharp.Formats.Png;
 
 namespace NetworkMonitor.Data.Services
 {
+   
+
     public interface IOpenAIService
     {
         /// <summary>
         /// Basic question (chat) call to OpenAI.
         /// </summary>
-        Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt);
+        Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt, string modelType = "OpenAI");
 
         /// <summary>
         /// Given a block of text, generate an image representing that text.
         /// </summary>
-        Task<TResultObj<ImageResponse>> GenerateImage(string answer);
+        Task<TResultObj<ImageResponse>> GenerateImageFromAnswer(string answer);
 
         /// <summary>
         /// Attempts to produce a specialized "host report" using an external LLM service or sub-service.
@@ -43,10 +45,12 @@ namespace NetworkMonitor.Data.Services
     public class OpenAIService : IOpenAIService
     {
         private readonly HttpClient _client;
-        private readonly string _apiKey;
-        private readonly string _endpointUrlBase;
-        private readonly string _model;
-        private readonly string _picModel;
+        private readonly string _openAiApiKey;
+        private readonly string _openAiEndpointUrlBase;
+        private readonly string _huggingFaceApiKey;
+        private readonly string _huggingFaceApiUrl;
+        private readonly string _openAiModel;
+        private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
@@ -60,77 +64,97 @@ namespace NetworkMonitor.Data.Services
             _logger = logger;
             _dataLLMService = dataLLMService;
 
-            _endpointUrlBase = config["OpenAI:EndpointUrlBase"] ?? "https://api.openai.com";
-            _model = config["OpenAI:Model"] ?? "gpt-3.5-turbo";
-            _picModel = config["OpenAI:PicModel"] ?? "dall-e-3";
-            _apiKey = config["OpenAI:ApiKey"] ?? "Missing";
-            _llmRunnerType = config["LlmRunnerType"] ?? "TurboLLM";
-            _createImages = bool.TryParse(config["OpenAI:CreateImages"], out bool createImages) ? createImages : true;
+            // OpenAI configurations
+            _openAiApiKey = config["OpenAI:ApiKey"] ?? "Missing";
+            _openAiEndpointUrlBase = config["OpenAI:EndpointUrlBase"] ?? "https://api.openai.com";
+            _openAiPicModel = config["OpenAI:PicModel"] ?? "dall-e-3";
+            _openAiModel = config["OpenAI:Model"] ?? "gpt-3.5-turbo";
 
-            _client = new HttpClient()
-            {
-                Timeout = TimeSpan.FromMinutes(10),
-                BaseAddress = new Uri(_endpointUrlBase),
-            };
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-            _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            // Hugging Face configurations
+            _huggingFaceApiKey = config["HuggingFace:ApiKey"] ?? "Missing";
+            _huggingFaceApiUrl = config["HuggingFace:ApiUrl"] ?? "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
+
+
+
+
+            _llmRunnerType = config["LlmRunnerType"] ?? "TurboLLM";
+            // Image generation toggle
+            _createImages = bool.TryParse(config["CreateImages"], out bool createImages) ? createImages : true;
+
+            // HttpClient setup
+            _client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         }
 
-        /// <summary>
-        /// Asks a question (chat completion) using the configured model.
-        /// </summary>
-        public async Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt)
+        public async Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt, string modelType = "OpenAI")
         {
-            var result = new TResultObj<string?>();
-            result.Message = " SERVICE : AskQuestion :";
+            if (modelType.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase))
+            {
+                return await AskQuestionUsingHuggingFace(question);
+            }
+            else
+            {
+                return await AskQuestionUsingOpenAI(question, systemPrompt);
+            }
+        }
+
+        private async Task<TResultObj<string?>> AskQuestionUsingOpenAI(string question, string systemPrompt)
+        {
+            var result = new TResultObj<string?>
+            {
+                Message = "SERVICE: AskQuestionUsingOpenAI:"
+            };
 
             var messages = new List<Message>
-            {
-                new() { role = "system", content = systemPrompt },
-                new() { role = "user", content = question }
-            };
+    {
+        new() { role = "system", content = systemPrompt },
+        new() { role = "user", content = question }
+    };
 
-            var contentObject = new ContentObject()
+            var contentObject = new ContentObject
             {
-                model = _model,
+                model = _openAiModel,
                 messages = messages
             };
+            var content = new StringContent(JsonUtils.WriteJsonObjectToString(contentObject), Encoding.UTF8, "application/json");
 
-            var jsonPayload = JsonUtils.WriteJsonObjectToString(contentObject);
-            _logger.LogDebug(" SERVICE : AskQuestion Payload: " + jsonPayload);
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{_openAiEndpointUrlBase}/v1/chat/completions")
+            {
+                Content = content
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _openAiApiKey);
 
-            var stringContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-            string endpointUrl = "/v1/chat/completions";
+
+            _logger.LogDebug("SERVICE: AskQuestion Payload: " + content);
 
             try
             {
-                var response = await _client.PostAsync(endpointUrl, stringContent);
-                _logger.LogDebug("Response status code: " + response.StatusCode);
+                var response = await _client.SendAsync(request);
                 response.EnsureSuccessStatusCode();
+
+
 
                 string responseBody = await response.Content.ReadAsStringAsync();
                 var chatCompletion = JsonUtils.GetJsonObjectFromString<ChatCompletion>(responseBody);
 
-                if (chatCompletion == null || chatCompletion.Choices == null)
+                if (chatCompletion?.Choices == null || !chatCompletion.Choices.Any())
                 {
                     result.Success = false;
-                    result.Message += " Error : No Chat Result received.";
+                    result.Message += " Error: No Chat Result received.";
                     return result;
                 }
 
-                chatCompletion.Choices.Sort((x, y) => x.Index.CompareTo(y.Index));
-                var firstChoice = chatCompletion.Choices.FirstOrDefault()?.Message?.Content;
+                var firstChoice = chatCompletion.Choices.OrderBy(x => x.Index).FirstOrDefault()?.Message?.Content;
 
                 if (!string.IsNullOrEmpty(firstChoice))
                 {
                     result.Success = true;
                     result.Data = firstChoice;
-                    result.Message += " Success : Got chat completion.";
+                    result.Message += " Success: Got chat completion.";
                 }
                 else
                 {
                     result.Success = false;
-                    result.Message += " Error : No content in first choice.";
+                    result.Message += " Error: No content in first choice.";
                 }
             }
             catch (Exception ex)
@@ -142,6 +166,280 @@ namespace NetworkMonitor.Data.Services
 
             return result;
         }
+
+        private async Task<TResultObj<string?>> AskQuestionUsingHuggingFace(string question)
+        {
+            var result = new TResultObj<string?>
+            {
+                Message = "SERVICE: AskQuestionUsingHuggingFace:"
+            };
+
+            try
+            {
+                var payload = new { inputs = question };
+                var stringContent = new StringContent(JsonUtils.WriteJsonObjectToString(payload), Encoding.UTF8, "application/json");
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, _huggingFaceApiUrl)
+                {
+                    Content = stringContent
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
+
+                var response = await _client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                // Assuming Hugging Face returns text content directly
+                if (!string.IsNullOrEmpty(responseBody))
+                {
+                    result.Success = true;
+                    result.Data = responseBody;
+                    result.Message += " Success: Got response from Hugging Face.";
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message += " Error: Empty response from Hugging Face.";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message += " Exception while requesting response from Hugging Face: " + ex.Message;
+                _logger.LogError(result.Message);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Generates an image using the specified model type.
+        /// </summary>
+        public async Task<TResultObj<ImageResponse>> GenerateImage(string prompt, string modelType = "OpenAI")
+        {
+            if (!_createImages)
+            {
+                return new TResultObj<ImageResponse>
+                {
+                    Success = false,
+                    Message = "Image generation is disabled in the configuration."
+                };
+            }
+
+            return modelType.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase)
+                ? await GenerateImageUsingHuggingFace(prompt)
+                : await GenerateImageUsingOpenAI(prompt);
+        }
+
+        /// <summary>
+        /// Generates an image using OpenAI's DALL-E model.
+        /// </summary>
+        private async Task<TResultObj<ImageResponse>> GenerateImageUsingOpenAI(string prompt)
+        {
+            var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingOpenAI:" };
+
+            try
+            {
+                var requestPayload = new
+                {
+                    model = _openAiPicModel,
+                    prompt,
+                    n = 1,
+                    size = "1024x1024"
+                };
+                var content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_openAiEndpointUrlBase}/v1/images/generations")
+                {
+                    Content = content
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _openAiApiKey);
+
+                var response = await _client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                result.Data = JsonUtils.GetJsonObjectFromString<ImageResponse>(responseBody);
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message += $" Error generating image with OpenAI: {ex.Message}";
+                _logger.LogError(result.Message);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Generates an image using Hugging Face's model.
+        /// </summary>
+    private async Task<TResultObj<ImageResponse>> GenerateImageUsingHuggingFace(string prompt)
+{
+    var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingHuggingFace:" };
+    const int maxRetries = 10; // Number of retry attempts
+    const int delayMilliseconds = 30000; // Delay between retries in milliseconds
+    const int requestTimeoutMilliseconds = 1200000; // Timeout per request (2 minutes)
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            _logger.LogInformation($"Attempt {attempt} to call Hugging Face API.");
+
+            // Manually construct the JSON payload
+            var payloadJson = $"{{\"inputs\":\"{prompt.Replace("\"", "\\\"")}\"}}";
+            var content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+
+            // Create a custom HttpClientHandler with timeout
+            using var client = new HttpClient
+            {
+                Timeout = TimeSpan.FromMilliseconds(requestTimeoutMilliseconds) // Set timeout for this request
+            };
+
+            // Configure the request
+            using var request = new HttpRequestMessage(HttpMethod.Post, _huggingFaceApiUrl)
+            {
+                Content = content
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
+
+            // Send the request
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            // Process the response
+            var imageBytes = await response.Content.ReadAsByteArrayAsync();
+            result.Data = new ImageResponse
+            {
+                data = new List<ImageData> { new ImageData { b64_json = Convert.ToBase64String(imageBytes) } }
+            };
+            result.Success = true;
+
+            _logger.LogInformation($"Hugging Face API call succeeded on attempt {attempt}.");
+            return result; // Exit the loop on success
+        }
+        catch (HttpRequestException ex) when (attempt < maxRetries)
+        {
+            _logger.LogWarning($"Hugging Face API call failed on attempt {attempt}. Retrying... Error: {ex.Message}");
+            await Task.Delay(delayMilliseconds); // Wait before retrying
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message += $" Error generating image with Hugging Face: {ex.Message}";
+            _logger.LogError(result.Message);
+
+            // If it's the last attempt or an unexpected error, break the loop
+            if (attempt == maxRetries)
+                break;
+        }
+    }
+
+    // Return the result after all attempts
+    result.Success = false;
+    result.Message += " All retry attempts failed.";
+    return result;
+}
+
+    // If all retries fail, log and return the result
+    if (!result.Success)
+    {
+        _logger.LogError("All attempts to call Hugging Face API have failed.");
+    }
+
+    return result;
+}
+
+        /// <summary>
+        /// Generates an image prompt and then creates the image using the configured model type.
+        /// </summary>
+        public async Task<TResultObj<ImageResponse>> GenerateImageFromAnswer(string answer, string modelType = "OpenAI")
+        {
+            var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageFromAnswer:" };
+
+            if (!_createImages)
+            {
+                result.Success = false;
+                result.Message += " Image generation is disabled in the configuration.";
+                return result;
+            }
+
+            try
+            {
+                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. Respond with a single prompt to create an image that best represents the given content.";
+                var question = $"Generate an image prompt for: \"{answer}\".";
+
+                var chatResult = await AskQuestion(question, systemPrompt);
+                if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
+                {
+                    result.Success = false;
+                    result.Message += " Failed to generate an image prompt.";
+                    return result;
+                }
+
+                var imageResult = await GenerateImage(chatResult.Data, modelType);
+                result.Success = imageResult.Success;
+                result.Data = imageResult.Data;
+                result.Message += imageResult.Message;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message += $" Error generating image from answer: {ex.Message}";
+                _logger.LogError(result.Message);
+            }
+
+            return result;
+        }
+
+        public async Task<TResultObj<ImageResponse>> GenerateImageFromAnswer(string answer)
+        {
+            var result = new TResultObj<ImageResponse>()
+            {
+                Message = " SERVICE : GenerateImageFromAnswer :"
+            };
+            try
+            {
+
+                if (!_createImages)
+                {
+                    result.Success = false;
+                    result.Message += " No image generate _createImages is false";
+                    return result;
+                }
+
+                // We first ask GPT to produce a prompt for DALL-E
+                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be clean, minimalistic, and professional, avoiding excessive detail, small icons, or clutter. It should be simple but visually appealing, suitable for a network monitoring service website. Respond exclusively with the image generation prompt.";
+                var question = $"Generate a prompt for an image creation model ({_openAiPicModel}) that best represents this blog post: \"{answer}\". " +
+                                "Only respond with the image generation prompt.";
+
+                var chatResult = await AskQuestion(question, systemPrompt);
+                result.Message += chatResult.Message;
+
+                if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
+                {
+                    result.Success = false;
+                    result.Message += " Cannot produce an image prompt for the blog.";
+                    return result;
+                }
+
+                var imageResult = await GenerateImage(chatResult.Message, "HuggingFace");
+                result.Success = true;
+                result.Data = imageResult.Data;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message += " Error generating image: " + ex.Message;
+                _logger.LogError(result.Message);
+            }
+
+            return result;
+        }
+
 
         /// <summary>
         /// Saves the image (from <see cref="ImageResponse"/>) to disk, handling either base64 or direct URL downloads.
@@ -157,9 +455,9 @@ namespace NetworkMonitor.Data.Services
 
             var imageData = imageResponse.data[0];
             // If you already have an ImageProcessor wrapper class, use it here. 
-            var imageProcessor = new ImageProcessor(_client); 
-            var origImageFilePath = Path.ChangeExtension(imageFilePath, null) 
-                                    + "-orig" 
+            var imageProcessor = new ImageProcessor(_client);
+            var origImageFilePath = Path.ChangeExtension(imageFilePath, null)
+                                    + "-orig"
                                     + Path.GetExtension(imageFilePath);
 
             try
@@ -192,72 +490,7 @@ namespace NetworkMonitor.Data.Services
                 _logger.LogError("Error while processing or saving the image: " + ex.Message);
             }
         }
-        /// <summary>
-        /// Generates an image using the pic model (e.g., DALL-E).
-        /// </summary>
-        public async Task<TResultObj<ImageResponse>> GenerateImage(string answer)
-        {
 
-            var result = new TResultObj<ImageResponse>()
-            {
-                Message = " SERVICE : GenerateImage :"
-            };
-            if (!_createImages)
-            {
-                result.Success = false;
-                result.Message += " No image generate _createImages is false";
-                return result;
-            }
-
-            // We first ask GPT to produce a prompt for DALL-E
-            var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be clean, minimalistic, and professional, avoiding excessive detail, small icons, or clutter. It should be simple but visually appealing, suitable for a network monitoring service website. Respond exclusively with the image generation prompt.";
-            var question = $"Generate a prompt for an image creation model ({_picModel}) that best represents this blog post: \"{answer}\". " +
-                            "Only respond with the image generation prompt.";
-
-            var chatResult = await AskQuestion(question, systemPrompt);
-            result.Message += chatResult.Message;
-
-            if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
-            {
-                result.Success = false;
-                result.Message += " Cannot produce an image prompt for the blog.";
-                return result;
-            }
-
-            // Now request the actual image
-            var imageRequest = new ImageRequest()
-            {
-                model = _picModel,
-                prompt = chatResult.Data!,
-                n = 1,
-                size = "1024x1024",
-                quality = "standard"
-            };
-
-            var endpointUrl = "/v1/images/generations";
-            var requestPayload = JsonUtils.WriteJsonObjectToString(imageRequest);
-            var stringContent = new StringContent(requestPayload, Encoding.UTF8, "application/json");
-
-            try
-            {
-                var response = await _client.PostAsync(endpointUrl, stringContent);
-                response.EnsureSuccessStatusCode();
-
-                var responseBody = await response.Content.ReadAsStringAsync();
-                var imageResponse = JsonUtils.GetJsonObjectFromString<ImageResponse>(responseBody);
-
-                result.Success = true;
-                result.Data = imageResponse;
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.Message += " Error generating image: " + ex.Message;
-                _logger.LogError(result.Message);
-            }
-
-            return result;
-        }
 
         /// <summary>
         /// Retrieves a specialized LLM-based blog report (title + focus).
@@ -302,8 +535,8 @@ namespace NetworkMonitor.Data.Services
             // 2. Generate content
             try
             {
-                
-                serviceObj.UserInput =$"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to achieve this: \"{title}\". Use the focus: \"{focus}\" to ensure the blog is specific and aligned with the topic. ONLY REPLY WITH THE Blog. DO NOT include the title in the blog post.";
+
+                serviceObj.UserInput = $"Produce a blog post guiding the user on how to use the Free Network Monitor Assistant to achieve this: \"{title}\". Use the focus: \"{focus}\" to ensure the blog is specific and aligned with the topic. ONLY REPLY WITH THE Blog. DO NOT include the title in the blog post.";
                 result = await _dataLLMService.LLMInput(serviceObj);
             }
             catch (Exception e)
