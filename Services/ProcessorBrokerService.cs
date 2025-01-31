@@ -171,7 +171,7 @@ namespace NetworkMonitor.Data.Services
             initObj.MonitorIPs = new List<MonitorIP>();
             processor.RabbitPort=_systemParams.GivenAgentPort;
 
-            if (string.IsNullOrEmpty(processor.RabbitHost)) processor.RabbitHost = "rabbitmq";
+            if (string.IsNullOrEmpty(processor.RabbitHost)) processor.RabbitHost = "rabbitmq.freenetworkmonitor.click";
 
 
             try
