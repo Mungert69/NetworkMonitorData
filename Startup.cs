@@ -63,7 +63,6 @@ namespace NetworkMonitor.Data
 
             services.AddSingleton<IMonitorData, MonitorData>();
             services.AddSingleton<IDatabaseQueueService, DatabaseQueueService>();
-            services.AddSingleton<INetLoggerFactory, NetLoggerFactory>();
             services.AddSingleton<IRabbitListener, RabbitListener>();
             services.AddSingleton<IRabbitRepo, RabbitRepo>();
             services.AddSingleton<IFileRepo, FileRepo>();
