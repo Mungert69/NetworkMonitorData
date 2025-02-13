@@ -381,7 +381,7 @@ namespace NetworkMonitor.Data.Services
                             {
                                 try
                                 {
-                                    result = await SystemLlmOutput(ConvertToObject<LLMServiceObj>(model, ea));
+                                    _ = SystemLlmOutput(ConvertToObject<LLMServiceObj>(model, ea));
                                     await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
                                 }
                                 catch (Exception ex)
@@ -396,7 +396,7 @@ namespace NetworkMonitor.Data.Services
                             {
                                 try
                                 {
-                                    result = await SystemLlmStarted(ConvertToObject<LLMServiceObj>(model, ea));
+                                    _ =  SystemLlmStarted(ConvertToObject<LLMServiceObj>(model, ea));
                                     await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
                                 }
                                 catch (Exception ex)
@@ -411,7 +411,7 @@ namespace NetworkMonitor.Data.Services
                             {
                                 try
                                 {
-                                    result = await SystemLlmStopped(ConvertToObject<LLMServiceObj>(model, ea));
+                                    _ =  SystemLlmStopped(ConvertToObject<LLMServiceObj>(model, ea));
                                     await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
                                 }
                                 catch (Exception ex)
@@ -426,7 +426,7 @@ namespace NetworkMonitor.Data.Services
                             {
                                 try
                                 {
-                                    result = await ProcessBlogList();
+                                    _ =  ProcessBlogList();
                                     await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
                                 }
                                 catch (Exception ex)
