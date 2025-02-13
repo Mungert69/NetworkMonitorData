@@ -172,270 +172,278 @@ namespace NetworkMonitor.Data.Services
             {
                 foreach (var rabbitMQObj in _rabbitMQObjs)
                 {
-                    rabbitMQObj.Consumer = new AsyncEventingBasicConsumer(rabbitMQObj.ConnectChannel);
                     if (rabbitMQObj.ConnectChannel != null)
                     {
-                        switch (rabbitMQObj.FuncName)
+                        rabbitMQObj.Consumer = new AsyncEventingBasicConsumer(rabbitMQObj.ConnectChannel);
+                        await rabbitMQObj.ConnectChannel.BasicConsumeAsync(
+                            queue: rabbitMQObj.QueueName,
+                            autoAck: false,
+                            consumer: rabbitMQObj.Consumer
+                        );
+                        if (rabbitMQObj.ConnectChannel != null)
                         {
-                            case "dataUpdateMonitorPingInfos":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
+                            switch (rabbitMQObj.FuncName)
                             {
-                                try
+                                case "dataUpdateMonitorPingInfos":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    result = await UpdateMonitorPingInfos(ConvertToObject<Tuple<string, string>>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        result = await UpdateMonitorPingInfos(ConvertToObject<Tuple<string, string>>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataUpdateMonitorPingInfos " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "dataCheck":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataUpdateMonitorPingInfos " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "dataCheck":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                    try
+                                    {
+                                        result = await DataCheck(ConvertToObject<MonitorDataInitObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "updateUserPingInfos":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    result = await DataCheck(ConvertToObject<MonitorDataInitObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        var tResult = await UpdateUserPingInfos(ConvertToObject<PaymentTransaction>(model, ea));
+                                        result.Success = tResult.Success;
+                                        result.Message = tResult.Message;
+                                        result.Data = tResult.Data;
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.updateUserPingInfos " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "restorePingInfosForAllUsers":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataCheck " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "updateUserPingInfos":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                    try
+                                    {
+                                        result = await RestorePingInfosForAllUsers();
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "dataPurge":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    var tResult = await UpdateUserPingInfos(ConvertToObject<PaymentTransaction>(model, ea));
-                                    result.Success = tResult.Success;
-                                    result.Message = tResult.Message;
-                                    result.Data = tResult.Data;
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        result = await DataPurge();
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "fillUserTokens":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.updateUserPingInfos " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "restorePingInfosForAllUsers":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                    try
+                                    {
+                                        result = await FillUserTokens();
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.fillUserTokens " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "saveData":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    result = await RestorePingInfosForAllUsers();
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        result = await SaveData();
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.saveData " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "initData":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "dataPurge":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                    try
+                                    {
+                                        result = await InitData(ConvertToObject<MonitorDataInitObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.initData " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "createHostSummaryReport":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    result = await DataPurge();
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        result = await CreateHostSummaryReport();
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.report " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "changeProcessorAppID":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.dataPurge " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "fillUserTokens":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    result = await FillUserTokens();
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.fillUserTokens " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "saveData":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    result = await SaveData();
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.saveData " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "initData":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    result = await InitData(ConvertToObject<MonitorDataInitObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.initData " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "createHostSummaryReport":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    result = await CreateHostSummaryReport();
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.report " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "changeProcessorAppID":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    result = await ChangeProcessorAppID(ConvertToObject<Tuple<string, string>>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.user.AddProcessor " + ex.Message);
-                                }
-                            };
-                                break;
-                            /* case "userUpdateProcessor":
-                                 await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                 rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                             {
-                                 try
+                                    try
+                                    {
+                                        result = await ChangeProcessorAppID(ConvertToObject<Tuple<string, string>>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.user.AddProcessor " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                /* case "userUpdateProcessor":
+                                     await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                     rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                  {
-                                     result = await UserUpdateProcessor(ConvertToObject<ProcessorObj>(model, ea));
-                                     await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                 }
-                                 catch (Exception ex)
-                                 {
-                                     _logger.LogError(" Error : RabbitListener.DeclareConsumers.userUpdateProcessor " + ex.Message);
-                                 }
-                             };
-                                 break;*/
-                            case "genAuthKey":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                     try
+                                     {
+                                         result = await UserUpdateProcessor(ConvertToObject<ProcessorObj>(model, ea));
+                                         await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                     }
+                                     catch (Exception ex)
+                                     {
+                                         _logger.LogError(" Error : RabbitListener.DeclareConsumers.userUpdateProcessor " + ex.Message);
+                                     }
+                                 };
+                                     break;*/
+                                case "genAuthKey":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _ =  GenAuthKey(ConvertToObject<ProcessorObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        _ = GenAuthKey(ConvertToObject<ProcessorObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.genAuthKey " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "saveMonitorIPs":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.genAuthKey " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "saveMonitorIPs":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                    try
+                                    {
+                                        result = await SaveMonitorIPs(ConvertToObject<ProcessorDataObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.saveMonitorIPs" + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "systemLlmOutput":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    result = await SaveMonitorIPs(ConvertToObject<ProcessorDataObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        _ = SystemLlmOutput(ConvertToObject<LLMServiceObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmOutput " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "systemLlmStarted":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.saveMonitorIPs" + ex.Message);
-                                }
-                            };
-                                break;
-                            case "systemLlmOutput":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                    try
+                                    {
+                                        _ = SystemLlmStarted(ConvertToObject<LLMServiceObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStarted " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "systemLlmStopped":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _ = SystemLlmOutput(ConvertToObject<LLMServiceObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
+                                    try
+                                    {
+                                        _ = SystemLlmStopped(ConvertToObject<LLMServiceObj>(model, ea));
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStopped " + ex.Message);
+                                    }
+                                };
+                                    break;
+                                case "processBlogList":
+                                    await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
+                                    rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
                                 {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmOutput " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "systemLlmStarted":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    _ =  SystemLlmStarted(ConvertToObject<LLMServiceObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStarted " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "systemLlmStopped":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    _ =  SystemLlmStopped(ConvertToObject<LLMServiceObj>(model, ea));
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.systemLlmStopped " + ex.Message);
-                                }
-                            };
-                                break;
-                            case "processBlogList":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
-                                {
-                                    _ =  ProcessBlogList();
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.processBlogList " + ex.Message);
-                                }
-                            };
-                                break;
+                                    try
+                                    {
+                                        _ = ProcessBlogList();
+                                        await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(" Error : RabbitListener.DeclareConsumers.processBlogList " + ex.Message);
+                                    }
+                                };
+                                    break;
 
+                            }
                         }
                     }
                 }
