@@ -351,7 +351,7 @@ namespace NetworkMonitor.Data.Services
                             {
                                 try
                                 {
-                                    result = await GenAuthKey(ConvertToObject<ProcessorObj>(model, ea));
+                                    _ =  GenAuthKey(ConvertToObject<ProcessorObj>(model, ea));
                                     await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
                                 }
                                 catch (Exception ex)
