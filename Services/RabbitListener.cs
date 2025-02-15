@@ -175,11 +175,7 @@ namespace NetworkMonitor.Data.Services
                     if (rabbitMQObj.ConnectChannel != null)
                     {
                         rabbitMQObj.Consumer = new AsyncEventingBasicConsumer(rabbitMQObj.ConnectChannel);
-                        await rabbitMQObj.ConnectChannel.BasicConsumeAsync(
-                            queue: rabbitMQObj.QueueName,
-                            autoAck: false,
-                            consumer: rabbitMQObj.Consumer
-                        );
+                        
                         if (rabbitMQObj.ConnectChannel != null)
                         {
                             switch (rabbitMQObj.FuncName)
