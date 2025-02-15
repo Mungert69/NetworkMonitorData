@@ -9,6 +9,8 @@
     <ContainerImageTag>1.8.3</ContainerImageTag>
       <StartupObject>NetworkMonitor.Data.Program</StartupObject>
           <Nullable>enable</Nullable>
+                <NoWarn>CS8618</NoWarn> 
+
 </PropertyGroup>
 
  <!-- <snippet_SuppressWarnings> -->

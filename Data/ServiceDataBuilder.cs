@@ -33,7 +33,7 @@ namespace NetworkMonitor.Data
   .ToListAsync()) // Fetch all matching rows into memory
   .Where(w => swapMonitorPingInfoIDs.Contains(w.MonitorIPID)) // Client-side filtering
   .ToList();
-                foreach (var f in processorDataObj.SwapMonitorPingInfos)
+                foreach (var f in processorDataObj.SwapMonitorPingInfos!)
                 {
                     var m = existingMonitorPingInfos.FirstOrDefault(e => e.MonitorIPID == f.ID);
                     if (m != null)

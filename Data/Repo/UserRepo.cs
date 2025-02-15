@@ -13,6 +13,7 @@ using NetworkMonitor.Utils.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
+using System.Threading;
 using Microsoft.IdentityModel.Tokens;
 
 namespace NetworkMonitor.Data.Repo;
@@ -49,19 +50,39 @@ public class UserRepo : IUserRepo
     private IRabbitRepo _rabbitRepo;
     private IProcessorState _processorState;
     private ISystemParamsHelper _systemParamsHelper;
+      private readonly SemaphoreSlim _cacheLock = new SemaphoreSlim(1, 1);
 
-    public List<UserInfo> CachedUsers
+    public List<UserInfo> CachedUsers { get => _cachedUsers;  }
+
+    public async Task<List<UserInfo>> GetCachedUsersAsync()
     {
-        get
+        await _cacheLock.WaitAsync();
+        try
         {
-            if (_cachedUsers == null || _cachedUsers.Count == 0) _cachedUsers = GetAllDBUsersDBNoTracking().Result;
+            if (_cachedUsers == null || _cachedUsers.Count == 0)
+            {
+                _cachedUsers = await GetAllDBUsersDBNoTracking();
+            }
             return _cachedUsers;
+        }
+        finally
+        {
+            _cacheLock.Release();
         }
     }
 
+   
     public async Task RefreshUsers()
     {
-        _cachedUsers = await GetAllDBUsersDBNoTracking();
+       await _cacheLock.WaitAsync();
+        try
+        {
+            _cachedUsers = await GetAllDBUsersDBNoTracking();
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 
     public UserRepo(ILogger<UserRepo> logger, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, IProcessorState processorState)
@@ -75,9 +96,10 @@ public class UserRepo : IUserRepo
     }
 
 
-    public void UpdateCachedUserInfo(UserInfo newUserInfo)
+    public async Task UpdateCachedUserInfo(UserInfo newUserInfo)
     {
-        var userInfo = CachedUsers.Where(w => w.UserID == newUserInfo.UserID).FirstOrDefault();
+        var cachedUsers=await GetCachedUsersAsync();
+        var userInfo = cachedUsers.Where(w => w.UserID == newUserInfo.UserID).FirstOrDefault();
         if (userInfo == null)
         {
             _logger.LogError($" Error ; Unabled to update cachedUser . Could not find user with Id {newUserInfo.UserID}");
@@ -100,14 +122,16 @@ public class UserRepo : IUserRepo
 
     public async Task<UserInfo?> GetUserFromID(string userId)
     {
-
-        return CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
+        var cachedUsers=await GetCachedUsersAsync();
+       
+        return cachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
     public async Task<string?> GetUserIdFromEmail(string email)
     {
-
-        var user=CachedUsers.Where(w => w.Email == email).FirstOrDefault();
+ var cachedUsers=await GetCachedUsersAsync();
+       
+        var user=cachedUsers.Where(w => w.Email == email).FirstOrDefault();
         if (user==null) return null;
         return user.UserID;
 
@@ -124,8 +148,9 @@ public class UserRepo : IUserRepo
 
     public async Task<int> GetTokenCount(string userId)
     {
-
-        return CachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
+ var cachedUsers=await GetCachedUsersAsync();
+       
+        return cachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
     }
     public async Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens=false)
     {
@@ -148,7 +173,9 @@ public class UserRepo : IUserRepo
             }
 
         }
-        var user = CachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
+         var cachedUsers=await GetCachedUsersAsync();
+       
+        var user = cachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
         if (user != null)
         {
             user.TokensUsed = newTokensRemaining;
@@ -170,7 +197,7 @@ public class UserRepo : IUserRepo
     }
     private void ResetTokenForUser(UserInfo user)
     {
-        var accountType = AccountTypeFactory.GetAccountTypeByName(user.AccountType);
+        var accountType = AccountTypeFactory.GetAccountTypeByName(user.AccountType!);
 
         if (accountType != null && user.TokensUsed < accountType.TokenLimit)
         {
@@ -179,7 +206,9 @@ public class UserRepo : IUserRepo
     }
     public async Task ResetTokensUsed()
     {
-        var users = CachedUsers;
+         var cachedUsers=await GetCachedUsersAsync();
+       
+        var users = cachedUsers;
 
         ResetTokens(users);
         using (var scope = _scopeFactory.CreateScope())
@@ -194,7 +223,9 @@ public class UserRepo : IUserRepo
 
     public async Task FillTokensUsed()
     {
-        var users = CachedUsers;
+         var cachedUsers=await GetCachedUsersAsync();
+       
+        var users = cachedUsers;
 
         FillTokens(users);
         using (var scope = _scopeFactory.CreateScope())
@@ -284,7 +315,7 @@ public class UserRepo : IUserRepo
     private async Task<ResultObj> UpgradeActivatedTestUser(UserInfo user, MonitorContext monitorContext)
     {
         var result = new ResultObj();
-        string userId = user.UserID;
+        string userId = user.UserID!;
 
         if (!await monitorContext.ProcessorObjs.AnyAsync(w => w.Owner == userId && w.IsEnabled))
         {
@@ -308,7 +339,7 @@ public class UserRepo : IUserRepo
             userInfo.HostLimit = 50;
             ResetTokenForUser(user);
             await monitorContext.SaveChangesAsync();
-            UpdateCachedUserInfo(userInfo);
+            await UpdateCachedUserInfo(userInfo);
             result.Message = " Success : User account has been upgraded from Free to Standard.";
             result.Success = true;
             var alertMessage = new AlertMessage();
@@ -374,7 +405,9 @@ public class UserRepo : IUserRepo
                     user.MonitorIPs = new List<MonitorIP>();
                     ResetTokenForUser(user);
                     await monitorContext.UserInfos.AddAsync(user);
-                    CachedUsers.Add(user);
+                     var cachedUsers=await GetCachedUsersAsync();
+       
+                    cachedUsers.Add(user);
 
                     alertMessage = new AlertMessage();
                     alertMessage.UserInfo = user;
@@ -446,7 +479,7 @@ public class UserRepo : IUserRepo
                         saveUser.LastLoginDate = DateTime.UtcNow;
                         saveUser.MonitorIPs = new List<MonitorIP>();
                         await monitorContext.SaveChangesAsync();
-                        UpdateCachedUserInfo(saveUser);
+                        await UpdateCachedUserInfo(saveUser);
                         // change the user from default to the new user when emails match.
                         var moveMonitorIPs = await monitorContext.MonitorIPs.Where(w => w.UserInfoUserID == "default" && w.AddUserEmail == saveUser.Email).Include(i => i.UserInfo).ToListAsync();
                         moveMonitorIPs.ForEach(f =>
@@ -549,7 +582,7 @@ public class UserRepo : IUserRepo
                     dbUser.Picture = user.Picture;
                     dbUser.DisableEmail = user.DisableEmail;
                     monitorContext.SaveChanges();
-                    UpdateCachedUserInfo(dbUser);
+                    await UpdateCachedUserInfo(dbUser);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", user);
                     result.Message += "Success : User updated";
                     result.Data = null;
@@ -586,14 +619,14 @@ public class UserRepo : IUserRepo
                 var dbUser = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.CustomerId == user.CustomerId);
                 if (dbUser != null)
                 {
-                    userId=dbUser.UserID;
+                    userId=dbUser.UserID!;
                     dbUser.AccountType = user.AccountType;
                     dbUser.HostLimit = user.HostLimit;
                     dbUser.CancelAt = user.CancelAt;
                     dbUser.CustomerId = user.CustomerId;
                     ResetTokenForUser(dbUser);
                     await monitorContext.SaveChangesAsync();
-                    UpdateCachedUserInfo(dbUser);
+                    await UpdateCachedUserInfo(dbUser);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", dbUser);
                     result.Message += "Success : User Subcription updated to " + user.AccountType + " . ";
                     result.Data = "";
@@ -672,7 +705,7 @@ public class UserRepo : IUserRepo
                     dbUser.CustomerId = user.CustomerId;
                     dbUser.Updated_at = DateTime.UtcNow;
                     monitorContext.SaveChanges();
-                    UpdateCachedUserInfo(dbUser);
+                    await UpdateCachedUserInfo(dbUser);
                     //_rabbitRepo.Publish<UserInfo>("updateUserInfoAlertMessage", dbUser);
                     result.Message += " Success : userId " + dbUser.UserID + " customerId updated to " + user.CustomerId + " . ";
                     result.Data = "";
@@ -719,7 +752,7 @@ public class UserRepo : IUserRepo
                         monitorIP.Hidden = true;
                     }
                     await monitorContext.SaveChangesAsync();
-                    UpdateCachedUserInfo(userInfo);
+                    await UpdateCachedUserInfo(userInfo);
                     result.Success = true;
                     result.Message += "Success : User " + userId + " disabled";
                 }
@@ -754,7 +787,7 @@ public class UserRepo : IUserRepo
                     userInfo.DisableEmail = !subscribe;
                     userInfo.Updated_at = DateTime.UtcNow;
                     await context.SaveChangesAsync();
-                    UpdateCachedUserInfo(userInfo);
+                    await UpdateCachedUserInfo(userInfo);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", userInfo);
                     result.Success = true;
                     if (!subscribe)
@@ -815,7 +848,7 @@ public class UserRepo : IUserRepo
                     userInfo.Email_verified = true;
                     userInfo.Updated_at = DateTime.UtcNow;
                     await context.SaveChangesAsync();
-                    UpdateCachedUserInfo(userInfo);
+                    await UpdateCachedUserInfo(userInfo);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", userInfo);
                     result.Success = true;
                     result.Message += " You have successfully verified subscribed user email address " + email;
@@ -874,7 +907,7 @@ public class UserRepo : IUserRepo
 
                 }
                 await monitorContext.SaveChangesAsync();
-                users.ForEach(f => UpdateCachedUserInfo(f));
+                users.ForEach( async f => await UpdateCachedUserInfo(f));
 
             }
             result.Success = true;

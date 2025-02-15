@@ -14,7 +14,7 @@ namespace NetworkMonitor.Data.Services
     {
         Task CheckInitData();
         Task<bool> BlogHashExistsAsync(string hash);
-        Task SaveNewBlogAsync(Blog blog, BlogPicture picture);
+        Task SaveNewBlogAsync(Blog blog, BlogPicture? picture);
         // Possibly add more as needed
     }
 

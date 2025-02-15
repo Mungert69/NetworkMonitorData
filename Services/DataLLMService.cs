@@ -119,9 +119,17 @@ public class DataLLMService : IDataLLMService
             if (completedTask == tcs.Task)
             {
                 var taskResult = await tcs.Task;
-                result.Message = taskResult.Data.LlmMessage;
-                result.Success = taskResult.Data.ResultSuccess;
-                return result;
+                if (taskResult != null && taskResult.Data != null)
+                {
+                    result.Message = taskResult.Data.LlmMessage;
+                    result.Success = taskResult.Data.ResultSuccess;
+                    return result;
+                }
+                else {
+                    result.Success = false;
+                    result.Message ="No result message returned";
+                }
+
             }
             else
             {
@@ -129,7 +137,7 @@ public class DataLLMService : IDataLLMService
                 result.Success = false;
                 result.Message += "Error: Timeout waiting for LLMStopped response.";
                 _logger.LogError(result.Message);
-                return result;
+
             }
         }
         catch (Exception e)
@@ -137,8 +145,9 @@ public class DataLLMService : IDataLLMService
             result.Success = false;
             result.Message += $" Error : Unable to send stop message. The error was : {e.Message}";
             _logger.LogError(result.Message);
-            return result;
+
         }
+                        return result;
     }
 
 
@@ -190,7 +199,7 @@ public class DataLLMService : IDataLLMService
         }
     }
 
-    public async Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj)
+    public Task<TResultObj<LLMServiceObj>> LLMOutput(LLMServiceObj serviceObj)
     {
         var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMOutput " };
 
@@ -208,10 +217,10 @@ public class DataLLMService : IDataLLMService
             result.Success = false;
         }
 
-        return result;
+           return Task.FromResult(result);
     }
 
-    public async Task<TResultObj<LLMServiceObj>> LLMStarted(LLMServiceObj serviceObj)
+    public Task<TResultObj<LLMServiceObj>> LLMStarted(LLMServiceObj serviceObj)
     {
         var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMStarted " };
 
@@ -228,9 +237,9 @@ public class DataLLMService : IDataLLMService
             _logger.LogError(result.Message);
         }
 
-        return result;
+           return Task.FromResult(result);
     }
-    public async Task<TResultObj<LLMServiceObj>> LLMStopped(LLMServiceObj serviceObj)
+    public Task<TResultObj<LLMServiceObj>> LLMStopped(LLMServiceObj serviceObj)
     {
         var result = new TResultObj<LLMServiceObj> { Message = "DataLLMService : LLMStopped " };
 
@@ -247,6 +256,6 @@ public class DataLLMService : IDataLLMService
             _logger.LogError(result.Message);
         }
 
-        return result;
+           return Task.FromResult(result);
     }
 }

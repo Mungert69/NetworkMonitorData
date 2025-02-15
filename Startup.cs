@@ -58,7 +58,7 @@ namespace NetworkMonitor.Data
                          errorNumbersToAdd: null);
                          mySqlOptions.CommandTimeout(1200);  // Set to 20m
                      }
-                     
+
             ));
 
             services.AddSingleton<IMonitorData, MonitorData>();
@@ -68,21 +68,21 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IFileRepo, FileRepo>();
             services.AddSingleton<IUserRepo, UserRepo>();
             services.AddSingleton<IDataFileService>(provider =>
-                {
-                    bool useAlternateBehavior = true;
-                    return new DataFileService(
-                        provider.GetService<ILogger<DataFileService>>(),
-                        provider.GetService<IServiceScopeFactory>(),
-                        provider.GetService<IFileRepo>(),
-                        provider.GetService<ISystemParamsHelper>(),
-                        provider.GetService<IRabbitRepo>(),
-                        useAlternateBehavior
-                    );
-                });
+ {
+     bool useAlternateBehavior = true;
+     return new DataFileService(
+         provider.GetRequiredService<ILogger<DataFileService>>(),
+         provider.GetRequiredService<IServiceScopeFactory>(),
+         provider.GetRequiredService<IFileRepo>(),
+         provider.GetRequiredService<ISystemParamsHelper>(),
+         provider.GetRequiredService<IRabbitRepo>(),
+         useAlternateBehavior
+     );
+ });
             services.AddSingleton<IOpenAIService, OpenAIService>();
             services.AddScoped<IBlogFileRepo, BlogFileRepo>();
-services.AddScoped<IBlogDatabaseRepo, BlogDatabaseRepo>();
-services.AddScoped<IBlogProcessorService, BlogProcessorService>();
+            services.AddScoped<IBlogDatabaseRepo, BlogDatabaseRepo>();
+            services.AddScoped<IBlogProcessorService, BlogProcessorService>();
             services.AddSingleton<IPingInfoService, PingInfoService>();
             services.AddSingleton<IMonitorIPService, MonitorIPService>();
             services.AddSingleton<IDataLLMService, DataLLMService>();

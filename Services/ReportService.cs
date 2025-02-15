@@ -20,6 +20,7 @@ using NetworkMonitor.Utils;
 using NetworkMonitor.Utils.Helpers;
 using NetworkMonitor.Data.Repo;
 using NetworkMonitor.DTOs;
+using System.Drawing;
 
 namespace NetworkMonitor.Data.Services
 {
@@ -173,7 +174,6 @@ namespace NetworkMonitor.Data.Services
         private async Task<string> GetReportForHost(MonitorIP monitorIP, MonitorContext monitorContext, UserInfo userInfo)
         {
             var llmResult = new ResultObj();
-            bool errorFlag = false;
             StringBuilder reportBuilder = new StringBuilder();
             StringBuilder responseDataBuilder = new StringBuilder();
 
@@ -270,7 +270,7 @@ namespace NetworkMonitor.Data.Services
 
                     // Retrieve thresholds for categorizing response times
                     // Retrieve thresholds for categorizing response times
-                    var thresholds = EndPointTypeFactory.ResponseTimeThresholds.ContainsKey(monitorIP.EndPointType.ToLower())
+                    var thresholds = EndPointTypeFactory.ResponseTimeThresholds.ContainsKey(monitorIP.EndPointType!.ToLower())
                         ? EndPointTypeFactory.ResponseTimeThresholds[monitorIP.EndPointType.ToLower()].GetThresholds(monitorIP.Port)
                         : new ThresholdValues(500, 1000, 2000); // Default thresholds
 
@@ -343,8 +343,7 @@ namespace NetworkMonitor.Data.Services
             }
             catch (Exception ex)
             {
-                errorFlag = true;
-                _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
+               _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
                 reportBuilder.AppendLine($"<p style=\"color: #eb5160;\">Oops! We ran into an issue while generating your report: {ex.Message}</p>");
             }
 
@@ -485,13 +484,13 @@ namespace NetworkMonitor.Data.Services
                     canvas.DrawLine(margin, height - margin, width - margin, height - margin, axisPaint); // X-axis
 
                     // Y-axis label and values
-                    axisPaint.TextSize = 16;
+                     var axisFont =new SKFont{Size=16};
                     axisPaint.Color = new SKColor(0x60, 0x74, 0x66); // Primary theme color (visible green)
                     for (int i = 0; i <= 5; i++)
                     {
                         float yValue = minResponseTime + (i * (maxResponseTime - minResponseTime) / 5);
                         float yPosition = height - margin - (i * ((height - 2 * margin) / 5));
-                        canvas.DrawText($"{yValue:F0}", 10, yPosition + 5, axisPaint); // Adjust the position for visibility
+                        canvas.DrawText($"{yValue:F0}", 10, yPosition + 5, axisFont,axisPaint); // Adjust the position for visibility
                     }
 
                     // Draw response time data as a line chart
@@ -516,15 +515,15 @@ namespace NetworkMonitor.Data.Services
                     var textPaint = new SKPaint
                     {
                         Color = SKColors.Black,
-                        TextSize = 14,
                         IsAntialias = true
                     };
+                    var textFont =new SKFont{Size=14};
 
                     int labelInterval = Math.Max(1, dates.Count / 4); // Reduce the number of labels shown
                     for (int i = 0; i < dates.Count; i += labelInterval)
                     {
                         float x = margin + i * ((width - 2 * margin) / (dates.Count - 1));
-                        canvas.DrawText(dates[i], x, height - 20, textPaint); // Place date labels
+                        canvas.DrawText(dates[i], x, height - 20, textFont,textPaint); // Place date labels
                     }
 
                     // Draw points at each data location for visibility

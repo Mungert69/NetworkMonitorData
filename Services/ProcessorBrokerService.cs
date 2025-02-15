@@ -113,7 +113,7 @@ namespace NetworkMonitor.Data.Services
         }
 
 
-        public async Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs)
+        public  Task<ResultObj> ChangeProcessorAppID(Tuple<string, string> appIDs)
         {
             var result = new ResultObj();
             result.Message = " Service : ChangeProcessorAppID : ";
@@ -143,7 +143,7 @@ namespace NetworkMonitor.Data.Services
                         }
             */
             result.Message += " Success : No longer changing AppIDs .";
-            return result;
+           return Task.FromResult(result);
         }
 
         private async Task ActivateTestUser(string location, string owner, MonitorContext monitorContext)

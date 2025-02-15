@@ -182,7 +182,7 @@ namespace NetworkMonitor.Data.Services
                     var directory = Path.GetDirectoryName(message.FilePath);
                     if (!Directory.Exists(directory))
                     {
-                        Directory.CreateDirectory(directory);
+                        if (directory!=null) Directory.CreateDirectory(directory);
                     }
 
                     // Write JSON data to file
@@ -204,7 +204,7 @@ namespace NetworkMonitor.Data.Services
                     var directory = Path.GetDirectoryName(message.FilePath);
                     if (!Directory.Exists(directory))
                     {
-                        Directory.CreateDirectory(directory);
+                        if (directory!=null) Directory.CreateDirectory(directory);
                     }
 
                     // Save the image file
@@ -226,7 +226,7 @@ namespace NetworkMonitor.Data.Services
                     var directory = Path.GetDirectoryName(message.FilePath);
                     if (!Directory.Exists(directory))
                     {
-                        Directory.CreateDirectory(directory);
+                        if (directory!=null) Directory.CreateDirectory(directory);
                     }
 
                     // Write JSON data to file

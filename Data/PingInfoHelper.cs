@@ -27,7 +27,7 @@ namespace NetworkMonitor.Utils.Helpers
         }
         public async Task SetStatusList()
         {
-            _statusLookup = await _monitorContext.StatusList.AsNoTracking().ToDictionaryAsync(s => s.ID, s => s.Status);
+            _statusLookup = await _monitorContext.StatusList.AsNoTracking().ToDictionaryAsync(s => s.ID, s => s.Status ?? "");
             _reverseStatusLookup = _statusLookup.ToDictionary(kvp => kvp.Value, kvp => kvp.Key); // Populate the reverse dictionary
         }
         public List<PingInfoDTO> MapPingInfosToDTO(List<PingInfo> pingInfos)
@@ -60,8 +60,8 @@ namespace NetworkMonitor.Utils.Helpers
             {
                 count = (ushort)intCount;
                 var newStatusItem = new StatusItem() { Status = f.Status, ID = count };
-                _statusLookup[f.StatusID] = f.Status;
-                _reverseStatusLookup[f.Status] = f.StatusID;
+                _statusLookup[f.StatusID] = f.Status!;
+                _reverseStatusLookup[f.Status!] = f.StatusID;
                 addStatusList.Add(newStatusItem);
                 f.StatusID = count;
             }
@@ -242,7 +242,7 @@ namespace NetworkMonitor.Utils.Helpers
         {
 
             // CHeck User and MonitorPingInfoId are valid checking against MonitorIPs
-            if (!await ValidateUser.VerifyUserExists(userRepo, query.User!, true, authUserId))
+            if (!ValidateUser.VerifyUserExists(userRepo, query.User!, true, authUserId))
             {
                 result.Success = false;
                 result.Data = null;
@@ -391,7 +391,7 @@ namespace NetworkMonitor.Utils.Helpers
                 throw new ArgumentException("Invalid Parameter : monitorPingInfoID of type int is required.");
             }
             // CHeck User and MonitorPingInfoId are valid checking against MonitorIPs
-            if (!await ValidateUser.VerifyUserExists(userRepo, user, true, authUserId))
+            if (!ValidateUser.VerifyUserExists(userRepo, user, true, authUserId))
             {
                 result.Success = false;
                 result.Data = null;

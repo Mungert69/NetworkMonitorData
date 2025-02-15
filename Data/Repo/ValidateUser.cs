@@ -16,7 +16,7 @@ namespace NetworkMonitor.Data.Repo
     {
         private static string defaultUser = "default";
         // static method with input parameter of MonitorContext and UserInfo. Checks if userID is in the database.
-        public async static Task<bool> VerifyUserExists(IUserRepo userRepo, UserInfo user, bool ignoreDefault, string? userId)
+        public  static bool VerifyUserExists(IUserRepo userRepo, UserInfo user, bool ignoreDefault, string? userId)
         {
          
             // Entry to this condition can be with userId or (email and sub).
