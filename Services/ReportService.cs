@@ -343,7 +343,7 @@ namespace NetworkMonitor.Data.Services
             }
             catch (Exception ex)
             {
-               _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
+                _logger.LogError($"Error generating report for host {monitorIP.Address}: {ex.Message}");
                 reportBuilder.AppendLine($"<p style=\"color: #eb5160;\">Oops! We ran into an issue while generating your report: {ex.Message}</p>");
             }
 
@@ -437,8 +437,8 @@ namespace NetworkMonitor.Data.Services
                 }
 
                 // Define graph dimensions
-                int width = 600;
-                int height = 400;
+                int width = 640;
+                int height = 480;
                 int margin = 50;
 
                 // Find the maximum and minimum response times for dynamic scaling
@@ -450,6 +450,14 @@ namespace NetworkMonitor.Data.Services
                 {
                     var canvas = surface.Canvas;
                     canvas.Clear(SKColors.White);
+                    var titlePaint = new SKPaint
+                    {
+                        Color = SKColors.Black,
+                        IsAntialias = true,
+                    };
+                    var titleFont = new SKFont { Size = 18 };
+
+                    canvas.DrawText("Response Time (ms) vs Time", width / 2, margin - 20, SKTextAlign.Center, titleFont, titlePaint);
 
                     // Draw gridlines and axes
                     var gridPaint = new SKPaint
@@ -484,13 +492,13 @@ namespace NetworkMonitor.Data.Services
                     canvas.DrawLine(margin, height - margin, width - margin, height - margin, axisPaint); // X-axis
 
                     // Y-axis label and values
-                     var axisFont =new SKFont{Size=16};
+                    var axisFont = new SKFont { Size = 14 };
                     axisPaint.Color = new SKColor(0x60, 0x74, 0x66); // Primary theme color (visible green)
                     for (int i = 0; i <= 5; i++)
                     {
                         float yValue = minResponseTime + (i * (maxResponseTime - minResponseTime) / 5);
                         float yPosition = height - margin - (i * ((height - 2 * margin) / 5));
-                        canvas.DrawText($"{yValue:F0}", 10, yPosition + 5, axisFont,axisPaint); // Adjust the position for visibility
+                        canvas.DrawText($"{yValue:F0}", 10, yPosition + 5, axisFont, axisPaint); // Adjust the position for visibility
                     }
 
                     // Draw response time data as a line chart
@@ -517,13 +525,13 @@ namespace NetworkMonitor.Data.Services
                         Color = SKColors.Black,
                         IsAntialias = true
                     };
-                    var textFont =new SKFont{Size=14};
+                    var textFont = new SKFont { Size = 14 };
 
                     int labelInterval = Math.Max(1, dates.Count / 4); // Reduce the number of labels shown
                     for (int i = 0; i < dates.Count; i += labelInterval)
                     {
                         float x = margin + i * ((width - 2 * margin) / (dates.Count - 1));
-                        canvas.DrawText(dates[i], x, height - 20, textFont,textPaint); // Place date labels
+                        canvas.DrawText(dates[i], x, height - 20, textFont, textPaint); // Place date labels
                     }
 
                     // Draw points at each data location for visibility
