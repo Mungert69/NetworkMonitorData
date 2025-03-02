@@ -34,8 +34,9 @@ public interface IUserRepo
     Task<ResultObj> UpgradeAccounts();
     List<UserInfo> CachedUsers { get; }
     Task<ResultObj> LogEmailOpen(Guid id);
-    Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens=false);
+    Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens = false);
     Task<int> GetTokenCount(string userId);
+    int GetDefaultTokenLimit();
     Task ResetTokensUsed();
     Task FillTokensUsed();
     Task RefreshUsers();
@@ -50,9 +51,9 @@ public class UserRepo : IUserRepo
     private IRabbitRepo _rabbitRepo;
     private IProcessorState _processorState;
     private ISystemParamsHelper _systemParamsHelper;
-      private readonly SemaphoreSlim _cacheLock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _cacheLock = new SemaphoreSlim(1, 1);
 
-    public List<UserInfo> CachedUsers { get => _cachedUsers;  }
+    public List<UserInfo> CachedUsers { get => _cachedUsers; }
 
     public async Task<List<UserInfo>> GetCachedUsersAsync()
     {
@@ -71,10 +72,10 @@ public class UserRepo : IUserRepo
         }
     }
 
-   
+
     public async Task RefreshUsers()
     {
-       await _cacheLock.WaitAsync();
+        await _cacheLock.WaitAsync();
         try
         {
             _cachedUsers = await GetAllDBUsersDBNoTracking();
@@ -98,7 +99,7 @@ public class UserRepo : IUserRepo
 
     public async Task UpdateCachedUserInfo(UserInfo newUserInfo)
     {
-        var cachedUsers=await GetCachedUsersAsync();
+        var cachedUsers = await GetCachedUsersAsync();
         var userInfo = cachedUsers.Where(w => w.UserID == newUserInfo.UserID).FirstOrDefault();
         if (userInfo == null)
         {
@@ -122,17 +123,17 @@ public class UserRepo : IUserRepo
 
     public async Task<UserInfo?> GetUserFromID(string userId)
     {
-        var cachedUsers=await GetCachedUsersAsync();
-       
+        var cachedUsers = await GetCachedUsersAsync();
+
         return cachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
 
     }
     public async Task<string?> GetUserIdFromEmail(string email)
     {
- var cachedUsers=await GetCachedUsersAsync();
-       
-        var user=cachedUsers.Where(w => w.Email == email).FirstOrDefault();
-        if (user==null) return null;
+        var cachedUsers = await GetCachedUsersAsync();
+
+        var user = cachedUsers.Where(w => w.Email == email).FirstOrDefault();
+        if (user == null) return null;
         return user.UserID;
 
     }
@@ -148,11 +149,19 @@ public class UserRepo : IUserRepo
 
     public async Task<int> GetTokenCount(string userId)
     {
- var cachedUsers=await GetCachedUsersAsync();
-       
+
+        var cachedUsers = await GetCachedUsersAsync();
+
         return cachedUsers.Where(w => w.UserID == userId).Select(s => s.TokensUsed).FirstOrDefault();
     }
-    public async Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens=false)
+    public int GetDefaultTokenLimit()
+    {
+
+        var accountType = AccountTypeFactory.GetAccountTypeByName("Free");
+
+        return accountType.TokenLimit;
+    }
+    public async Task<int> UpdateTokensUsed(string userId, int tokensUsed, bool addTokens = false)
     {
         int newTokensRemaining = 0;
         using (var scope = _scopeFactory.CreateScope())
@@ -173,8 +182,8 @@ public class UserRepo : IUserRepo
             }
 
         }
-         var cachedUsers=await GetCachedUsersAsync();
-       
+        var cachedUsers = await GetCachedUsersAsync();
+
         var user = cachedUsers.Where(w => w.UserID == userId).FirstOrDefault();
         if (user != null)
         {
@@ -206,8 +215,8 @@ public class UserRepo : IUserRepo
     }
     public async Task ResetTokensUsed()
     {
-         var cachedUsers=await GetCachedUsersAsync();
-       
+        var cachedUsers = await GetCachedUsersAsync();
+
         var users = cachedUsers;
 
         ResetTokens(users);
@@ -223,8 +232,8 @@ public class UserRepo : IUserRepo
 
     public async Task FillTokensUsed()
     {
-         var cachedUsers=await GetCachedUsersAsync();
-       
+        var cachedUsers = await GetCachedUsersAsync();
+
         var users = cachedUsers;
 
         FillTokens(users);
@@ -256,7 +265,7 @@ public class UserRepo : IUserRepo
     }
 
 
-  
+
 
     public async Task<ResultObj> AddAuthUserInfo(UserAuthInfo userAuthInfo)
     {
@@ -405,8 +414,8 @@ public class UserRepo : IUserRepo
                     user.MonitorIPs = new List<MonitorIP>();
                     ResetTokenForUser(user);
                     await monitorContext.UserInfos.AddAsync(user);
-                     var cachedUsers=await GetCachedUsersAsync();
-       
+                    var cachedUsers = await GetCachedUsersAsync();
+
                     cachedUsers.Add(user);
 
                     alertMessage = new AlertMessage();
@@ -535,11 +544,11 @@ public class UserRepo : IUserRepo
                 {
                     if (user.UserID != null && _processorState.HasUserGotProcessor(user.UserID))
                     {
-                        foreach (var processor in _processorState.UserProcessorListAll(user.UserID,true))
+                        foreach (var processor in _processorState.UserProcessorListAll(user.UserID, true))
                         {
                             var processorUserEventObj = new ProcessorUserEventObj();
                             processorUserEventObj.IsLoggedInWebsite = true;
-                            processorUserEventObj.AuthKey=processor.AuthKey;
+                            processorUserEventObj.AuthKey = processor.AuthKey;
                             await _rabbitRepo.PublishAsync<ProcessorUserEventObj>("processorUserEvent" + processor.AppID, processorUserEventObj);
                             result.Message += $" Info : Published processorUserEvent message for procesor AppID {processor.AppID}";
 
@@ -610,7 +619,7 @@ public class UserRepo : IUserRepo
         var result = new TResultObj<string>();
         result.Message = "SERVICE : Update User Subscription : ";
         result.Success = false;
-        string userId="";
+        string userId = "";
         try
         {
             using (var scope = _scopeFactory.CreateScope())
@@ -619,7 +628,7 @@ public class UserRepo : IUserRepo
                 var dbUser = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.CustomerId == user.CustomerId);
                 if (dbUser != null)
                 {
-                    userId=dbUser.UserID!;
+                    userId = dbUser.UserID!;
                     dbUser.AccountType = user.AccountType;
                     dbUser.HostLimit = user.HostLimit;
                     dbUser.CancelAt = user.CancelAt;
@@ -650,31 +659,31 @@ public class UserRepo : IUserRepo
         return result;
     }
 
-      public async Task<TResultObj<string>> BoostTokenForUser(UserInfo user ,int tokenBoost)
+    public async Task<TResultObj<string>> BoostTokenForUser(UserInfo user, int tokenBoost)
     {
-         if (user==null)
+        if (user == null)
         {
             return new TResultObj<string>
             {
                 Success = true,
                 Message = $"Error: User can not be null",
-                Data=$"Error: User can not be null"
+                Data = $"Error: User can not be null"
             };
         }
-        var userId=user.UserID;
-        var email=user.Email;
+        var userId = user.UserID;
+        var email = user.Email;
         if (!string.IsNullOrEmpty(email) && string.IsNullOrEmpty(userId)) userId = await GetUserIdFromEmail(email);
-    
-    
+
+
         if (!string.IsNullOrEmpty(userId))
         {
-          
-            int newTokensRemaining =await UpdateTokensUsed(userId, tokenBoost, true);
+
+            int newTokensRemaining = await UpdateTokensUsed(userId, tokenBoost, true);
             return new TResultObj<string>
             {
                 Success = true,
                 Message = $"Success: Added Token Boost of {tokenBoost} to with UserID {userId}. new tokes remaining {newTokensRemaining}",
-                Data=""
+                Data = ""
             };
         }
         else
@@ -683,7 +692,7 @@ public class UserRepo : IUserRepo
             {
                 Success = true,
                 Message = $"Error: Can't find user with email {email} Id {userId}",
-                Data=$"Error: Can't find user with email {email} Id {userId}"
+                Data = $"Error: Can't find user with email {email} Id {userId}"
             };
         }
     }
@@ -907,7 +916,7 @@ public class UserRepo : IUserRepo
 
                 }
                 await monitorContext.SaveChangesAsync();
-                users.ForEach( async f => await UpdateCachedUserInfo(f));
+                users.ForEach(async f => await UpdateCachedUserInfo(f));
 
             }
             result.Success = true;
