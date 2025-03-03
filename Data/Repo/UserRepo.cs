@@ -157,7 +157,7 @@ public class UserRepo : IUserRepo
     public int GetDefaultTokenLimit()
     {
 
-        var accountType = AccountTypeFactory.GetAccountTypeByName("Free");
+        var accountType = AccountTypeFactory.GetAccountTypeByName("Default");
 
         return accountType.TokenLimit;
     }
