@@ -214,7 +214,7 @@ namespace NetworkMonitor.Data.Services
                     var packetsLostPercentage = monitorPingInfos.Average(mpi => mpi.PacketsLostPercentage);
                     var uptimePercentage = 100 - packetsLostPercentage;
                     var incidentCount = monitorPingInfos.Count(mpi => mpi.PacketsLost > 0);
-                    bool serverDownWholeTime = packetsLostPercentage == 100;
+                    bool serverDownWholeTime = uptimePercentage == 0;
                     var maxResponseTime = monitorPingInfos.Max(mpi => mpi.RoundTripTimeMaximum);
                     var minResponseTime = monitorPingInfos.Min(mpi => mpi.RoundTripTimeMinimum);
                     var stdDevResponseTime = Math.Sqrt(monitorPingInfos.Average(mpi => Math.Pow(mpi.RoundTripTimeAverage - averageResponseTime, 2)));
@@ -242,8 +242,11 @@ namespace NetworkMonitor.Data.Services
                     // Uptime Category Styling
                     // Use the helper method to add HTML for each category
                     reportBuilder.AppendLine(CreateCategoryHtml(uptimeCategoryKey, "Uptime", GetRandomPhrase(uptimeCategoryKey)));
-                    reportBuilder.AppendLine(CreateCategoryHtml(responseTimeCategoryKey, "Response Time", GetRandomPhrase(responseTimeCategoryKey)));
-                    reportBuilder.AppendLine(CreateCategoryHtml(stabilityCategoryKey, "Stability", GetRandomPhrase(stabilityCategoryKey)));
+                    if (!serverDownWholeTime)
+                    {
+                        reportBuilder.AppendLine(CreateCategoryHtml(responseTimeCategoryKey, "Response Time", GetRandomPhrase(responseTimeCategoryKey)));
+                        reportBuilder.AppendLine(CreateCategoryHtml(stabilityCategoryKey, "Stability", GetRandomPhrase(stabilityCategoryKey)));
+                    }
                     reportBuilder.AppendLine(CreateCategoryHtml(overallPerformanceKey, "Overall Performance", GetRandomPhrase(overallPerformanceKey)));
                     reportBuilder.AppendLine("</div>");
 
