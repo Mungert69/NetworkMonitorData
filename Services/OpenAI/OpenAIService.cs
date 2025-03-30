@@ -53,7 +53,7 @@ namespace NetworkMonitor.Data.Services
         private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
         private string _questionModel="OpenAI";
-        private string _imageModel="HuggingFace";
+        private string _imageModel="OpenAI";
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
