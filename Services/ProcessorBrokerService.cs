@@ -77,7 +77,11 @@ namespace NetworkMonitor.Data.Services
             {
                 foreach (var systemUrl in _systemParams.SystemUrls)         
                 {
+                    if (string.IsNullOrEmpty(systemUrl.RabbitPassword)){
+                        systemUrl.RabbitPassword=_systemParams.ThisSystemUrl.RabbitPassword;
+                    }
                     ISystemParamsHelper localSystemParamsHelper = new LocalSystemParamsHelper(systemUrl);
+
                     var rabbitRepo=new RabbitRepo(_loggerFactory.CreateLogger<RabbitRepo>(), localSystemParamsHelper);
                     await rabbitRepo.ConnectAndSetUp();
                     _rabbitRepos.Add(rabbitRepo);
