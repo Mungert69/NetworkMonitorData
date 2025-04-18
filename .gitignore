@@ -354,3 +354,4 @@ nohup.out
 /bin/*
 /obj/*
 /.mono/*
+.env
