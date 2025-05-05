@@ -52,6 +52,8 @@ public class UserRepo : IUserRepo
     private IProcessorState _processorState;
     private ISystemParamsHelper _systemParamsHelper;
     private readonly SemaphoreSlim _cacheLock = new SemaphoreSlim(1, 1);
+    private readonly ILoadServerRepo _loadServerRepo;
+
 
     public List<UserInfo> CachedUsers { get => _cachedUsers; }
 
@@ -86,13 +88,14 @@ public class UserRepo : IUserRepo
         }
     }
 
-    public UserRepo(ILogger<UserRepo> logger, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, IProcessorState processorState)
+    public UserRepo(ILogger<UserRepo> logger, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper, IRabbitRepo rabbitRepo, IProcessorState processorState, ILoadServerRepo loadServerRepo)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _rabbitRepo = rabbitRepo;
         _processorState = processorState;
         _systemParamsHelper = systemParamsHelper;
+        _loadServerRepo = loadServerRepo;
 
     }
 
@@ -508,6 +511,7 @@ public class UserRepo : IUserRepo
                 {
                     if (user.UserID != null)
                     {
+                        user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(user.UserID);
                         var upgradeResult = await UpgradeActivatedTestUser(user, monitorContext);
                         result.Message += upgradeResult.Message;
                     }
@@ -592,6 +596,7 @@ public class UserRepo : IUserRepo
                     dbUser.DisableEmail = user.DisableEmail;
                     monitorContext.SaveChanges();
                     await UpdateCachedUserInfo(dbUser);
+                    user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(user.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", user);
                     result.Message += "Success : User updated";
                     result.Data = null;
@@ -636,6 +641,7 @@ public class UserRepo : IUserRepo
                     ResetTokenForUser(dbUser);
                     await monitorContext.SaveChangesAsync();
                     await UpdateCachedUserInfo(dbUser);
+                    user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(user.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", dbUser);
                     result.Message += "Success : User Subcription updated to " + user.AccountType + " . ";
                     result.Data = "";
@@ -715,7 +721,6 @@ public class UserRepo : IUserRepo
                     dbUser.Updated_at = DateTime.UtcNow;
                     monitorContext.SaveChanges();
                     await UpdateCachedUserInfo(dbUser);
-                    //_rabbitRepo.Publish<UserInfo>("updateUserInfoAlertMessage", dbUser);
                     result.Message += " Success : userId " + dbUser.UserID + " customerId updated to " + user.CustomerId + " . ";
                     result.Data = "";
                     result.Success = true;
@@ -754,6 +759,7 @@ public class UserRepo : IUserRepo
                     userInfo.Enabled = false;
                     userInfo.Updated_at = DateTime.UtcNow;
                     await monitorContext.SaveChangesAsync();
+                    userInfo.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(userInfo.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", userInfo);
                     List<MonitorIP> monitorIPs = await monitorContext.MonitorIPs.Where(m => m.UserID == userId).ToListAsync();
                     foreach (MonitorIP monitorIP in monitorIPs)
@@ -797,6 +803,7 @@ public class UserRepo : IUserRepo
                     userInfo.Updated_at = DateTime.UtcNow;
                     await context.SaveChangesAsync();
                     await UpdateCachedUserInfo(userInfo);
+                    userInfo.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(userInfo.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", userInfo);
                     result.Success = true;
                     if (!subscribe)
@@ -858,6 +865,7 @@ public class UserRepo : IUserRepo
                     userInfo.Updated_at = DateTime.UtcNow;
                     await context.SaveChangesAsync();
                     await UpdateCachedUserInfo(userInfo);
+                    userInfo.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(userInfo.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", userInfo);
                     result.Success = true;
                     result.Message += " You have successfully verified subscribed user email address " + email;
