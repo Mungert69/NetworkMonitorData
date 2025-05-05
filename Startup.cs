@@ -67,7 +67,7 @@ namespace NetworkMonitor.Data
             services.AddSingleton<IRabbitRepo, RabbitRepo>();
             services.AddSingleton<IFileRepo, FileRepo>();
             services.AddSingleton<IUserRepo, UserRepo>();
-            services.AddSingleton<ILoadServer, LoasServer>();
+            services.AddSingleton<ILoadServerRepo, LoadServerRepo>();
             services.AddSingleton<IDataFileService>(provider =>
  {
      bool useAlternateBehavior = true;
