@@ -589,14 +589,14 @@ public class UserRepo : IUserRepo
             {
                 MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                 UserInfo? dbUser = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.UserID == user.Sub);
-                if (dbUser != null)
+                if (dbUser != null && dbUser.UserID!=null)
                 {
                     dbUser.Name = user.Name;
                     dbUser.Picture = user.Picture;
                     dbUser.DisableEmail = user.DisableEmail;
                     monitorContext.SaveChanges();
                     await UpdateCachedUserInfo(dbUser);
-                    user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(user.UserID);
+                    user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(dbUser.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", user);
                     result.Message += "Success : User updated";
                     result.Data = null;
@@ -631,9 +631,9 @@ public class UserRepo : IUserRepo
             {
                 MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                 var dbUser = await monitorContext.UserInfos.FirstOrDefaultAsync(u => u.CustomerId == user.CustomerId);
-                if (dbUser != null)
+                if (dbUser != null && dbUser.UserID!=null)
                 {
-                    userId = dbUser.UserID!;
+                    userId = dbUser.UserID;
                     dbUser.AccountType = user.AccountType;
                     dbUser.HostLimit = user.HostLimit;
                     dbUser.CancelAt = user.CancelAt;
@@ -641,7 +641,7 @@ public class UserRepo : IUserRepo
                     ResetTokenForUser(dbUser);
                     await monitorContext.SaveChangesAsync();
                     await UpdateCachedUserInfo(dbUser);
-                    user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(user.UserID);
+                    user.LoadServer = await _loadServerRepo.GetLoadServerFromUserID(dbUser.UserID);
                     await _rabbitRepo.PublishAsync<UserInfo>("updateUserInfoAlertMessage", dbUser);
                     result.Message += "Success : User Subcription updated to " + user.AccountType + " . ";
                     result.Data = "";
@@ -754,7 +754,7 @@ public class UserRepo : IUserRepo
             {
                 MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                 var userInfo = monitorContext.UserInfos.FirstOrDefault(u => u.UserID == userId);
-                if (userInfo != null)
+                if (userInfo != null && userInfo.UserID!=null)
                 {
                     userInfo.Enabled = false;
                     userInfo.Updated_at = DateTime.UtcNow;
@@ -797,7 +797,7 @@ public class UserRepo : IUserRepo
                 MonitorContext context = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                 var userInfo = await context.UserInfos.FirstOrDefaultAsync(u => u.UserID == userId && u.UserID != "default");
                 List<MonitorIP> monitorIPs = await context.MonitorIPs.Where(m => m.AddUserEmail == email).ToListAsync();
-                if (userInfo != null)
+                if (userInfo != null && userInfo.UserID!=null)
                 {
                     userInfo.DisableEmail = !subscribe;
                     userInfo.Updated_at = DateTime.UtcNow;
@@ -859,7 +859,7 @@ public class UserRepo : IUserRepo
                 MonitorContext context = scope.ServiceProvider.GetRequiredService<MonitorContext>();
                 var userInfo = await context.UserInfos.FirstOrDefaultAsync(u => u.UserID == userId);
                 var monitorIPs = await context.MonitorIPs.Where(m => m.AddUserEmail == email).ToListAsync();
-                if (userInfo != null)
+                if (userInfo != null && userInfo.UserID!=null)
                 {
                     userInfo.Email_verified = true;
                     userInfo.Updated_at = DateTime.UtcNow;

@@ -18,7 +18,7 @@ namespace NetworkMonitor.Data.Repo;
 
 public interface ILoadServerRepo
 {
-    Task<LoadServer?> GetLoadServerFromUserID(string userId);
+    Task<LoadServer> GetLoadServerFromUserID(string userId);
     Task<List<LoadServer>> GetAllLoadServersDBNoTracking(); // This can be removed if you don't expose this functionality
     Task<ResultObj> AddLoadServer(LoadServer loadServer);
     Task UpdateCachedLoadServer(LoadServer newLoadServer); // This can be made internal if cache updates are handled internally
@@ -103,9 +103,10 @@ public class LoadServerRepo : ILoadServerRepo
     }
 
 
-    public async Task<LoadServer?> GetLoadServerFromUserID(string userId)
+    public async Task<LoadServer> GetLoadServerFromUserID(string userId)
     {
         var cachedLoadservers = await GetCachedLoadServers();
+        if (cachedLoadservers==null || cachedLoadservers.Count==0) return new LoadServer();
 
         return cachedLoadservers.Where(w => w.UserID == userId).FirstOrDefault();
 
