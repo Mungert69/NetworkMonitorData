@@ -108,7 +108,7 @@ public class LoadServerRepo : ILoadServerRepo
         var cachedLoadservers = await GetCachedLoadServers();
         if (cachedLoadservers==null || cachedLoadservers.Count==0) return new LoadServer();
 
-        return cachedLoadservers.Where(w => w.UserID == userId).FirstOrDefault();
+        return cachedLoadservers.Where(w => w.UserID == userId).FirstOrDefault() ??  new LoadServer();
 
     }
     public async Task<LoadServer?> GetLoadServerFromUserIDDB(string userId)
