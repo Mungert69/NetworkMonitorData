@@ -12,6 +12,7 @@ using NetworkMonitor.Utils; // Assuming ResultObj is defined here
 using NetworkMonitor.Utils.Helpers;
 using System.Collections.Generic;
 using Microsoft.IdentityModel.Tokens;
+using  NetworkMonitor.Data.Repo;
 
 namespace NetworkMonitor.Data.Services
 {
@@ -33,8 +34,9 @@ namespace NetworkMonitor.Data.Services
         private readonly IProcessorState _processorState;
         private readonly SystemParams _systemParams;
         private readonly PingParams _pingParams;
+        private readonly IUserRepo _userRepo;
 
-        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, ILoggerFactory loggerFactory, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper)
+        public ProcessorBrokerService(ILogger<ProcessorBrokerService> logger, ILoggerFactory loggerFactory, IRabbitRepo rabbitRepo, IProcessorState processorState, IServiceScopeFactory scopeFactory, ISystemParamsHelper systemParamsHelper,IUserRepo userRepo)
         {
             _logger = logger;
             _loggerFactory = loggerFactory;
@@ -42,6 +44,7 @@ namespace NetworkMonitor.Data.Services
             _scopeFactory = scopeFactory;
             _systemParams = systemParamsHelper.GetSystemParams();
             _pingParams = systemParamsHelper.GetPingParams();
+            _userRepo=userRepo;
 
         }
 
@@ -230,7 +233,7 @@ namespace NetworkMonitor.Data.Services
                     await monitorContext.SaveChangesAsync();
 
                     await ActivateTestUser(processor.Location, processor.Owner, monitorContext);
-
+                    //_userRepo.AddUser(new UserInfo(){UserID=processor.Owner, Sub=processor.Owner});
                     initObj.AuthKey = processor.AuthKey;
                     await DataPublishRepo.ProcessorAuthKey(_logger, _rabbitRepos, processor, initObj);
                     result.Message += $" Success : AuthKey message sent to RabbitHost {processor.RabbitHost} for Processot with AppID {processor.AppID} .";
