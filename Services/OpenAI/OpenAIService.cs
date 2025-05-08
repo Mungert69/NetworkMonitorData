@@ -69,7 +69,7 @@ namespace NetworkMonitor.Data.Services
             // OpenAI configurations
             _openAiApiKey = config["OpenAI:ApiKey"] ?? "Missing";
             _openAiEndpointUrlBase = config["OpenAI:EndpointUrlBase"] ?? "https://api.openai.com";
-            _openAiPicModel = config["OpenAI:PicModel"] ?? "gpt-image-1";
+            _openAiPicModel = config["OpenAI:PicModel"] ?? "dall-e-3";
             _openAiModel = config["OpenAI:Model"] ?? "gpt-4.1-mini";
 
             // Hugging Face configurations
