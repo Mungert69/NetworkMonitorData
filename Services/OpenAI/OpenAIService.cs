@@ -253,7 +253,7 @@ namespace NetworkMonitor.Data.Services
                 };
                 var content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_openAiEndpointUrlBase}/v1/images")
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_openAiEndpointUrlBase}/v1/images/generations")
                 {
                     Content = content
                 };
