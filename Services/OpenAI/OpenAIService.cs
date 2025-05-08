@@ -241,22 +241,19 @@ namespace NetworkMonitor.Data.Services
         {
             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingOpenAI:" };
             string responseBody = "";
-            string contentStr = "";
-            string url = "";
+
             try
             {
-                var requestPayload = new
+                var requestPayload = new OpenAIImageGenerationRequest
                 {
                     model = _openAiPicModel,
-                    prompt,
-                    n = 1,
-                    size = "1024x1024",
-                    quality = "low"
+                    prompt = prompt
                 };
-                url = $"{_openAiEndpointUrlBase}/v1/images/generations";
 
-                StringContent content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
-                contentStr = content.ToString();
+                string url = $"{_openAiEndpointUrlBase}/v1/images/generations";
+                string jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
+                StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
                 using var request = new HttpRequestMessage(HttpMethod.Post, url)
                 {
                     Content = content
@@ -273,13 +270,13 @@ namespace NetworkMonitor.Data.Services
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Message += $" Error generating OpenAI image to {url} with payload {contentStr} got json response {responseBody} . Error was : {ex.Message}";
+                result.Message += $" Error generating OpenAI image. Error was: {ex.Message}";
                 _logger.LogError(result.Message);
+                _logger.LogDebug($"Request payload: {responseBody}");
             }
 
             return result;
         }
-
         /// <summary>
         /// Generates an image using Hugging Face's model.
         /// </summary>
