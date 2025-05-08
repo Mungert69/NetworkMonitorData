@@ -241,6 +241,8 @@ namespace NetworkMonitor.Data.Services
         {
             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingOpenAI:" };
             string responseBody="";
+            string content="";
+            string url="";
             try
             {
                 var requestPayload = new
@@ -251,8 +253,8 @@ namespace NetworkMonitor.Data.Services
                     size = "1024x1024",
                     quality = "low"
                 };
-                var content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
-                string url=$"{_openAiEndpointUrlBase}/v1/images/generations";
+                content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
+                url=$"{_openAiEndpointUrlBase}/v1/images/generations";
                 using var request = new HttpRequestMessage(HttpMethod.Post, url)
                 {
                     Content = content
