@@ -241,7 +241,8 @@ namespace NetworkMonitor.Data.Services
         {
             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingOpenAI:" };
             string responseBody = "";
-
+            string url = "";
+            string jsonPayload = "";
             try
             {
                 var requestPayload = new OpenAIImageGenerationRequest
@@ -250,8 +251,8 @@ namespace NetworkMonitor.Data.Services
                     prompt = prompt
                 };
 
-                string url = $"{_openAiEndpointUrlBase}/v1/images/generations";
-                string jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
+                url = $"{_openAiEndpointUrlBase}/v1/images/generations";
+                jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
                 StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, url)
@@ -270,7 +271,7 @@ namespace NetworkMonitor.Data.Services
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Message += $" Error generating OpenAI image. Error was: {ex.Message}";
+                result.Message += $" Error generating OpenAI image at {url} with payload {jsonPayload} got reponse {responseBody}. Error was: {ex.Message}";
                 _logger.LogError(result.Message);
                 _logger.LogDebug($"Request payload: {responseBody}");
             }
