@@ -24,7 +24,7 @@ namespace NetworkMonitor.Data.Services
 
         private readonly string _blogFile;
         private readonly string _blogFileGuides;
-        private bool _isUsingGuidesFile = false;
+        private bool _isUsingGuidesFile = true;
 
         public BlogProcessorService(
             IBlogFileRepo fileService,
