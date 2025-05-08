@@ -69,7 +69,7 @@ namespace NetworkMonitor.Data.Services
 
         private async Task<ResultObj> ProcessBlogListInternal(string blogFile, bool processAll)
         {
-            var result = new ResultObj() { Message = "Processing blog list." };
+            var result = new ResultObj() { Message = $"Processing blog list. {blogFile}" };
             var blogList = _fileService.ReadBlogList(blogFile);
 
             if (blogList.Count == 0)
