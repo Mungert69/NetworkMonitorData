@@ -252,8 +252,8 @@ namespace NetworkMonitor.Data.Services
                     quality = "low"
                 };
                 var content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
-
-                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_openAiEndpointUrlBase}/v1/images/generations")
+                string url=$"{_openAiEndpointUrlBase}/v1/images/generations";
+                using var request = new HttpRequestMessage(HttpMethod.Post, url)
                 {
                     Content = content
                 };
@@ -269,7 +269,7 @@ namespace NetworkMonitor.Data.Services
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Message += $" Error generating OpenAI image from json response {responseBody} . Error was : {ex.Message}";
+                result.Message += $" Error generating OpenAI image to {url} with payload {content} got json response {responseBody} . Error was : {ex.Message}";
                 _logger.LogError(result.Message);
             }
 
