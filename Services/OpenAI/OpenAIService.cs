@@ -52,8 +52,8 @@ namespace NetworkMonitor.Data.Services
         private readonly string _openAiModel;
         private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
-        private string _questionModel="OpenAI";
-        private string _imageModel="OpenAI";
+        private string _questionModel = "OpenAI";
+        private string _imageModel = "OpenAI";
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
@@ -240,9 +240,9 @@ namespace NetworkMonitor.Data.Services
         private async Task<TResultObj<ImageResponse>> GenerateImageUsingOpenAI(string prompt)
         {
             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingOpenAI:" };
-            string responseBody="";
-            string contentStr="";
-            string url="";
+            string responseBody = "";
+            string contentStr = "";
+            string url = "";
             try
             {
                 var requestPayload = new
@@ -253,11 +253,11 @@ namespace NetworkMonitor.Data.Services
                     size = "1024x1024",
                     quality = "low"
                 };
-                 url=$"{_openAiEndpointUrlBase}/v1/images/generations";
-                
+                url = $"{_openAiEndpointUrlBase}/v1/images/generations";
+
                 StringContent content = new StringContent(JsonUtils.WriteJsonObjectToString(requestPayload), Encoding.UTF8, "application/json");
-                string contentStr=content.ToString();
-               using var request = new HttpRequestMessage(HttpMethod.Post, url)
+                contentStr = content.ToString();
+                using var request = new HttpRequestMessage(HttpMethod.Post, url)
                 {
                     Content = content
                 };
@@ -368,10 +368,10 @@ namespace NetworkMonitor.Data.Services
 
             try
             {
-                  // We first ask GPT to produce a prompt for DALL-E
-            var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be realistic and engaging. Avoid abstract icons or overly stylized visuals. Keep the design professional, suitable for a network monitoring service website, and aligned with real-world scenarios.";
-            var question = $"Generate a prompt for an image creation model that best represents this blog post: \"{answer}\". " +
-                            "Only respond with the image generation prompt.";
+                // We first ask GPT to produce a prompt for DALL-E
+                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be realistic and engaging. Avoid abstract icons or overly stylized visuals. Keep the design professional, suitable for a network monitoring service website, and aligned with real-world scenarios.";
+                var question = $"Generate a prompt for an image creation model that best represents this blog post: \"{answer}\". " +
+                                "Only respond with the image generation prompt.";
 
                 var chatResult = await AskQuestion(question, systemPrompt);
                 if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
@@ -396,7 +396,7 @@ namespace NetworkMonitor.Data.Services
             return result;
         }
 
-       
+
         /// <summary>
         /// Saves the image (from <see cref="ImageResponse"/>) to disk, handling either base64 or direct URL downloads.
         /// This matches the logic you placed in the TODO comment.
