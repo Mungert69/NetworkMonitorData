@@ -300,7 +300,7 @@ namespace NetworkMonitor.Data.Services
                     prompt = prompt
                 };
 
-                url = _huggingFaceApiUrl+"/v3/async/txt2img";
+                url = _huggingFaceApiUrl+"/v3beta/flux-1-schnell";
                 jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
                 StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
@@ -316,9 +316,9 @@ namespace NetworkMonitor.Data.Services
                 responseBody = await response.Content.ReadAsStringAsync();
                 var hugResult = JsonUtils.GetJsonObjectFromString<HuggingFaceImageResponse>(responseBody);
                 var convertedData = new ImageResponse();
-                foreach (HuggingFaceImageData imageData in hugResult.images)
+                foreach (HuggingFaceImageData hfImageData in hugResult.images)
                 {
-                    var imageData = new ImageData() { url = imageData.image_url };
+                    var imageData = new ImageData() { url = hfImageData.image_url };
                     convertedData.data.Add(imageData);
                 }
                 result.Data = convertedData;
