@@ -424,7 +424,7 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 // We first ask GPT to produce a prompt for DALL-E
-                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be realistic and engaging. Avoid abstract icons or overly stylized visuals. Keep the design professional, suitable for a network monitoring service website, and aligned with real-world scenarios.";
+                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be realistic and engaging. Avoid abstract icons or overly stylized visuals. Don't be to specific on details and be creative with the visual aspects of the image.";
                 var question = $"Generate a prompt for an image creation model that best represents this blog post: \"{answer}\". " +
                                 "Only respond with the image generation prompt.";
 
