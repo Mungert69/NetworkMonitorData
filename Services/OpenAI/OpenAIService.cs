@@ -76,7 +76,7 @@ namespace NetworkMonitor.Data.Services
 
             // Hugging Face configurations
             _huggingFaceApiKey = config["HuggingFace:ApiKey"] ?? "Missing";
-            _huggingFaceApiUrl = config["HuggingFace:ApiUrl"] ?? "https://api.novita.ai/v3/async/txt2img";
+            _huggingFaceApiUrl = config["HuggingFace:ApiUrl"] ?? "Mod";
             _huggingFacePicModel = config["HuggingFace:PicModel"] ?? "cyberrealistic_v32_81390.safetensors";
             _huggingFaceModel = config["HuggingFace:Model"] ?? "qwen/qwen3-4b-fp8";
 
@@ -300,7 +300,7 @@ namespace NetworkMonitor.Data.Services
                     prompt = prompt
                 };
 
-                url = _huggingFaceApiUrl;
+                url = _huggingFaceApiUrl+"/v3/async/txt2img";
                 jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
                 StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
