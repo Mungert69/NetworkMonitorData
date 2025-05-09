@@ -296,7 +296,8 @@ namespace NetworkMonitor.Data.Services
             {
                 var requestPayload = new HuggingFaceImageRequest
                 {
-                    model_name = _huggingFacePicModel,
+                   // model_name = _huggingFacePicModel,
+                   seed=SaltGeneration.GetRandomUInt(),
                     prompt = prompt
                 };
 
