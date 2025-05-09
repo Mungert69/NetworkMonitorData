@@ -49,11 +49,13 @@ namespace NetworkMonitor.Data.Services
         private readonly string _openAiEndpointUrlBase;
         private readonly string _huggingFaceApiKey;
         private readonly string _huggingFaceApiUrl;
+        private readonly string  _huggingFacePicModel;
+        private readonly string    _huggingFaceModel;
         private readonly string _openAiModel;
         private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
         private string _questionModel = "OpenAI";
-        private string _imageModel = "OpenAI";
+        private string _imageModel = "HuggingFace";
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
@@ -74,7 +76,9 @@ namespace NetworkMonitor.Data.Services
 
             // Hugging Face configurations
             _huggingFaceApiKey = config["HuggingFace:ApiKey"] ?? "Missing";
-            _huggingFaceApiUrl = config["HuggingFace:ApiUrl"] ?? "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
+            _huggingFaceApiUrl = config["HuggingFace:ApiUrl"] ?? "https://api.novita.ai/v3/async/txt2img";
+            _huggingFacePicModel = config["HuggingFace:PicModel"] ?? "cyberrealistic_v32_81390.safetensors";
+            _huggingFaceModel = config["HuggingFace:Model"] ?? "qwen/qwen3-4b-fp8";
 
 
 
@@ -278,76 +282,129 @@ namespace NetworkMonitor.Data.Services
 
             return result;
         }
+
         /// <summary>
-        /// Generates an image using Hugging Face's model.
+        /// Generates an image using OpenAI's DALL-E model.
         /// </summary>
         private async Task<TResultObj<ImageResponse>> GenerateImageUsingHuggingFace(string prompt)
         {
-            var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingHuggingFace:" };
-            const int maxRetries = 10; // Number of retry attempts
-            const int delayMilliseconds = 30000; // Delay between retries in milliseconds
-            const int requestTimeoutMilliseconds = 1200000; // Timeout per request (2 minutes)
-
-            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingHugginFace:" };
+            string responseBody = "";
+            string url = "";
+            string jsonPayload = "";
+            try
             {
-                try
+                var requestPayload = new ImageRequest
                 {
-                    _logger.LogInformation($"Attempt {attempt} to call Hugging Face API.");
+                    model_name = _huggingFacePicModel,
+                    prompt = prompt
+                };
 
-                    // Manually construct the JSON payload
-                    var payloadJson = $"{{\"inputs\":\"{prompt.Replace("\"", "\\\"")}\"}}";
-                    var content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+                url = _huggingFaceApiUrl;
+                jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
+                StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                    // Create a custom HttpClientHandler with timeout
-                    using var client = new HttpClient
-                    {
-                        Timeout = TimeSpan.FromMilliseconds(requestTimeoutMilliseconds) // Set timeout for this request
-                    };
-
-                    // Configure the request
-                    using var request = new HttpRequestMessage(HttpMethod.Post, _huggingFaceApiUrl)
-                    {
-                        Content = content
-                    };
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
-
-                    // Send the request
-                    var response = await client.SendAsync(request);
-                    response.EnsureSuccessStatusCode();
-
-                    // Process the response
-                    var imageBytes = await response.Content.ReadAsByteArrayAsync();
-                    result.Data = new ImageResponse
-                    {
-                        data = new List<ImageData> { new ImageData { b64_json = Convert.ToBase64String(imageBytes) } }
-                    };
-                    result.Success = true;
-
-                    _logger.LogInformation($"Hugging Face API call succeeded on attempt {attempt}.");
-                    return result; // Exit the loop on success
-                }
-                catch (HttpRequestException ex) when (attempt < maxRetries)
+                using var request = new HttpRequestMessage(HttpMethod.Post, url)
                 {
-                    _logger.LogWarning($"Hugging Face API call failed on attempt {attempt}. Retrying... Error: {ex.Message}");
-                    await Task.Delay(delayMilliseconds); // Wait before retrying
-                }
-                catch (Exception ex)
-                {
-                    result.Success = false;
-                    result.Message += $" Error generating image with Hugging Face: {ex.Message}";
-                    _logger.LogError(result.Message);
+                    Content = content
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
 
-                    // If it's the last attempt or an unexpected error, break the loop
-                    if (attempt == maxRetries)
-                        break;
+                var response = await _client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                responseBody = await response.Content.ReadAsStringAsync();
+                var hugResult = JsonUtils.GetJsonObjectFromString<HuggingFaceImageResponse>(responseBody);
+                var convertedData = new ImageResponse();
+                foreach (string str in hugResult.images_encoded)
+                {
+                    var imageData = new ImageData() { b64_json = str };
+                    convertedData.data.Add(imageData);
                 }
+                result.Data = convertedData;
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message += $" Error generating Huggingface image at {url} with payload {jsonPayload} got reponse {responseBody}. Error was: {ex.Message}";
+                _logger.LogError(result.Message);
+                _logger.LogDebug($"Request payload: {responseBody}");
             }
 
-            // Return the result after all attempts
-            result.Success = false;
-            result.Message += " All retry attempts failed.";
             return result;
         }
+
+        /* /// <summary>
+         /// Generates an image using Hugging Face's model.
+         /// </summary>
+         private async Task<TResultObj<ImageResponse>> GenerateImageUsingHuggingFace(string prompt)
+         {
+             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingHuggingFace:" };
+             const int maxRetries = 10; // Number of retry attempts
+             const int delayMilliseconds = 30000; // Delay between retries in milliseconds
+             const int requestTimeoutMilliseconds = 1200000; // Timeout per request (2 minutes)
+
+             for (int attempt = 1; attempt <= maxRetries; attempt++)
+             {
+                 try
+                 {
+                     _logger.LogInformation($"Attempt {attempt} to call Hugging Face API.");
+
+                     // Manually construct the JSON payload
+                     var payloadJson = $"{{\"inputs\":\"{prompt.Replace("\"", "\\\"")}\"}}";
+                     var content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+
+                     // Create a custom HttpClientHandler with timeout
+                     using var client = new HttpClient
+                     {
+                         Timeout = TimeSpan.FromMilliseconds(requestTimeoutMilliseconds) // Set timeout for this request
+                     };
+
+                     // Configure the request
+                     using var request = new HttpRequestMessage(HttpMethod.Post, _huggingFaceApiUrl)
+                     {
+                         Content = content
+                     };
+                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
+
+                     // Send the request
+                     var response = await client.SendAsync(request);
+                     response.EnsureSuccessStatusCode();
+
+                     // Process the response
+                     var imageBytes = await response.Content.ReadAsByteArrayAsync();
+                     result.Data = new ImageResponse
+                     {
+                         data = new List<ImageData> { new ImageData { b64_json = Convert.ToBase64String(imageBytes) } }
+                     };
+                     result.Success = true;
+
+                     _logger.LogInformation($"Hugging Face API call succeeded on attempt {attempt}.");
+                     return result; // Exit the loop on success
+                 }
+                 catch (HttpRequestException ex) when (attempt < maxRetries)
+                 {
+                     _logger.LogWarning($"Hugging Face API call failed on attempt {attempt}. Retrying... Error: {ex.Message}");
+                     await Task.Delay(delayMilliseconds); // Wait before retrying
+                 }
+                 catch (Exception ex)
+                 {
+                     result.Success = false;
+                     result.Message += $" Error generating image with Hugging Face: {ex.Message}";
+                     _logger.LogError(result.Message);
+
+                     // If it's the last attempt or an unexpected error, break the loop
+                     if (attempt == maxRetries)
+                         break;
+                 }
+             }
+
+             // Return the result after all attempts
+             result.Success = false;
+             result.Message += " All retry attempts failed.";
+             return result;
+         }*/
 
 
         /// <summary>
