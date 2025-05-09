@@ -249,7 +249,7 @@ namespace NetworkMonitor.Data.Services
             string jsonPayload = "";
             try
             {
-                var requestPayload = new OpenAIImageGenerationRequest
+                var requestPayload = new ImageRequest
                 {
                     model = _openAiPicModel,
                     prompt = prompt
@@ -294,7 +294,7 @@ namespace NetworkMonitor.Data.Services
             string jsonPayload = "";
             try
             {
-                var requestPayload = new ImageRequest
+                var requestPayload = new HuggingFaceImageRequest
                 {
                     model_name = _huggingFacePicModel,
                     prompt = prompt
@@ -316,9 +316,9 @@ namespace NetworkMonitor.Data.Services
                 responseBody = await response.Content.ReadAsStringAsync();
                 var hugResult = JsonUtils.GetJsonObjectFromString<HuggingFaceImageResponse>(responseBody);
                 var convertedData = new ImageResponse();
-                foreach (string str in hugResult.images_encoded)
+                foreach (HuggingFaceImageData imageData in hugResult.images)
                 {
-                    var imageData = new ImageData() { b64_json = str };
+                    var imageData = new ImageData() { url = imageData.image_url };
                     convertedData.data.Add(imageData);
                 }
                 result.Data = convertedData;
