@@ -53,7 +53,7 @@
    
 
    <ItemGroup>
-    <ProjectReference Include="..\NetworkMonitor\NetworkMonitor.csproj" />
+    <ProjectReference Include="..\NetworkMonitorLib\NetworkMonitor.csproj" />
    </ItemGroup>
 
 </Project>
