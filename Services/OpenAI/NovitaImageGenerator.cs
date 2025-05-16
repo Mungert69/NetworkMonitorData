@@ -42,12 +42,12 @@ public class NovitaImageGenerator : IImageGenerator
     /// <summary>
     /// Returns true if the Novita result indicates success and contains images.
     /// </summary>
-    private static bool IsNovitaSuccess(NovitaResultResponse? novitaResult)
+    private static bool IsNovitaSuccess(NovitaFullResponse? novitaResult)
     {
         if (novitaResult == null || novitaResult.images == null || novitaResult.images.Count == 0)
             return false;
 
-        var status = novitaResult.status?.ToLowerInvariant() ?? "";
+        var status = novitaResult.task?.status?.ToLowerInvariant() ?? "";
         return status == "succeeded"
             || status == "task_status_succeed"
             || status == "task_status_succeeded";
@@ -102,7 +102,7 @@ public class NovitaImageGenerator : IImageGenerator
 
             // Poll for result
             string resultUrl = $"https://api.novita.ai/v3/async/task-result?task_id={novitaTask.task_id}";
-            NovitaResultResponse? novitaResult = null;
+            NovitaFullResponse? novitaResult = null;
             int maxTries = 20;
             int delayMs = 3000;
             for (int i = 0; i < maxTries; i++)
@@ -112,7 +112,7 @@ public class NovitaImageGenerator : IImageGenerator
                 resultRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
                 var resultResponse = await _client.SendAsync(resultRequest);
                 var resultBody = await resultResponse.Content.ReadAsStringAsync();
-                novitaResult = JsonUtils.GetJsonObjectFromString<NovitaResultResponse>(resultBody);
+                novitaResult = JsonUtils.GetJsonObjectFromString<NovitaFullResponse>(resultBody);
 
                 if (IsNovitaSuccess(novitaResult))
                 {
@@ -130,7 +130,7 @@ public class NovitaImageGenerator : IImageGenerator
             var convertedData = new ImageResponse();
             foreach (var img in novitaResult.images)
             {
-                var imageData = new ImageData() { url = img.url };
+                var imageData = new ImageData() { url = img.image_url };
                 convertedData.data.Add(imageData);
             }
             result.Data = convertedData;

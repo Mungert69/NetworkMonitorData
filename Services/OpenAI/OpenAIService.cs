@@ -49,13 +49,11 @@ namespace NetworkMonitor.Data.Services
         private readonly string _openAiEndpointUrlBase;
         private readonly string _huggingFaceApiKey;
         private readonly string _huggingFaceApiUrl;
-        private readonly string _huggingFacePicModel;
         private readonly string _huggingFaceModel;
         private readonly string _openAiModel;
-        private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
         private string _questionModel = "OpenAI";
-        private string _imageModel = "Novita"; // Set to "Novita" to use Novita API
+        private string _imageModel = "OpenAI"; // Set to "Novita" to use Novita API
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
@@ -74,17 +72,15 @@ namespace NetworkMonitor.Data.Services
             // OpenAI configurations
             _openAiApiKey = config["OpenAI:ApiKey"] ?? "Missing";
             _openAiEndpointUrlBase = config["OpenAI:EndpointUrlBase"] ?? "https://api.openai.com";
-            _openAiPicModel = config["OpenAI:PicModel"] ?? "dall-e-3";
             _openAiModel = config["OpenAI:Model"] ?? "gpt-4.1-mini";
 
             // Hugging Face configurations
             _huggingFaceApiKey = config["HuggingFace:ApiKey"] ?? "Missing";
             _huggingFaceApiUrl = config["HuggingFace:ApiUrl"] ?? "Mod";
-            _huggingFacePicModel = config["HuggingFace:PicModel"] ?? "cyberrealistic_v32_81390.safetensors";
             _huggingFaceModel = config["HuggingFace:Model"] ?? "qwen/qwen3-4b-fp8";
 
             // Image model selection (add this line)
-            _imageModel = config["ImageModel"] ?? "Novita";
+            _imageModel = config["ImageModel"] ?? "OpenAI";
 
             _llmRunnerType = config["LlmRunnerType"] ?? "TurboLLM";
             // Image generation toggle
@@ -243,78 +239,6 @@ namespace NetworkMonitor.Data.Services
         }
 
       
-        /* /// <summary>
-         /// Generates an image using Hugging Face's model.
-         /// </summary>
-         private async Task<TResultObj<ImageResponse>> GenerateImageUsingHuggingFace(string prompt)
-         {
-             var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingHuggingFace:" };
-             const int maxRetries = 10; // Number of retry attempts
-             const int delayMilliseconds = 30000; // Delay between retries in milliseconds
-             const int requestTimeoutMilliseconds = 1200000; // Timeout per request (2 minutes)
-
-             for (int attempt = 1; attempt <= maxRetries; attempt++)
-             {
-                 try
-                 {
-                     _logger.LogInformation($"Attempt {attempt} to call Hugging Face API.");
-
-                     // Manually construct the JSON payload
-                     var payloadJson = $"{{\"inputs\":\"{prompt.Replace("\"", "\\\"")}\"}}";
-                     var content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
-
-                     // Create a custom HttpClientHandler with timeout
-                     using var client = new HttpClient
-                     {
-                         Timeout = TimeSpan.FromMilliseconds(requestTimeoutMilliseconds) // Set timeout for this request
-                     };
-
-                     // Configure the request
-                     using var request = new HttpRequestMessage(HttpMethod.Post, _huggingFaceApiUrl)
-                     {
-                         Content = content
-                     };
-                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
-
-                     // Send the request
-                     var response = await client.SendAsync(request);
-                     response.EnsureSuccessStatusCode();
-
-                     // Process the response
-                     var imageBytes = await response.Content.ReadAsByteArrayAsync();
-                     result.Data = new ImageResponse
-                     {
-                         data = new List<ImageData> { new ImageData { b64_json = Convert.ToBase64String(imageBytes) } }
-                     };
-                     result.Success = true;
-
-                     _logger.LogInformation($"Hugging Face API call succeeded on attempt {attempt}.");
-                     return result; // Exit the loop on success
-                 }
-                 catch (HttpRequestException ex) when (attempt < maxRetries)
-                 {
-                     _logger.LogWarning($"Hugging Face API call failed on attempt {attempt}. Retrying... Error: {ex.Message}");
-                     await Task.Delay(delayMilliseconds); // Wait before retrying
-                 }
-                 catch (Exception ex)
-                 {
-                     result.Success = false;
-                     result.Message += $" Error generating image with Hugging Face: {ex.Message}";
-                     _logger.LogError(result.Message);
-
-                     // If it's the last attempt or an unexpected error, break the loop
-                     if (attempt == maxRetries)
-                         break;
-                 }
-             }
-
-             // Return the result after all attempts
-             result.Success = false;
-             result.Message += " All retry attempts failed.";
-             return result;
-         }*/
-
-
         /// <summary>
         /// Generates an image prompt and then creates the image using the configured model type.
         /// </summary>
