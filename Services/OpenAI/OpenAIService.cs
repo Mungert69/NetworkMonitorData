@@ -49,16 +49,18 @@ namespace NetworkMonitor.Data.Services
         private readonly string _openAiEndpointUrlBase;
         private readonly string _huggingFaceApiKey;
         private readonly string _huggingFaceApiUrl;
-        private readonly string  _huggingFacePicModel;
-        private readonly string    _huggingFaceModel;
+        private readonly string _huggingFacePicModel;
+        private readonly string _huggingFaceModel;
         private readonly string _openAiModel;
         private readonly string _openAiPicModel;
         private readonly string _llmRunnerType;
         private string _questionModel = "OpenAI";
-        private string _imageModel = "HuggingFace";
+        private string _imageModel = "Novita"; // Set to "Novita" to use Novita API
         private readonly bool _createImages = true;
         private readonly ILogger<OpenAIService> _logger;
         private readonly IDataLLMService _dataLLMService;
+        private readonly IConfiguration _config;
+        private IImageGenerator _imageGenerator;
 
         public OpenAIService(
             IConfiguration config,
@@ -67,6 +69,7 @@ namespace NetworkMonitor.Data.Services
         {
             _logger = logger;
             _dataLLMService = dataLLMService;
+            _config = config;
 
             // OpenAI configurations
             _openAiApiKey = config["OpenAI:ApiKey"] ?? "Missing";
@@ -80,8 +83,8 @@ namespace NetworkMonitor.Data.Services
             _huggingFacePicModel = config["HuggingFace:PicModel"] ?? "cyberrealistic_v32_81390.safetensors";
             _huggingFaceModel = config["HuggingFace:Model"] ?? "qwen/qwen3-4b-fp8";
 
-
-
+            // Image model selection (add this line)
+            _imageModel = config["ImageModel"] ?? "Novita";
 
             _llmRunnerType = config["LlmRunnerType"] ?? "TurboLLM";
             // Image generation toggle
@@ -89,6 +92,9 @@ namespace NetworkMonitor.Data.Services
 
             // HttpClient setup
             _client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+
+            // Factory pattern for image generator
+            _imageGenerator = ImageGeneratorFactory.Create(_imageModel, _config, _client);
         }
 
         public async Task<TResultObj<string?>> AskQuestion(string question, string systemPrompt)
@@ -233,109 +239,10 @@ namespace NetworkMonitor.Data.Services
                 };
             }
             _logger.LogInformation($" Generating an image with prompt {prompt}");
-            return _imageModel.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase)
-                ? await GenerateImageUsingHuggingFace(prompt)
-                : await GenerateImageUsingOpenAI(prompt);
+            return await _imageGenerator.GenerateImage(prompt);
         }
 
-        /// <summary>
-        /// Generates an image using OpenAI's DALL-E model.
-        /// </summary>
-        private async Task<TResultObj<ImageResponse>> GenerateImageUsingOpenAI(string prompt)
-        {
-            var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingOpenAI:" };
-            string responseBody = "";
-            string url = "";
-            string jsonPayload = "";
-            try
-            {
-                var requestPayload = new ImageRequest
-                {
-                    model = _openAiPicModel,
-                    prompt = prompt
-                };
-
-                url = $"{_openAiEndpointUrlBase}/v1/images/generations";
-                jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
-                StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-                using var request = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = content
-                };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _openAiApiKey);
-
-                var response = await _client.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-
-                responseBody = await response.Content.ReadAsStringAsync();
-                result.Data = JsonUtils.GetJsonObjectFromString<ImageResponse>(responseBody);
-                result.Success = true;
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.Message += $" Error generating OpenAI image at {url} with payload {jsonPayload} got reponse {responseBody}. Error was: {ex.Message}";
-                _logger.LogError(result.Message);
-                _logger.LogDebug($"Request payload: {responseBody}");
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Generates an image using OpenAI's DALL-E model.
-        /// </summary>
-        private async Task<TResultObj<ImageResponse>> GenerateImageUsingHuggingFace(string prompt)
-        {
-            var result = new TResultObj<ImageResponse> { Message = "SERVICE: GenerateImageUsingHugginFace:" };
-            string responseBody = "";
-            string url = "";
-            string jsonPayload = "";
-            try
-            {
-                var requestPayload = new HuggingFaceImageRequest
-                {
-                   // model_name = _huggingFacePicModel,
-                   seed=SaltGeneration.GetRandomUInt(),
-                    prompt = prompt
-                };
-
-                url = _huggingFaceApiUrl+"/v3beta/flux-1-schnell";
-                jsonPayload = JsonUtils.WriteJsonObjectToString(requestPayload);
-                StringContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-                using var request = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = content
-                };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _huggingFaceApiKey);
-
-                var response = await _client.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-
-                responseBody = await response.Content.ReadAsStringAsync();
-                var hugResult = JsonUtils.GetJsonObjectFromString<HuggingFaceImageResponse>(responseBody);
-                var convertedData = new ImageResponse();
-                foreach (HuggingFaceImageData hfImageData in hugResult.images)
-                {
-                    var imageData = new ImageData() { url = hfImageData.image_url };
-                    convertedData.data.Add(imageData);
-                }
-                result.Data = convertedData;
-                result.Success = true;
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.Message += $" Error generating Huggingface image at {url} with payload {jsonPayload} got reponse {responseBody}. Error was: {ex.Message}";
-                _logger.LogError(result.Message);
-                _logger.LogDebug($"Request payload: {responseBody}");
-            }
-
-            return result;
-        }
-
+      
         /* /// <summary>
          /// Generates an image using Hugging Face's model.
          /// </summary>
@@ -425,11 +332,21 @@ namespace NetworkMonitor.Data.Services
             try
             {
                 // We first ask GPT to produce a prompt for DALL-E
-                var systemPrompt = "You are an assistant specialized in generating image prompts for text-to-image models. You will receive blog post text and respond only with a prompt designed to create an image that best represents the given content. The image should be realistic and engaging. Avoid abstract icons or overly stylized visuals. Don't be to specific on details and be creative with the visual aspects of the image.";
-                var question = $"Generate a prompt for an image creation model that best represents this blog post: \"{answer}\". " +
-                                "Only respond with the image generation prompt.";
+                var systemPrompt = @"You generate concise, technical image prompts for a Network Monitoring blog.  
+Respond ONLY with an image generation prompt that:  
+1. Focuses on **one key network monitoring concept** (e.g., dashboards, servers, security, cables, data flow)  
+2. Uses **minimal details** (under 12 words if possible)  
+3. Specifies **'clean, professional, technical style'**  
+4. Avoids unnecessary clutter (no multiple overlapping graphs or messy wires)  
+5. Prefers **dark/light UI themes, server rooms, or abstract data visualizations**  
+6. Can include **glowing elements for a modern tech feel** (if relevant)  
 
-                var chatResult = await AskQuestion(question, systemPrompt);
+Example format:  
+- 'A **network dashboard** with glowing metrics, dark theme, clean UI'  
+- 'A **secure server rack** with blue LED lights, professional style'  
+- 'An **abstract data flow visualization** on a dark background, minimal details'";
+
+                var question = $"Generate a clean, professional image prompt for this Network Monitoring blog post: \"{answer}\". Respond ONLY with the prompt."; var chatResult = await AskQuestion(question, systemPrompt);
                 if (!chatResult.Success || string.IsNullOrEmpty(chatResult.Data))
                 {
                     result.Success = false;
