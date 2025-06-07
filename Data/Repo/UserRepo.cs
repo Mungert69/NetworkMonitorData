@@ -407,7 +407,7 @@ public class UserRepo : IUserRepo
 
                     AlertMessage alertMessage;
                     user.UserID = user.Sub;
-                    var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free");
+                    var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Standard");
                     user.HostLimit = freeAccountType.HostLimit;
                     user.TokensUsed = freeAccountType.TokenLimit;
                     user.AccountType = freeAccountType.Name;
@@ -467,7 +467,7 @@ public class UserRepo : IUserRepo
                         List<MonitorIP> updateMonitorIPs;
                         if (saveUser.CancelAt < DateTime.UtcNow)
                         {
-                            var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Free");
+                            var freeAccountType = AccountTypeFactory.GetAccountTypeByName("Standard");
                             saveUser.HostLimit = freeAccountType.HostLimit;
                             saveUser.AccountType = freeAccountType.Name;
                             ResetTokenForUser(saveUser);
