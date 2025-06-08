@@ -56,7 +56,7 @@ namespace NetworkMonitor.Data.Services
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     MonitorContext monitorContext = scope.ServiceProvider.GetRequiredService<MonitorContext>();
-                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && (u.AccountType == "Free" || u.AccountType == "Standard") && u.DisableEmail == false && u.LastLoginDate < DateTime.Now.AddMonths(-_systemParams.ExpireMonths)).ToListAsync();
+                    var users = await monitorContext.UserInfos.Where(u => u.UserID != "default" && u.AccountType == "Free" && u.DisableEmail == false && u.LastLoginDate < DateTime.Now.AddMonths(-_systemParams.ExpireMonths)).ToListAsync();
                     foreach (var user in users)
                     {
                         var emailInfo = new EmailInfo() { Email = user.Email!, EmailType = "UserHostExpire" };
